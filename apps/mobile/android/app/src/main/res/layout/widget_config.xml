@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F6F3EC">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            style="@style/WidgetConfigLabel"
+            android:text="Список" />
+
+        <Spinner
+            android:id="@+id/cfg_list"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+
+        <TextView
+            style="@style/WidgetConfigLabel"
+            android:text="Тема" />
+
+        <RadioGroup
+            android:id="@+id/cfg_theme"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton android:id="@+id/cfg_theme_system" style="@style/WidgetConfigOption" android:text="Как в системе" />
+            <RadioButton android:id="@+id/cfg_theme_light" style="@style/WidgetConfigOption" android:text="Светлая" />
+            <RadioButton android:id="@+id/cfg_theme_dark" style="@style/WidgetConfigOption" android:text="Тёмная" />
+        </RadioGroup>
+
+        <TextView
+            style="@style/WidgetConfigLabel"
+            android:text="Непрозрачность фона" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <SeekBar
+                android:id="@+id/cfg_opacity"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/cfg_opacity_value"
+                android:layout_width="56dp"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:textColor="#25221C"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/WidgetConfigLabel"
+            android:text="Размер шрифта" />
+
+        <RadioGroup
+            android:id="@+id/cfg_font"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <RadioButton android:id="@+id/cfg_font_normal" style="@style/WidgetConfigOption" android:text="Обычный" />
+            <RadioButton android:id="@+id/cfg_font_large" style="@style/WidgetConfigOption" android:text="Крупный" />
+        </RadioGroup>
+
+        <CheckBox
+            android:id="@+id/cfg_compact"
+            style="@style/WidgetConfigOption"
+            android:layout_marginTop="12dp"
+            android:text="Компактный режим: задача в одну строку" />
+
+        <CheckBox
+            android:id="@+id/cfg_hide_locked"
+            style="@style/WidgetConfigOption"
+            android:text="Скрывать задачи, если в приложении включена блокировка PIN-кодом" />
+
+        <Button
+            android:id="@+id/cfg_done"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="20dp"
+            android:backgroundTint="#2E7D5B"
+            android:textColor="#FFFFFF"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:text="Готово" />
+    </LinearLayout>
+</ScrollView>

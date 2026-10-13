@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Задачи на сегодня, неделю или из проекта</string>
+    <string name="tile_label">Задача в Dela</string>
+</resources>

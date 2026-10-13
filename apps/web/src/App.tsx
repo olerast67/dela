@@ -10,7 +10,7 @@ import { TaskPanel } from './ui/TaskPanel.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
-import { onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText } from './platform.ts';
+import { onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch } from './platform.ts';
 import { CalendarView } from './ui/Calendar.tsx';
 import { LockScreen } from './ui/Lock.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
@@ -152,6 +152,12 @@ function Shell() {
         else offs.push(fn);
       });
     keep(onNotificationOpen((id) => setSelected(id)));
+    keep(
+      onWidgetLaunch((e) => {
+        if (e.taskId) setSelected(e.taskId);
+        if (e.quickAdd) setQuickAdd(true);
+      }),
+    );
     keep(
       onSharedText((text) => {
         setSharedText(text);

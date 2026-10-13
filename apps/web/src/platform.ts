@@ -225,3 +225,44 @@ export function haptic(kind: 'light' | 'medium' | 'success' = 'light'): void {
     )
     .catch(() => undefined);
 }
+
+interface DelaWidgetPlugin {
+  update(o: { snapshot: string }): Promise<void>;
+  takeCompleted(): Promise<{ ids: string[] }>;
+  takeLaunch(): Promise<{ taskId?: string; quickAdd?: boolean }>;
+  addListener(event: 'launch', cb: (e: { taskId?: string; quickAdd?: boolean }) => void): Promise<{ remove(): Promise<void> }>;
+  addListener(event: 'completed', cb: () => void): Promise<{ remove(): Promise<void> }>;
+}
+
+async function widgetPlugin(): Promise<DelaWidgetPlugin | null> {
+  if (platform() !== 'capacitor') return null;
+  const { registerPlugin } = await import('@capacitor/core');
+  return registerPlugin<DelaWidgetPlugin>('DelaWidget');
+}
+
+/** Отдать виджету на главном экране свежий снимок задач. */
+export async function updateWidget(snapshot: unknown): Promise<void> {
+  const w = await widgetPlugin();
+  await w?.update({ snapshot: JSON.stringify(snapshot) });
+}
+
+/** Задачи, отмеченные выполненными на виджете, пока приложение было закрыто или в фоне. */
+export async function takeWidgetCompleted(): Promise<string[]> {
+  const w = await widgetPlugin();
+  return w ? (await w.takeCompleted()).ids : [];
+}
+
+export async function onWidgetCompleted(fn: () => void): Promise<void> {
+  const w = await widgetPlugin();
+  await w?.addListener('completed', fn);
+}
+
+/** Приложение открыто с виджета или плитки: показать задачу или быстрое добавление. */
+export async function onWidgetLaunch(fn: (e: { taskId?: string; quickAdd?: boolean }) => void): Promise<() => void> {
+  const w = await widgetPlugin();
+  if (!w) return () => undefined;
+  const handle = await w.addListener('launch', fn);
+  const first = await w.takeLaunch();
+  if (first.taskId || first.quickAdd) fn(first);
+  return () => void handle.remove();
+}

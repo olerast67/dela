@@ -6,6 +6,7 @@
  */
 import {
   applyPinAttempt,
+  widgetSnapshot,
   hashPin,
   isValidPin,
   lockAfterBackground,
@@ -48,7 +49,7 @@ import {
 } from '#core';
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
-import { biometryUnlock, nativeNotify, onAppPauseResume, serverUrl, syncNativeReminders } from './platform.ts';
+import { biometryUnlock, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
 
 function loadFired(): string[] {
   try {
@@ -298,6 +299,11 @@ export class Controller {
     void this.refreshSpaces();
     this.docVersion++;
     this.set({ phase: this.state.phase === 'recovery' ? 'recovery' : 'ready', email: stored.email, isAdmin: stored.isAdmin, notice: null });
+    void this.applyWidgetCompleted();
+    if (!this.widgetListening) {
+      this.widgetListening = true;
+      void onWidgetCompleted(() => void this.applyWidgetCompleted());
+    }
     this.becomeLeaderWhenPossible();
   }
 
@@ -696,9 +702,27 @@ export class Controller {
     this.onReminder?.({ key: msg.key, taskId: msg.taskId, title: msg.title, at: Date.now(), dueAt: Date.now(), offset: 0 });
   }
 
+  /** Телефон: снимок задач для виджета на главном экране. */
+  private syncWidget(): void {
+    if (!this.doc) return;
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
+    void updateWidget(widgetSnapshot(this.doc, today, TZ, this.lock !== null)).catch((err) => console.error('widget update failed', err));
+  }
+
+  /** Отметки «выполнено» с виджета: применяются как обычное выполнение (повторы переносятся). */
+  async applyWidgetCompleted(): Promise<void> {
+    const ids = await takeWidgetCompleted().catch(() => [] as string[]);
+    if (!this.doc || ids.length === 0) return;
+    for (const id of ids) {
+      const t = this.doc.task(id);
+      if (t && t.completedAt === null) this.doc.completeTask(id);
+    }
+  }
+
   /** Телефон: расписание уведомлений Android на неделю вперёд. */
   private async syncPhoneReminders(): Promise<void> {
     if (!this.doc) return;
+    this.syncWidget();
     const now = Date.now();
     const list = remindersBetween(this.doc, now, now + 7 * 24 * 3600_000, TZ, this.reminderDefaults());
     await syncNativeReminders(
@@ -733,6 +757,7 @@ export class Controller {
   private hiddenAt: number | null = null;
   private watchingBackground = false;
   private biometryPrompt = false;
+  private widgetListening = false;
 
   private watchBackground(): void {
     if (this.watchingBackground) return;
@@ -745,6 +770,7 @@ export class Controller {
       if (this.lock && this.lock.timeoutMin === 0) this.set({ locked: true });
     };
     const show = () => {
+      void this.applyWidgetCompleted();
       if (this.biometryPrompt) return;
       if (lockAfterBackground(this.lock, this.hiddenAt, Date.now())) this.set({ locked: true });
       this.hiddenAt = null;
@@ -759,6 +785,8 @@ export class Controller {
     if (config) await this.store.setMeta('lock', config);
     else await this.store.deleteMeta('lock');
     this.set({ lockEnabled: config !== null });
+    // Виджет скрывает задачи при включённой блокировке: сообщаем ему сразу.
+    this.syncWidget();
   }
 
   lockConfig(): LockConfig | null {

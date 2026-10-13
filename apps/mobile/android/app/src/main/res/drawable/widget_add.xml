@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="32dp"
+    android:height="32dp"
+    android:viewportWidth="32"
+    android:viewportHeight="32">
+    <!-- Круг с вырезанным крестом: виджет тонирует его в цвет акцента целиком. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M16,1a15,15 0,1 1,0 30a15,15 0,1 1,0 -30zM14.8,9h2.4v5.8h5.8v2.4h-5.8v5.8h-2.4v-5.8h-5.8v-2.4h5.8z" />
+</vector>
