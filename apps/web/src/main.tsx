@@ -7,7 +7,8 @@ import { controller } from './controller.ts';
 import { applyTheme } from './ui/Views.tsx';
 import { registerSW } from 'virtual:pwa-register';
 import { showToast } from './ui/toast.tsx';
-import { isNative } from './platform.ts';
+import { isNative, localizeTray } from './platform.ts';
+import { tr } from './i18n.ts';
 
 try {
   applyTheme(localStorage.getItem('theme') ?? 'system');
@@ -28,7 +29,9 @@ void controller.init();
 if (!isNative()) {
   const updateSW = registerSW({
     onNeedRefresh() {
-      showToast('Доступна новая версия Dela', { label: 'Обновить', run: () => void updateSW(true) }, 10 * 60_000);
+      showToast(tr('Доступна новая версия Dela'), { label: tr('Обновить'), run: () => void updateSW(true) }, 10 * 60_000);
     },
   });
 }
+
+void localizeTray().catch(() => undefined);

@@ -49,7 +49,7 @@ public class UnifiedPushPlugin extends Plugin {
                 call.resolve(r);
                 return null;
             }
-            UnifiedPush.register(getContext(), "default", "Напоминания Dela", vapid);
+            UnifiedPush.register(getContext(), "default", getContext().getString(R.string.push_instance), vapid);
             JSObject r = new JSObject();
             r.put("ok", true);
             call.resolve(r);

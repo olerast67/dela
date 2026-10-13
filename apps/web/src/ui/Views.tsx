@@ -15,13 +15,14 @@ import { ShareDialog } from './Share.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
 import { showToast } from './toast.tsx';
+import { LANG, LANG_CHOICE, LOCALE, setLang, tr, tn, type Lang } from '../i18n.ts';
 
 interface ViewProps {
   readonly onOpen: (id: string) => void;
   readonly selectedId: string | null;
 }
 
-function AddTask({ defaults, label = 'Добавить задачу' }: { defaults: QuickAddDefaults; label?: string }) {
+function AddTask({ defaults, label = tr('Добавить задачу') }: { defaults: QuickAddDefaults; label?: string }) {
   const [open, setOpen] = useState(false);
   if (open) return <QuickAdd defaults={defaults} onClose={() => setOpen(false)} />;
   return (
@@ -49,15 +50,15 @@ function TodayHead({ open, today }: { open: number; today: string }) {
   const r = 20;
   const c = 2 * Math.PI * r;
   const part = total ? (c * done) / total : 0;
-  const date = new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${today}T12:00:00`));
+  const date = new Intl.DateTimeFormat(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${today}T12:00:00`));
   return (
     <header className="view-head today-head">
       <div>
-        <h1>Сегодня</h1>
+        <h1>{tr('Сегодня')}</h1>
         <div className="today-date">{date[0]!.toUpperCase() + date.slice(1)}</div>
       </div>
       {total > 0 && (
-        <div className="ring" role="img" aria-label={`Выполнено ${done} из ${total}`} title={`Выполнено ${done} из ${total}`}>
+        <div className="ring" role="img" aria-label={tr('Выполнено {done} из {total}', { done: done, total: total })} title={tr('Выполнено {done} из {total}', { done: done, total: total })}>
           <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
             <circle cx="26" cy="26" r={r} className="ring-track" />
             {done > 0 && <circle cx="26" cy="26" r={r} className="ring-value" strokeDasharray={`${part} ${c}`} transform="rotate(-90 26 26)" />}
@@ -81,19 +82,19 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
       {overdue.length > 0 && (
         <section>
           <div className="section-head">
-            <h2>Просрочено</h2>
+            <h2>{tr('Просрочено')}</h2>
             <button
               className="link"
               onClick={() => {
                 const changes = overdue.map((t) => ['task', t.id, 'due', { ...t.due!, date: today }] as const);
                 doc.writeTasks(changes);
-                showToast(`${plural(overdue.length, 'задача перенесена', 'задачи перенесены', 'задач перенесено')} на сегодня`, {
-                  label: 'Отменить',
+                showToast(tn(overdue.length, 'задача перенесена на сегодня', 'задачи перенесены на сегодня', 'задач перенесено на сегодня'), {
+                  label: tr('Отменить'),
                   run: () => doc.undo(),
                 });
               }}
             >
-              Перенести на сегодня
+              {tr('Перенести на сегодня')}
             </button>
           </div>
           <TaskList tasks={overdue} onOpen={onOpen} selectedId={selectedId} />
@@ -104,7 +105,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
         <TaskList tasks={todays} onOpen={onOpen} selectedId={selectedId} showDate={false} />
         <AddTask defaults={{ due: { date: today } }} />
       </section>
-      {overdue.length + todays.length === 0 && <Empty art="today">На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.</Empty>}
+      {overdue.length + todays.length === 0 && <Empty art="today">{tr('На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.')}</Empty>}
     </>
   );
 }
@@ -125,11 +126,11 @@ export function UpcomingView({ onOpen, selectedId }: ViewProps) {
   return (
     <DropContext.Provider value={onDropTask}>
       <header className="view-head">
-        <h1>Предстоящие</h1>
+        <h1>{tr('Предстоящие')}</h1>
       </header>
       {overdue.length > 0 && (
         <section>
-          <h2>Просрочено</h2>
+          <h2>{tr('Просрочено')}</h2>
           <TaskList tasks={overdue} onOpen={onOpen} selectedId={selectedId} />
         </section>
       )}
@@ -141,7 +142,7 @@ export function UpcomingView({ onOpen, selectedId }: ViewProps) {
         </section>
       ))}
       <button className="add-row" onClick={() => setDays(days + 14)}>
-        Показать ещё две недели
+        {tr('Показать ещё две недели')}
       </button>
     </DropContext.Provider>
   );
@@ -154,7 +155,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
   const [addingSection, setAddingSection] = useState(false);
   const [sharing, setSharing] = useState(false);
   if (!project || (!doc.projects().some((p) => p.project.id === id) && !project.isInbox)) {
-    return <Empty>Проект не найден или удалён.</Empty>;
+    return <Empty>{tr('Проект не найден или удалён.')}</Empty>;
   }
   const view = doc.projectTasks(id);
   const isInbox = project.isInbox;
@@ -169,7 +170,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
           position: where === 'before' ? { before: target.id } : { after: target.id },
         });
     } catch {
-      showToast('Нельзя положить задачу внутрь её самой');
+      showToast(tr('Нельзя положить задачу внутрь её самой'));
     }
   };
   const total = view.unsectioned.length + view.sections.reduce((n, s) => n + s.tasks.length, 0);
@@ -192,42 +193,42 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
             }}
           />
         ) : (
-          <h1 onDoubleClick={() => !isInbox && setRenaming(true)}>{isInbox ? 'Входящие' : project.name}</h1>
+          <h1 onDoubleClick={() => !isInbox && setRenaming(true)}>{isInbox ? tr('Входящие') : project.name}</h1>
         )}
-        <div className="segmented" role="group" aria-label="Вид">
+        <div className="segmented" role="group" aria-label={tr('Вид')}>
           <button className={project.view !== 'board' ? 'active' : ''} onClick={() => doc.updateProject(id, { view: 'list' })}>
-            Список
+            {tr('Список')}
           </button>
           <button className={project.view === 'board' ? 'active' : ''} onClick={() => doc.updateProject(id, { view: 'board' })}>
-            Доска
+            {tr('Доска')}
           </button>
         </div>
         {!isInbox && (
           <div className="head-actions">
-            <select value={project.color} onChange={(e) => doc.updateProject(id, { color: e.target.value })} aria-label="Цвет проекта">
+            <select value={project.color} onChange={(e) => doc.updateProject(id, { color: e.target.value })} aria-label={tr('Цвет проекта')}>
               {COLORS.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
               ))}
             </select>
-            {!controller.getState().local && <button onClick={() => setSharing(true)}>{doc.isShared(id) ? 'Участники' : 'Поделиться'}</button>}
-            <button onClick={() => setRenaming(true)}>Переименовать</button>
-            <button onClick={() => setAddingSection(true)}>Раздел</button>
-            <button onClick={() => saveProjectAsTemplate(doc, id)} title="Сохранить проект как шаблон">
-              Шаблон
+            {!controller.getState().local && <button onClick={() => setSharing(true)}>{doc.isShared(id) ? tr('Участники') : tr('Поделиться')}</button>}
+            <button onClick={() => setRenaming(true)}>{tr('Переименовать')}</button>
+            <button onClick={() => setAddingSection(true)}>{tr('Раздел')}</button>
+            <button onClick={() => saveProjectAsTemplate(doc, id)} title={tr('Сохранить проект как шаблон')}>
+              {tr('Шаблон')}
             </button>
             {(!doc.isShared(id) || controller.roleIn(id) === 'owner') && (
             <button
               className="danger"
               onClick={() => {
-                if (!confirm(`Удалить проект «${project.name}» вместе с задачами?`)) return;
+                if (!confirm(tr('Удалить проект «{name}» вместе с задачами?', { name: project.name }))) return;
                 doc.deleteProject(id);
                 navigate({ view: 'inbox' });
-                showToast('Проект удалён', { label: 'Отменить', run: () => doc.undo() });
+                showToast(tr('Проект удалён'), { label: tr('Отменить'), run: () => doc.undo() });
               }}
             >
-              Удалить
+              {tr('Удалить')}
             </button>
             )}
           </div>
@@ -247,7 +248,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
           <div className="section-head" {...dropZone((t) => doc.moveTask(t, { projectId: id, sectionId: section.id }))}>
             <h2
               onDoubleClick={() => {
-                const name = prompt('Название раздела', section.name);
+                const name = prompt(tr('Название раздела'), section.name);
                 if (name?.trim()) doc.updateSection(section.id, { name });
               }}
             >
@@ -257,10 +258,10 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
               className="link"
               onClick={() => {
                 doc.deleteSection(section.id);
-                showToast('Раздел удалён', { label: 'Отменить', run: () => doc.undo() });
+                showToast(tr('Раздел удалён'), { label: tr('Отменить'), run: () => doc.undo() });
               }}
             >
-              Удалить раздел
+              {tr('Удалить раздел')}
             </button>
           </div>
           <TaskTree nodes={tasks} onOpen={onOpen} selectedId={selectedId} />
@@ -273,7 +274,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
         <input
           className="nav-input"
           autoFocus
-          placeholder="Название раздела"
+          placeholder={tr('Название раздела')}
           onBlur={() => setAddingSection(false)}
           onKeyDown={(e) => {
             const v = e.currentTarget.value.trim();
@@ -284,7 +285,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
           }}
         />
       )}
-      {total === 0 && <Empty art={isInbox ? 'inbox' : undefined}>{isInbox ? 'Входящие пусты. Всё, что не разобрано по проектам, попадает сюда.' : 'В проекте пока нет задач.'}</Empty>}
+      {total === 0 && <Empty art={isInbox ? 'inbox' : undefined}>{isInbox ? tr('Входящие пусты. Всё, что не разобрано по проектам, попадает сюда.') : tr('В проекте пока нет задач.')}</Empty>}
     </DropContext.Provider>
   );
 }
@@ -292,7 +293,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
 export function LabelView({ id, onOpen, selectedId }: ViewProps & { id: string }) {
   const doc = useDoc();
   const label = doc.label(id);
-  if (!label || label.deletedAt !== null) return <Empty>Метка не найдена.</Empty>;
+  if (!label || label.deletedAt !== null) return <Empty>{tr('Метка не найдена.')}</Empty>;
   const tasks = doc.openTasks().filter((t) => t.labels.includes(id));
   return (
     <>
@@ -301,11 +302,11 @@ export function LabelView({ id, onOpen, selectedId }: ViewProps & { id: string }
         <div className="head-actions">
           <button
             onClick={() => {
-              const name = prompt('Название метки', label.name);
+              const name = prompt(tr('Название метки'), label.name);
               if (name?.trim()) doc.updateLabel(id, { name });
             }}
           >
-            Переименовать
+            {tr('Переименовать')}
           </button>
           <button
             className="danger"
@@ -314,12 +315,12 @@ export function LabelView({ id, onOpen, selectedId }: ViewProps & { id: string }
               navigate({ view: 'today' });
             }}
           >
-            Удалить
+            {tr('Удалить')}
           </button>
         </div>
       </header>
       <TaskList tasks={tasks} onOpen={onOpen} selectedId={selectedId} />
-      {tasks.length === 0 && <Empty>Задач с этой меткой нет.</Empty>}
+      {tasks.length === 0 && <Empty>{tr('Задач с этой меткой нет.')}</Empty>}
     </>
   );
 }
@@ -331,13 +332,13 @@ export function SearchView({ q, onOpen, selectedId }: ViewProps & { q: string })
   return (
     <>
       <header className="view-head">
-        <h1>Поиск: {q}</h1>
+        <h1>{tr('Поиск:')} {q}</h1>
         <label className="checkline">
-          <input type="checkbox" checked={withDone} onChange={(e) => setWithDone(e.target.checked)} /> с выполненными
+          <input type="checkbox" checked={withDone} onChange={(e) => setWithDone(e.target.checked)} /> {tr('с выполненными')}
         </label>
       </header>
       <TaskList tasks={results} onOpen={onOpen} selectedId={selectedId} />
-      {normalizeText(q) && results.length === 0 && <Empty art="search">Ничего не найдено.</Empty>}
+      {normalizeText(q) && results.length === 0 && <Empty art="search">{tr('Ничего не найдено.')}</Empty>}
     </>
   );
 }
@@ -348,10 +349,10 @@ export function CompletedView({ onOpen, selectedId }: ViewProps) {
   return (
     <>
       <header className="view-head">
-        <h1>Выполненные</h1>
+        <h1>{tr('Выполненные')}</h1>
       </header>
       <TaskList tasks={tasks} onOpen={onOpen} selectedId={selectedId} />
-      {tasks.length === 0 && <Empty art="done">Здесь будут выполненные задачи.</Empty>}
+      {tasks.length === 0 && <Empty art="done">{tr('Здесь будут выполненные задачи.')}</Empty>}
     </>
   );
 }
@@ -362,45 +363,45 @@ export function TrashView() {
   return (
     <>
       <header className="view-head">
-        <h1>Корзина</h1>
+        <h1>{tr('Корзина')}</h1>
         {tasks.length > 0 && (
           <button
             onClick={() => {
-              if (confirm(`Удалить навсегда ${plural(doc.trash().length, 'задачу', 'задачи', 'задач')}? Отменить это нельзя.`)) {
+              if (confirm(tr('Удалить навсегда {n}? Отменить это нельзя.', { n: tn(doc.trash().length, 'задачу', 'задачи', 'задач') }))) {
                 const r = doc.emptyTrash();
                 for (const f of r.files) void controller.api.deleteFile(f.spaceId, f.file.id).catch(() => undefined);
-                showToast(`Удалено навсегда: ${r.count}`);
+                showToast(tr('Удалено навсегда: {count}', { count: r.count }));
               }
             }}
           >
-            Очистить корзину
+            {tr('Очистить корзину')}
           </button>
         )}
       </header>
       {tasks.map((t) => (
         <div key={t.id} className="trash-row">
           <span>{t.title}</span>
-          <button onClick={() => doc.restoreTask(t.id)}>Восстановить</button>
+          <button onClick={() => doc.restoreTask(t.id)}>{tr('Восстановить')}</button>
           <button
             className="danger"
             onClick={() => {
-              if (!confirm(`Удалить «${t.title}» навсегда? Отменить это нельзя.`)) return;
+              if (!confirm(tr('Удалить «{title}» навсегда? Отменить это нельзя.', { title: t.title }))) return;
               for (const f of doc.purgeTask(t.id)) void controller.api.deleteFile(f.spaceId, f.file.id).catch(() => undefined);
             }}
           >
-            Удалить навсегда
+            {tr('Удалить навсегда')}
           </button>
         </div>
       ))}
-      {tasks.length === 0 && <Empty>Корзина пуста.</Empty>}
+      {tasks.length === 0 && <Empty>{tr('Корзина пуста.')}</Empty>}
     </>
   );
 }
 
 const THEMES = [
-  ['system', 'Как в системе'],
-  ['light', 'Светлая'],
-  ['dark', 'Тёмная'],
+  ['system', tr('Как в системе')],
+  ['light', tr('Светлая')],
+  ['dark', tr('Тёмная')],
 ] as const;
 
 export function applyTheme(theme: string): void {
@@ -418,7 +419,7 @@ function ThemeSettings() {
   });
   return (
     <section className="settings">
-      <h2>Тема</h2>
+      <h2>{tr('Тема')}</h2>
       <div className="row">
         {THEMES.map(([value, label]) => (
           <button
@@ -438,9 +439,24 @@ function ThemeSettings() {
           </button>
         ))}
       </div>
+      <h2>{tr('Язык')}</h2>
+      <div className="row">
+        {LANGS.map(([value, label]) => (
+          <button key={value ?? 'system'} className={LANG_CHOICE === value ? 'active' : ''} onClick={() => value !== LANG_CHOICE && setLang(value)}>
+            {label}
+          </button>
+        ))}
+      </div>
     </section>
   );
 }
+
+/** Названия языков пишутся на самих языках, чтобы их нашёл тот, кто не читает текущий. */
+const LANGS: ReadonlyArray<readonly [Lang | null, string]> = [
+  [null, tr('Как в системе')],
+  ['ru', 'Русский'],
+  ['en', 'English'],
+];
 
 export function SettingsView() {
   const { email, isAdmin, status, local } = useAppState();
@@ -458,19 +474,18 @@ export function SettingsView() {
     return (
       <>
         <header className="view-head">
-          <h1>Настройки</h1>
+          <h1>{tr('Настройки')}</h1>
         </header>
         <section className="settings">
-          <h2>Без сервера</h2>
+          <h2>{tr('Без сервера')}</h2>
           <p className="muted">
-            Задачи зашифрованы и хранятся только в этом браузере, на другие устройства они не попадают. Чтобы синхронизировать телефон и компьютер,
-            поставьте сервер Dela и перенесите задачи через экспорт в JSON и импорт.
+            {tr('Задачи зашифрованы и хранятся только в этом браузере, на другие устройства они не попадают. Чтобы синхронизировать телефон и компьютер, поставьте сервер Dela и перенесите задачи через экспорт в JSON и импорт.')}
           </p>
           <a className="button-link" href="https://github.com/olerast67/dela#install-the-server" target="_blank" rel="noopener noreferrer">
-            Как поставить сервер
+            {tr('Как поставить сервер')}
           </a>
-          <button className="danger" onClick={() => confirm('Выйти? Все задачи из этого браузера удалятся.') && controller.logout()}>
-            Удалить данные и выйти
+          <button className="danger" onClick={() => confirm(tr('Выйти? Все задачи из этого браузера удалятся.')) && controller.logout()}>
+            {tr('Удалить данные и выйти')}
           </button>
         </section>
         <ThemeSettings />
@@ -483,28 +498,28 @@ export function SettingsView() {
   return (
     <>
       <header className="view-head">
-        <h1>Настройки</h1>
+        <h1>{tr('Настройки')}</h1>
       </header>
       <section className="settings">
-        <h2>Аккаунт</h2>
+        <h2>{tr('Аккаунт')}</h2>
         <p>{email}</p>
         <p className="muted">
-          {status.lastSyncedAt ? `Последняя синхронизация: ${new Date(status.lastSyncedAt).toLocaleTimeString('ru')}` : 'Ещё не синхронизировано'}
+          {status.lastSyncedAt ? tr('Последняя синхронизация: {n}', { n: new Date(status.lastSyncedAt).toLocaleTimeString(LOCALE) }) : tr('Ещё не синхронизировано')}
         </p>
-        <button className="danger" onClick={() => confirm('Выйти? Неотправленные изменения на этом устройстве будут потеряны.') && controller.logout()}>
-          Выйти
+        <button className="danger" onClick={() => confirm(tr('Выйти? Неотправленные изменения на этом устройстве будут потеряны.')) && controller.logout()}>
+          {tr('Выйти')}
         </button>
       </section>
       <ThemeSettings />
       <section className="settings">
-        <h2>Устройства</h2>
-        {devices === null && <p className="muted">Загрузка…</p>}
+        <h2>{tr('Устройства')}</h2>
+        {devices === null && <p className="muted">{tr('Загрузка…')}</p>}
         {devices?.map((d) => (
           <div key={d.id} className="trash-row">
             <span>
-              {d.name} {d.current && <span className="muted">· это устройство</span>}
+              {d.name} {d.current && <span className="muted">{tr('· это устройство')}</span>}
               <br />
-              <span className="muted">Активность: {new Date(d.lastSeenAt).toLocaleString('ru')}</span>
+              <span className="muted">{tr('Активность:')} {new Date(d.lastSeenAt).toLocaleString(LOCALE)}</span>
             </span>
             {!d.current && (
               <button
@@ -513,7 +528,7 @@ export function SettingsView() {
                   setDevices(devices.filter((x) => x.id !== d.id));
                 }}
               >
-                Отключить
+                {tr('Отключить')}
               </button>
             )}
           </div>
@@ -529,15 +544,15 @@ export function SettingsView() {
       <ImportExport />
       {isAdmin && (
         <section className="settings">
-          <h2>Приглашения</h2>
-          <p className="muted">Регистрация на сервере закрыта. Приглашение действует 7 дней и подходит одному человеку.</p>
+          <h2>{tr('Приглашения')}</h2>
+          <p className="muted">{tr('Регистрация на сервере закрыта. Приглашение действует 7 дней и подходит одному человеку.')}</p>
           <button
             onClick={async () => {
               const r = await controller.api.createInvite();
               setInvite(r.code);
             }}
           >
-            Создать приглашение
+            {tr('Создать приглашение')}
           </button>
           {invite && <code className="recovery-key">{`${location.origin}/?invite=${invite}`}</code>}
         </section>
@@ -563,29 +578,29 @@ export function ImportExport() {
   const [fallback, setFallback] = useState(false);
 
   function apply(data: TodoistData) {
-    const s = importTodoist(doc.personal, data);
+    const s = importTodoist(doc.personal, data, { lang: LANG });
     const parts = [
-      plural(s.tasks, 'задача', 'задачи', 'задач'),
-      plural(s.projects, 'проект', 'проекта', 'проектов'),
-      plural(s.labels, 'метка', 'метки', 'меток'),
-      plural(s.filters, 'фильтр', 'фильтра', 'фильтров'),
+      tn(s.tasks, 'задача', 'задачи', 'задач'),
+      tn(s.projects, 'проект', 'проекта', 'проектов'),
+      tn(s.labels, 'метка', 'метки', 'меток'),
+      tn(s.filters, 'фильтр', 'фильтра', 'фильтров'),
     ];
     const warn = s.unparsedRecurrences.length
-      ? ` Не распознаны повторы: ${s.unparsedRecurrences.join('; ')}. Их текст сохранён в описании задач.`
+      ? tr(' Не распознаны повторы: {n}. Их текст сохранён в описании задач.', { n: s.unparsedRecurrences.join('; ') })
       : '';
-    setResult(`Перенесено: ${parts.join(', ')}.${warn}`);
+    setResult(tr('Перенесено: {n}.{warn}', { n: parts.join(', '), warn: warn }));
   }
 
-  const confirmImport = () => confirm('Импорт добавит задачи к уже существующим. Повторный импорт создаст копии. Продолжить?');
+  const confirmImport = () => confirm(tr('Импорт добавит задачи к уже существующим. Повторный импорт создаст копии. Продолжить?'));
 
   return (
     <section className="settings">
-      <h2>Импорт из Todoist</h2>
+      <h2>{tr('Импорт из Todoist')}</h2>
       <p className="muted">
-        Токен: Todoist → Настройки → Интеграции → Для разработчиков. Запрос идёт из браузера напрямую в Todoist, сервер Dela токен не видит.
+        {tr('Токен: Todoist → Настройки → Интеграции → Для разработчиков. Запрос идёт из браузера напрямую в Todoist, сервер Dela токен не видит.')}
       </p>
       <div className="row wrap">
-        <input type="password" placeholder="Токен API Todoist" value={token} onChange={(e) => setToken(e.target.value)} aria-label="Токен Todoist" />
+        <input type="password" placeholder={tr('Токен API Todoist')} value={token} onChange={(e) => setToken(e.target.value)} aria-label={tr('Токен Todoist')} />
         <button
           className="primary"
           disabled={!token.trim() || busy}
@@ -597,9 +612,9 @@ export function ImportExport() {
               apply(await fetchTodoist(token));
               setToken('');
             } catch (err) {
-              if (err instanceof Error && err.message === 'todoist_unauthorized') setResult('Todoist не принял токен.');
+              if (err instanceof Error && err.message === 'todoist_unauthorized') setResult(tr('Todoist не принял токен.'));
               else {
-                setResult('Браузер не смог обратиться к Todoist. Загрузите данные файлом.');
+                setResult(tr('Браузер не смог обратиться к Todoist. Загрузите данные файлом.'));
                 setFallback(true);
               }
             } finally {
@@ -607,19 +622,19 @@ export function ImportExport() {
             }
           }}
         >
-          {busy ? 'Загрузка…' : 'Импортировать'}
+          {busy ? tr('Загрузка…') : tr('Импортировать')}
         </button>
       </div>
       {fallback && (
         <p className="muted">
-          Выполните в терминале и загрузите получившийся файл:
+          {tr('Выполните в терминале и загрузите получившийся файл:')}
           <code className="recovery-key">
-            curl https://api.todoist.com/api/v1/sync -H "Authorization: Bearer ТОКЕН" -d sync_token=* -d 'resource_types=["all"]' -o todoist.json
+            {tr('curl https://api.todoist.com/api/v1/sync -H "Authorization: Bearer ТОКЕН" -d sync_token=* -d \'resource_types=["all"]\' -o todoist.json')}
           </code>
         </p>
       )}
       <label className="row">
-        <span className="muted">или файл JSON:</span>
+        <span className="muted">{tr('или файл JSON:')}</span>
         <input
           type="file"
           accept="application/json,.json"
@@ -630,18 +645,18 @@ export function ImportExport() {
             try {
               apply(JSON.parse(await file.text()) as TodoistData);
             } catch {
-              setResult('Файл не похож на выгрузку Todoist.');
+              setResult(tr('Файл не похож на выгрузку Todoist.'));
             }
           }}
         />
       </label>
       {result && <p className="notice">{result}</p>}
 
-      <h2>Экспорт</h2>
-      <p className="muted">Выгрузка собирается на этом устройстве из расшифрованных данных.</p>
+      <h2>{tr('Экспорт')}</h2>
+      <p className="muted">{tr('Выгрузка собирается на этом устройстве из расшифрованных данных.')}</p>
       <div className="row">
         <button onClick={() => download(`dela-${todayDate()}.json`, JSON.stringify({ ...exportJson(doc.personal), shared: doc.docs().filter((d) => d.kind === 'shared').map((d) => exportJson(d)) }, null, 2), 'application/json')}>JSON</button>
-        <button onClick={() => download(`dela-${todayDate()}.md`, doc.docs().map((d) => exportMarkdown(d)).join(String.fromCharCode(10)), 'text/markdown')}>Markdown</button>
+        <button onClick={() => download(`dela-${todayDate()}.md`, doc.docs().map((d) => exportMarkdown(d, tr('Входящие'))).join(String.fromCharCode(10)), 'text/markdown')}>Markdown</button>
       </div>
     </section>
   );
@@ -655,41 +670,41 @@ export function ChangePassword() {
   const [msg, setMsg] = useState<string | null>(null);
   return (
     <section className="settings">
-      <h2>Пароль</h2>
-      <p className="muted">При смене пароля данные не перешифровываются, меняется только обёртка ключа. Другие устройства войдут заново.</p>
+      <h2>{tr('Пароль')}</h2>
+      <p className="muted">{tr('При смене пароля данные не перешифровываются, меняется только обёртка ключа. Другие устройства войдут заново.')}</p>
       <form
         className="stack"
         onSubmit={async (e) => {
           e.preventDefault();
           setMsg(null);
-          if (next.length < 10) return setMsg('Новый пароль должен быть не короче 10 символов.');
-          if (next !== repeat) return setMsg('Пароли не совпадают.');
+          if (next.length < 10) return setMsg(tr('Новый пароль должен быть не короче 10 символов.'));
+          if (next !== repeat) return setMsg(tr('Пароли не совпадают.'));
           setBusy(true);
           await new Promise((r) => setTimeout(r, 30));
           try {
             await controller.changePassword(current, next);
-            setMsg('Пароль изменён.');
+            setMsg(tr('Пароль изменён.'));
             setCurrent('');
             setNext('');
             setRepeat('');
           } catch (err) {
-            setMsg(err instanceof Error && err.name === 'DecryptError' ? 'Текущий пароль неверный.' : 'Не удалось изменить пароль.');
+            setMsg(err instanceof Error && err.name === 'DecryptError' ? tr('Текущий пароль неверный.') : tr('Не удалось изменить пароль.'));
           } finally {
             setBusy(false);
           }
         }}
       >
-        <input type="password" autoComplete="current-password" placeholder="Текущий пароль" value={current} onChange={(e) => setCurrent(e.target.value)} required />
-        <input type="password" autoComplete="new-password" placeholder="Новый пароль" value={next} onChange={(e) => setNext(e.target.value)} required />
-        <input type="password" autoComplete="new-password" placeholder="Новый пароль ещё раз" value={repeat} onChange={(e) => setRepeat(e.target.value)} required />
-        <button disabled={busy}>{busy ? 'Подождите…' : 'Сменить пароль'}</button>
+        <input type="password" autoComplete="current-password" placeholder={tr('Текущий пароль')} value={current} onChange={(e) => setCurrent(e.target.value)} required />
+        <input type="password" autoComplete="new-password" placeholder={tr('Новый пароль')} value={next} onChange={(e) => setNext(e.target.value)} required />
+        <input type="password" autoComplete="new-password" placeholder={tr('Новый пароль ещё раз')} value={repeat} onChange={(e) => setRepeat(e.target.value)} required />
+        <button disabled={busy}>{busy ? tr('Подождите…') : tr('Сменить пароль')}</button>
       </form>
       {msg && <p className="notice">{msg}</p>}
     </section>
   );
 }
 
-const FILTER_EXAMPLES = ['сегодня | просрочено', '(today | overdue) & p1', '#Работа & !@ждёт', 'следующие 7 дней', 'без даты & !подзадачи', 'поиск: молоко'];
+const FILTER_EXAMPLES = [tr('сегодня | просрочено'), '(today | overdue) & p1', tr('#Работа & !@ждёт'), tr('следующие 7 дней'), tr('без даты & !подзадачи'), tr('поиск: молоко')];
 
 export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string }) {
   const doc = useDoc();
@@ -703,7 +718,7 @@ export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string 
     setQuery(existing?.query ?? '');
   }, [id]);
 
-  if (id !== 'new' && !existing) return <Empty>Фильтр не найден.</Empty>;
+  if (id !== 'new' && !existing) return <Empty>{tr('Фильтр не найден.')}</Empty>;
   const q = editing ? query : existing!.query;
   let result: { tasks: TaskView[]; unknown: string[] } | null = null;
   let error: string | null = null;
@@ -711,26 +726,26 @@ export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string 
     try {
       result = runFilter(doc, q, todayDate(), TZ);
     } catch (err) {
-      error = err instanceof FilterSyntaxError ? err.message : 'ошибка в запросе';
+      error = err instanceof FilterSyntaxError ? filterError(err.message) : tr('ошибка в запросе');
     }
   }
 
   return (
     <>
       <header className="view-head">
-        <h1>{editing ? (id === 'new' ? 'Новый фильтр' : 'Фильтр') : existing!.name}</h1>
+        <h1>{editing ? (id === 'new' ? tr('Новый фильтр') : tr('Фильтр')) : existing!.name}</h1>
         {!editing && (
           <div className="head-actions">
-            <button onClick={() => setEditing(true)}>Изменить</button>
+            <button onClick={() => setEditing(true)}>{tr('Изменить')}</button>
             <button
               className="danger"
               onClick={() => {
                 doc.deleteFilter(id);
                 navigate({ view: 'today' });
-                showToast('Фильтр удалён', { label: 'Отменить', run: () => doc.undo() });
+                showToast(tr('Фильтр удалён'), { label: tr('Отменить'), run: () => doc.undo() });
               }}
             >
-              Удалить
+              {tr('Удалить')}
             </button>
           </div>
         )}
@@ -748,8 +763,8 @@ export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string 
             }
           }}
         >
-          <input placeholder="Название" value={name} onChange={(e) => setName(e.target.value)} autoFocus required aria-label="Название фильтра" />
-          <input placeholder="Запрос, например: сегодня | просрочено" value={query} onChange={(e) => setQuery(e.target.value)} required aria-label="Запрос" />
+          <input placeholder={tr('Название')} value={name} onChange={(e) => setName(e.target.value)} autoFocus required aria-label={tr('Название фильтра')} />
+          <input placeholder={tr('Запрос, например: сегодня | просрочено')} value={query} onChange={(e) => setQuery(e.target.value)} required aria-label={tr('Запрос')} />
           <div className="chips">
             {FILTER_EXAMPLES.map((ex) => (
               <button type="button" key={ex} className="chip" onClick={() => setQuery(ex)}>
@@ -759,21 +774,21 @@ export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string 
           </div>
           <div className="row">
             <button className="primary" disabled={!name.trim() || !query.trim() || !!error}>
-              Сохранить
+              {tr('Сохранить')}
             </button>
             {id !== 'new' && (
               <button type="button" onClick={() => setEditing(false)}>
-                Отмена
+                {tr('Отмена')}
               </button>
             )}
           </div>
         </form>
       )}
       {!editing && <p className="muted mono">{existing!.query}</p>}
-      {error && <p className="error">Ошибка в запросе: {error}</p>}
-      {result && result.unknown.length > 0 && <p className="notice">Не понял: {result.unknown.map((u) => `«${u}»`).join(', ')}</p>}
+      {error && <p className="error">{tr('Ошибка в запросе:')} {error}</p>}
+      {result && result.unknown.length > 0 && <p className="notice">{tr('Не понял:')} {result.unknown.map((u) => `«${u}»`).join(', ')}</p>}
       {result && <TaskList tasks={result.tasks} onOpen={onOpen} selectedId={selectedId} />}
-      {result && result.tasks.length === 0 && !error && <Empty>Под фильтр ничего не попадает.</Empty>}
+      {result && result.tasks.length === 0 && !error && <Empty>{tr('Под фильтр ничего не попадает.')}</Empty>}
     </>
   );
 }
@@ -792,12 +807,12 @@ export function ReminderSettings() {
   }, []);
   return (
     <section className="settings">
-      <h2>Напоминания</h2>
+      <h2>{tr('Напоминания')}</h2>
       <p className="muted">
-        Задачам со временем Dela напоминает по умолчанию так, как выбрано ниже. У отдельной задачи это можно изменить в её карточке.{' '}
+        {tr('Задачам со временем Dela напоминает по умолчанию так, как выбрано ниже. У отдельной задачи это можно изменить в её карточке.')}{' '}
         {platform() !== 'capacitor'
-          ? 'Пока приложение закрыто, напоминания приходят через push: сервер знает только время отправки, текст зашифрован ключом этого устройства.'
-          : 'Задачи, которые уже есть на телефоне, напоминают о себе и без интернета. Push нужен для задач, добавленных на другом устройстве, пока Dela на телефоне закрыта: сервер знает только время отправки, текст зашифрован ключом этого телефона.'}
+          ? tr('Пока приложение закрыто, напоминания приходят через push: сервер знает только время отправки, текст зашифрован ключом этого устройства.')
+          : tr('Задачи, которые уже есть на телефоне, напоминают о себе и без интернета. Push нужен для задач, добавленных на другом устройстве, пока Dela на телефоне закрыта: сервер знает только время отправки, текст зашифрован ключом этого телефона.')}
       </p>
       <label className="checkline">
         <input
@@ -812,10 +827,10 @@ export function ReminderSettings() {
                 else
                   setPushMsg(
                     r === 'no_distributor'
-                      ? 'Нужно приложение-распространитель UnifiedPush, например ntfy из F-Droid или Google Play. Поставьте его и включите снова.'
+                      ? tr('Нужно приложение-распространитель UnifiedPush, например ntfy из F-Droid или Google Play. Поставьте его и включите снова.')
                       : r === 'denied'
-                        ? 'Уведомления запрещены в браузере.'
-                        : 'Этот браузер не поддерживает push-уведомления.',
+                        ? tr('Уведомления запрещены в браузере.')
+                        : tr('Этот браузер не поддерживает push-уведомления.'),
                   );
                 setPermission(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
               } else {
@@ -823,33 +838,33 @@ export function ReminderSettings() {
                 setPush(false);
               }
             } catch {
-              setPushMsg('Не удалось включить push. Проверьте, что сервер открыт по HTTPS.');
+              setPushMsg(tr('Не удалось включить push. Проверьте, что сервер открыт по HTTPS.'));
             }
           }}
         />
-        {platform() === 'capacitor' ? 'Push для задач с других устройств' : 'Напоминать, когда приложение закрыто'}
+        {platform() === 'capacitor' ? tr('Push для задач с других устройств') : tr('Напоминать, когда приложение закрыто')}
       </label>
       {pushMsg && <p className="notice">{pushMsg}</p>}
       {exact === false && (
         <div className="notice">
-          <p>Android сейчас может сдвинуть напоминание на несколько минут. Чтобы оно приходило точно в срок, разрешите Dela будильники и напоминания.</p>
+          <p>{tr('Android сейчас может сдвинуть напоминание на несколько минут. Чтобы оно приходило точно в срок, разрешите Dela будильники и напоминания.')}</p>
           <button
             onClick={async () => {
               setExact(await allowExactReminders().catch(() => false));
               controller.scheduleReminders();
             }}
           >
-            Разрешить точное время
+            {tr('Разрешить точное время')}
           </button>
         </div>
       )}
       {permission === 'default' && (
         <button className="primary" onClick={async () => setPermission(await Notification.requestPermission())}>
-          Разрешить уведомления
+          {tr('Разрешить уведомления')}
         </button>
       )}
-      {permission === 'denied' && <p className="notice">Уведомления запрещены в настройках браузера. Напоминания будут видны только внутри приложения.</p>}
-      {permission === 'unsupported' && platform() !== 'capacitor' && <p className="notice">Этот браузер не умеет показывать уведомления.</p>}
+      {permission === 'denied' && <p className="notice">{tr('Уведомления запрещены в настройках браузера. Напоминания будут видны только внутри приложения.')}</p>}
+      {permission === 'unsupported' && platform() !== 'capacitor' && <p className="notice">{tr('Этот браузер не умеет показывать уведомления.')}</p>}
       <div className="row wrap" style={{ marginTop: 10 }}>
         {REMINDER_OPTIONS.map(([m, label]) => {
           const on = defaults.includes(m);
@@ -882,7 +897,7 @@ function Board({
 }: ViewProps & { projectId: string; view: ProjectTasks; onAddSection: () => void }) {
   const doc = useDoc();
   const columns: Array<{ id: string | null; name: string; tasks: readonly TaskNode[] }> = [
-    { id: null, name: 'Без раздела', tasks: view.unsectioned },
+    { id: null, name: tr('Без раздела'), tasks: view.unsectioned },
     ...view.sections.map((s) => ({ id: s.section.id, name: s.section.name, tasks: s.tasks })),
   ];
   return (
@@ -896,11 +911,11 @@ function Board({
           <div className="cards">
             <TaskTree nodes={col.tasks.map((n) => ({ task: n.task, children: [] }))} onOpen={onOpen} selectedId={selectedId} />
           </div>
-          <AddTask defaults={{ projectId, sectionId: col.id }} label="Добавить" />
+          <AddTask defaults={{ projectId, sectionId: col.id }} label={tr('Добавить')} />
         </div>
       ))}
       <button className="column add-column" onClick={onAddSection}>
-        + Раздел
+        {tr('+ Раздел')}
       </button>
     </div>
   );
@@ -921,14 +936,13 @@ export function TwoFactor() {
   }, []);
 
   const fail = (err: unknown) =>
-    setMsg(err instanceof Error && err.message === 'invalid_totp' ? 'Код не подошёл. Введите новый код из приложения.' : 'Не получилось. Нужна связь с сервером.');
+    setMsg(err instanceof Error && err.message === 'invalid_totp' ? tr('Код не подошёл. Введите новый код из приложения.') : tr('Не получилось. Нужна связь с сервером.'));
 
   return (
     <section className="settings">
-      <h2>Двухфакторный вход</h2>
+      <h2>{tr('Двухфакторный вход')}</h2>
       <p className="muted">
-        При входе на новом устройстве кроме пароля понадобится код из приложения-аутентификатора (Aegis, Google Authenticator, 2FAS). Вход по ключу
-        восстановления кода не требует.
+        {tr('При входе на новом устройстве кроме пароля понадобится код из приложения-аутентификатора (Aegis, Google Authenticator, 2FAS). Вход по ключу восстановления кода не требует.')}
       </p>
       {enabled === true && (
         <form
@@ -939,15 +953,15 @@ export function TwoFactor() {
               await controller.api.totpDisable(code.replace(/\s/g, ''));
               setEnabled(false);
               setCode('');
-              setMsg('Двухфакторный вход отключён.');
+              setMsg(tr('Двухфакторный вход отключён.'));
             } catch (err) {
               fail(err);
             }
           }}
         >
-          <span>Включён.</span>
-          <input inputMode="numeric" placeholder="Код для отключения" value={code} onChange={(e) => setCode(e.target.value)} required aria-label="Код" />
-          <button>Отключить</button>
+          <span>{tr('Включён.')}</span>
+          <input inputMode="numeric" placeholder={tr('Код для отключения')} value={code} onChange={(e) => setCode(e.target.value)} required aria-label={tr('Код')} />
+          <button>{tr('Отключить')}</button>
         </form>
       )}
       {enabled === false && !setup && (
@@ -960,12 +974,12 @@ export function TwoFactor() {
               setTotpPassword('');
               setMsg(null);
             } catch (err) {
-              setMsg(err instanceof Error && err.message === 'invalid_credentials' ? 'Пароль неверный.' : 'Не получилось. Нужна связь с сервером.');
+              setMsg(err instanceof Error && err.message === 'invalid_credentials' ? tr('Пароль неверный.') : tr('Не получилось. Нужна связь с сервером.'));
             }
           }}
         >
-          <input type="password" placeholder="Пароль" aria-label="Пароль для TOTP" autoComplete="current-password" value={totpPassword} onChange={(e) => setTotpPassword(e.target.value)} required />
-          <button>Включить</button>
+          <input type="password" placeholder={tr('Пароль')} aria-label={tr('Пароль для TOTP')} autoComplete="current-password" value={totpPassword} onChange={(e) => setTotpPassword(e.target.value)} required />
+          <button>{tr('Включить')}</button>
         </form>
       )}
       {enabled === false && setup && (
@@ -978,17 +992,17 @@ export function TwoFactor() {
               setEnabled(true);
               setSetup(null);
               setCode('');
-              setMsg('Двухфакторный вход включён.');
+              setMsg(tr('Двухфакторный вход включён.'));
             } catch (err) {
               fail(err);
             }
           }}
         >
-          <p>Добавьте ключ в приложение-аутентификатор и введите код, который оно покажет.</p>
+          <p>{tr('Добавьте ключ в приложение-аутентификатор и введите код, который оно покажет.')}</p>
           <code className="recovery-key">{setup.secret.match(/.{1,4}/g)!.join(' ')}</code>
-          <a href={setup.uri}>Открыть в приложении-аутентификаторе</a>
-          <input inputMode="numeric" autoComplete="one-time-code" placeholder="Код из приложения" value={code} onChange={(e) => setCode(e.target.value)} required aria-label="Код" />
-          <button className="primary">Подтвердить</button>
+          <a href={setup.uri}>{tr('Открыть в приложении-аутентификаторе')}</a>
+          <input inputMode="numeric" autoComplete="one-time-code" placeholder={tr('Код из приложения')} value={code} onChange={(e) => setCode(e.target.value)} required aria-label={tr('Код')} />
+          <button className="primary">{tr('Подтвердить')}</button>
         </form>
       )}
       {msg && <p className="notice">{msg}</p>}
@@ -1004,21 +1018,20 @@ export function DeleteAccount() {
   const [busy, setBusy] = useState(false);
   return (
     <section className="settings">
-      <h2>Удаление аккаунта</h2>
+      <h2>{tr('Удаление аккаунта')}</h2>
       <p className="muted">
-        Сервер удалит аккаунт, личные задачи и все устройства. Общие проекты, где есть другие участники, перейдут к ним. Отменить удаление нельзя:
-        перед ним можно выгрузить задачи в разделе «Экспорт».
+        {tr('Сервер удалит аккаунт, личные задачи и все устройства. Общие проекты, где есть другие участники, перейдут к ним. Отменить удаление нельзя: перед ним можно выгрузить задачи в разделе «Экспорт».')}
       </p>
       {!open ? (
         <button className="danger" onClick={() => setOpen(true)}>
-          Удалить аккаунт
+          {tr('Удалить аккаунт')}
         </button>
       ) : (
         <form
           className="row"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (!confirm('Удалить аккаунт и все личные задачи навсегда?')) return;
+            if (!confirm(tr('Удалить аккаунт и все личные задачи навсегда?'))) return;
             setBusy(true);
             setMsg(null);
             try {
@@ -1027,27 +1040,27 @@ export function DeleteAccount() {
               const c = err instanceof Error ? err.message : '';
               setMsg(
                 c === 'invalid_credentials'
-                  ? 'Пароль неверный.'
+                  ? tr('Пароль неверный.')
                   : c === 'totp_required'
-                    ? 'Введите код из приложения-аутентификатора.'
+                    ? tr('Введите код из приложения-аутентификатора.')
                     : c === 'invalid_totp'
-                      ? 'Код не подошёл.'
+                      ? tr('Код не подошёл.')
                       : c === 'rate_limited'
-                        ? 'Слишком много попыток. Подождите несколько минут.'
-                        : 'Не получилось. Нужна связь с сервером.',
+                        ? tr('Слишком много попыток. Подождите несколько минут.')
+                        : tr('Не получилось. Нужна связь с сервером.'),
               );
             } finally {
               setBusy(false);
             }
           }}
         >
-          <input type="password" placeholder="Пароль" aria-label="Пароль для удаления" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <input inputMode="numeric" placeholder="Код TOTP, если включён" aria-label="Код TOTP" value={code} onChange={(e) => setCode(e.target.value)} />
+          <input type="password" placeholder={tr('Пароль')} aria-label={tr('Пароль для удаления')} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input inputMode="numeric" placeholder={tr('Код TOTP, если включён')} aria-label={tr('Код TOTP')} value={code} onChange={(e) => setCode(e.target.value)} />
           <button className="danger" disabled={busy}>
-            Удалить навсегда
+            {tr('Удалить навсегда')}
           </button>
           <button type="button" onClick={() => setOpen(false)}>
-            Отмена
+            {tr('Отмена')}
           </button>
         </form>
       )}
@@ -1072,8 +1085,8 @@ export function DesktopUpdates() {
   if (platform() !== 'tauri') return null;
   return (
     <section className="settings">
-      <h2>Обновления</h2>
-      <p className="muted">Установлена версия {version ?? '...'}. Программа проверяет новую версию при запуске; обновление подписано ключом проекта.</p>
+      <h2>{tr('Обновления')}</h2>
+      <p className="muted">{tr('Установлена версия {version}. Программа проверяет новую версию при запуске; обновление подписано ключом проекта.', { version: version ?? '...' })}</p>
       <button
         disabled={busy}
         onClick={async () => {
@@ -1081,19 +1094,19 @@ export function DesktopUpdates() {
           setMsg(null);
           try {
             const u = await checkDesktopUpdate();
-            if (!u) setMsg('Установлена последняя версия.');
+            if (!u) setMsg(tr('Установлена последняя версия.'));
             else {
-              setMsg(`Скачиваю версию ${u.version}...`);
+              setMsg(tr('Скачиваю версию {version}...', { version: u.version }));
               await u.install();
             }
           } catch {
-            setMsg('Не удалось проверить обновления. Нужна связь с GitHub.');
+            setMsg(tr('Не удалось проверить обновления. Нужна связь с GitHub.'));
           } finally {
             setBusy(false);
           }
         }}
       >
-        Проверить обновления
+        {tr('Проверить обновления')}
       </button>
       {msg && <p className="muted">{msg}</p>}
     </section>
@@ -1118,10 +1131,9 @@ export function Passkeys() {
   if (!passkeysSupported()) return null;
   return (
     <section className="settings">
-      <h2>Вход по passkey</h2>
+      <h2>{tr('Вход по passkey')}</h2>
       <p className="muted">
-        Вход отпечатком, лицом или Windows Hello без пароля. Ключ шифрования открывает секрет PRF самого passkey, сервер его не видит. Работает в браузере на
-        адресе этого сервера.
+        {tr('Вход отпечатком, лицом или Windows Hello без пароля. Ключ шифрования открывает секрет PRF самого passkey, сервер его не видит. Работает в браузере на адресе этого сервера.')}
       </p>
       {list?.map((p) => (
         <div key={p.id} className="trash-row">
@@ -1129,23 +1141,23 @@ export function Passkeys() {
             {p.name}
             <br />
             <span className="muted">
-              Добавлен {new Date(p.createdAt).toLocaleDateString('ru')}
-              {p.lastUsedAt ? `, вход ${new Date(p.lastUsedAt).toLocaleDateString('ru')}` : ''}
+              {tr('Добавлен')} {new Date(p.createdAt).toLocaleDateString(LOCALE)}
+              {p.lastUsedAt ? tr(', вход {n}', { n: new Date(p.lastUsedAt).toLocaleDateString(LOCALE) }) : ''}
             </span>
           </span>
           <button
             onClick={async () => {
-              if (!confirm(`Удалить passkey «${p.name}»?`)) return;
+              if (!confirm(tr('Удалить passkey «{name}»?', { name: p.name }))) return;
               await controller.api.deletePasskey(p.id);
               void load();
             }}
           >
-            Удалить
+            {tr('Удалить')}
           </button>
         </div>
       ))}
-      <input type="password" placeholder="Пароль" aria-label="Пароль для passkey" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-      <input inputMode="numeric" placeholder="Код TOTP, если включён" aria-label="Код TOTP для passkey" value={code} onChange={(e) => setCode(e.target.value)} />
+      <input type="password" placeholder={tr('Пароль')} aria-label={tr('Пароль для passkey')} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <input inputMode="numeric" placeholder={tr('Код TOTP, если включён')} aria-label={tr('Код TOTP для passkey')} value={code} onChange={(e) => setCode(e.target.value)} />
       <button
         disabled={busy || !password}
         onClick={async () => {
@@ -1159,31 +1171,37 @@ export function Passkeys() {
             );
             setPassword('');
             setCode('');
-            setMsg('Passkey добавлен. Теперь на экране входа можно нажать «Войти по passkey».');
+            setMsg(tr('Passkey добавлен. Теперь на экране входа можно нажать «Войти по passkey».'));
             void load();
           } catch (err) {
             const code = err instanceof Error ? err.message : '';
             setMsg(
               code === 'invalid_credentials'
-                ? 'Пароль неверный.'
+                ? tr('Пароль неверный.')
                 : code === 'totp_required' || code === 'invalid_totp'
-                  ? 'Нужен верный код из приложения-аутентификатора.'
+                  ? tr('Нужен верный код из приложения-аутентификатора.')
                   : code === 'prf_unsupported'
-                ? 'Этот passkey не умеет PRF. Подойдут Google Password Manager, iCloud Keychain, Windows Hello на Windows 11 и ключи FIDO2.'
+                ? tr('Этот passkey не умеет PRF. Подойдут Google Password Manager, iCloud Keychain, Windows Hello на Windows 11 и ключи FIDO2.')
                 : code === 'passkeys_disabled'
-                  ? 'На сервере не задан DELA_PUBLIC_URL, поэтому passkey выключены.'
+                  ? tr('На сервере не задан DELA_PUBLIC_URL, поэтому passkey выключены.')
                   : err instanceof Error && err.name === 'NotAllowedError'
-                    ? 'Добавление отменено.'
-                    : 'Не получилось добавить passkey.',
+                    ? tr('Добавление отменено.')
+                    : tr('Не получилось добавить passkey.'),
             );
           } finally {
             setBusy(false);
           }
         }}
       >
-        Добавить passkey
+        {tr('Добавить passkey')}
       </button>
       {msg && <p className="muted">{msg}</p>}
     </section>
   );
+}
+
+/** Сообщение разбора фильтра из core на языке интерфейса. */
+function filterError(message: string): string {
+  const m = /^Лишнее: «(.*)»$/.exec(message);
+  return m ? tr('Лишнее: «{n}»', { n: m[1]! }) : tr(message);
 }

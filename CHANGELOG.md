@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- English interface. The app follows the system language; Settings → Language switches between English and Russian. New accounts get welcome tasks and built-in templates in the chosen language. The Android widget, notifications and the Windows tray menu are translated too.
+- Server install in one command: settings in `.env`, `--profile https` starts a bundled Caddy that gets the certificate itself. The `latest` image is the latest release, `edge` follows the main branch.
+
 ## 0.4.2
 
 Fixes found while testing on a phone:

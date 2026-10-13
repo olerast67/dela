@@ -8,6 +8,7 @@ import { IconChevron, IconComment, IconDeadline, IconRepeat, IconSubtasks, IconT
 import { controller } from '../controller.ts';
 import { DRAG_TYPE, draggedId, registerTouchTask, setDragged, startTouchDrag, useDropOnTask, type DropWhere } from './dnd.ts';
 import { showToast } from './toast.tsx';
+import { tr } from '../i18n.ts';
 
 /** Порог смахивания, пикселей: дальше него отпускание выполняет действие. */
 const SWIPE = 84;
@@ -106,7 +107,7 @@ function useSwipe(enabled: boolean, onRight: () => void, onLeft: () => void, onL
 
 export function completeWithUndo(doc: Workspace, task: TaskView): void {
   doc.completeTask(task.id);
-  showToast(task.recurrence ? 'Перенесено на следующий раз' : 'Задача выполнена', { label: 'Отменить', run: () => doc.undo() });
+  showToast(task.recurrence ? tr('Перенесено на следующий раз') : tr('Задача выполнена'), { label: tr('Отменить'), run: () => doc.undo() });
 }
 
 export function TaskRow({
@@ -170,7 +171,7 @@ export function TaskRow({
     <div className="task-wrap" style={depth ? { marginLeft: `${depth * 24}px` } : undefined}>
       {swipe.dx !== 0 && (
         <div className={`swipe-under ${swipe.dx > 0 ? 'right' : 'left'}${swipe.armed ? ' armed' : ''}`} aria-hidden="true">
-          <span>{swipe.dx > 0 ? (done ? 'Вернуть' : 'Готово') : 'Перенести'}</span>
+          <span>{swipe.dx > 0 ? (done ? tr('Вернуть') : tr('Готово')) : tr('Перенести')}</span>
         </div>
       )}
       {resched && <RescheduleSheet task={task} onClose={() => setResched(false)} />}
@@ -216,7 +217,7 @@ export function TaskRow({
       {onToggle ? (
         <button
           className={`twisty${collapsed ? '' : ' open'}`}
-          aria-label={collapsed ? 'Показать подзадачи' : 'Скрыть подзадачи'}
+          aria-label={collapsed ? tr('Показать подзадачи') : tr('Скрыть подзадачи')}
           onClick={(e) => {
             e.stopPropagation();
             onToggle();
@@ -229,7 +230,7 @@ export function TaskRow({
       )}
       <button
         className={`check prio-${task.priority}${leaving || done ? ' checked' : ''}`}
-        aria-label={done ? 'Вернуть в работу' : 'Выполнить'}
+        aria-label={done ? tr('Вернуть в работу') : tr('Выполнить')}
         onClick={toggle}
         disabled={task.projected}
       >
@@ -238,7 +239,7 @@ export function TaskRow({
         </svg>
       </button>
       <div className="task-body">
-        <div className="task-title">{task.title || <span className="muted">Без названия</span>}</div>
+        <div className="task-title">{task.title || <span className="muted">{tr('Без названия')}</span>}</div>
         {task.description && <div className="task-desc">{task.description.split('\n')[0]}</div>}
         <div className="task-meta">
           {showDate && task.due && (
@@ -260,7 +261,7 @@ export function TaskRow({
             </span>
           )}
           {(task.commentCount ?? 0) > 0 && (
-            <span title="Комментарии">
+            <span title={tr('Комментарии')}>
               <IconComment /> {task.commentCount}
             </span>
           )}
@@ -275,14 +276,14 @@ export function TaskRow({
             </span>
           ))}
           {task.assignee && (
-            <span className="assignee" title={`Исполнитель: ${controller.memberEmail(doc.spaceOfTask(task.id), task.assignee) ?? 'участник'}`}>
+            <span className="assignee" title={tr('Исполнитель: {n}', { n: controller.memberEmail(doc.spaceOfTask(task.id), task.assignee) ?? tr('участник') })}>
               {(controller.memberEmail(doc.spaceOfTask(task.id), task.assignee) ?? '?')[0]!.toUpperCase()}
             </span>
           )}
           {project && (
             <span className={`project-ref c-${project.color}`}>
               <i className="dot" aria-hidden="true" />
-              {project.isInbox ? 'Входящие' : project.name}
+              {project.isInbox ? tr('Входящие') : project.name}
             </span>
           )}
         </div>

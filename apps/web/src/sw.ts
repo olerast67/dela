@@ -92,8 +92,9 @@ self.addEventListener('push', (e) => {
       }
       // Браузер требует показать уведомление на каждый push; если расшифровать не вышло, показываем общее.
       try {
-        await self.registration.showNotification(r?.t ?? 'Напоминание Dela', {
-          body: r?.b ?? 'Откройте приложение',
+        const ru = /^ru/i.test(self.navigator.language);
+        await self.registration.showNotification(r?.t ?? (ru ? 'Напоминание Dela' : 'Dela reminder'), {
+          body: r?.b ?? (ru ? 'Откройте приложение' : 'Open the app'),
           icon: '/icon-192.png',
           ...(r ? { tag: r.k, data: { taskId: r.id } } : {}),
         });

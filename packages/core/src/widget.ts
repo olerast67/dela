@@ -34,7 +34,7 @@ export interface WidgetSnapshot {
 
 export const WIDGET_TASK_LIMIT = 500;
 
-export function widgetSnapshot(ws: Workspace, today: string, tz: string, lock: boolean, limit = WIDGET_TASK_LIMIT): WidgetSnapshot {
+export function widgetSnapshot(ws: Workspace, today: string, tz: string, lock: boolean, limit = WIDGET_TASK_LIMIT, inboxName = 'Входящие'): WidgetSnapshot {
   const horizon = addDays(today, 8);
   const projects = [ws.project(ws.inboxId), ...ws.projects().map((n) => n.project)].filter((p) => p !== undefined);
   const tasks: WidgetTask[] = [];
@@ -61,7 +61,7 @@ export function widgetSnapshot(ws: Workspace, today: string, tz: string, lock: b
   return {
     v: 1,
     lock,
-    projects: projects.map((p) => ({ id: p.id, name: p.isInbox ? 'Входящие' : p.name, color: p.color, inbox: p.isInbox })),
+    projects: projects.map((p) => ({ id: p.id, name: p.isInbox ? inboxName : p.name, color: p.color, inbox: p.isInbox })),
     tasks: [...near, ...rest].slice(0, limit),
   };
 }

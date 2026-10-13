@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">Задачи на сегодня, неделю или из проекта</string>
+    <string name="widget_label">Dela: задачи</string>
+    <string name="tile_label">Задача в Dela</string>
+    <string name="share_label">Задача в Dela</string>
+    <string name="widget_config_title">Настройки виджета</string>
+
+    <string name="list_today">Сегодня</string>
+    <string name="list_week">Неделя</string>
+    <string name="day_today">Сегодня</string>
+    <string name="day_tomorrow">Завтра</string>
+    <string name="day_yesterday">Вчера</string>
+    <string name="overdue">Просрочено</string>
+    <string name="untitled">Без названия</string>
+    <string name="day_month">%1$d %2$s</string>
+    <string-array name="weekdays_short">
+        <item>Вс</item><item>Пн</item><item>Вт</item><item>Ср</item><item>Чт</item><item>Пт</item><item>Сб</item>
+    </string-array>
+    <string-array name="weekdays_long">
+        <item>Воскресенье</item><item>Понедельник</item><item>Вторник</item><item>Среда</item><item>Четверг</item><item>Пятница</item><item>Суббота</item>
+    </string-array>
+    <string-array name="months_short">
+        <item>янв</item><item>фев</item><item>мар</item><item>апр</item><item>мая</item><item>июн</item>
+        <item>июл</item><item>авг</item><item>сен</item><item>окт</item><item>ноя</item><item>дек</item>
+    </string-array>
+
+    <string name="empty_no_snapshot">Откройте Dela, чтобы виджет получил задачи</string>
+    <string name="empty_locked">Dela заблокирована. Задачи видны в приложении.</string>
+    <string name="empty_today">На сегодня всё</string>
+    <string name="empty_week">На неделю задач нет</string>
+    <string name="empty_list">В списке нет задач</string>
+
+    <string name="cd_complete">Выполнить</string>
+    <string name="cd_open">Открыть Dela</string>
+    <string name="cd_voice">Задача голосом</string>
+    <string name="cd_add">Добавить задачу</string>
+
+    <string name="cfg_list">Список</string>
+    <string name="cfg_theme">Тема</string>
+    <string name="cfg_theme_system">Как в системе</string>
+    <string name="cfg_theme_light">Светлая</string>
+    <string name="cfg_theme_dark">Тёмная</string>
+    <string name="cfg_opacity">Непрозрачность фона</string>
+    <string name="cfg_font">Размер шрифта</string>
+    <string name="cfg_font_normal">Обычный</string>
+    <string name="cfg_font_large">Крупный</string>
+    <string name="cfg_compact">Компактный режим: задача в одну строку</string>
+    <string name="cfg_hide_locked">Скрывать задачи, если в приложении включена блокировка PIN-кодом</string>
+    <string name="cfg_done">Готово</string>
+    <string name="voice_unavailable">На телефоне нет распознавания речи</string>
+
+    <string name="notify_channel">Напоминания</string>
+    <string name="notify_task">Задача</string>
+    <string name="notify_generic_title">Напоминание Dela</string>
+    <string name="notify_generic_text">Откройте приложение</string>
+    <string name="push_instance">Напоминания Dela</string>
+</resources>

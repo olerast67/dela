@@ -24,8 +24,7 @@ export default defineConfig({
       manifest: {
         name: 'Dela',
         short_name: 'Dela',
-        description: 'Менеджер задач с шифрованием, работает без интернета',
-        lang: 'ru',
+        description: 'Encrypted task manager that works offline',
         start_url: './',
         scope: './',
         display: 'standalone',

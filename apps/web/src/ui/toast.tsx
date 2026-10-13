@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { tr } from '../i18n.ts';
 
 interface Toast {
   readonly id: number;
@@ -96,7 +97,7 @@ function ToastView({ toast }: { toast: Toast }) {
           {toast.action.label}
         </button>
       )}
-      <button className="toast-close" aria-label="Скрыть уведомление" onClick={hideToast}>
+      <button className="toast-close" aria-label={tr('Скрыть уведомление')} onClick={hideToast}>
         ×
       </button>
     </div>

@@ -32,15 +32,15 @@ public class WidgetConfigActivity extends AppCompatActivity {
             return;
         }
         setContentView(R.layout.widget_config);
-        setTitle("Настройки виджета");
+        setTitle(R.string.widget_config_title);
         WidgetStore.Config cfg = WidgetStore.config(this, widgetId);
 
         // Списки: Сегодня, Неделя и проекты из последнего снимка.
         List<String> labels = new ArrayList<>();
         List<String> values = new ArrayList<>();
-        labels.add("Сегодня");
+        labels.add(getString(R.string.list_today));
         values.add("today");
-        labels.add("Неделя");
+        labels.add(getString(R.string.list_week));
         values.add("week");
         JSONObject snap = WidgetStore.snapshot(this);
         JSONArray projects = snap == null ? null : snap.optJSONArray("projects");

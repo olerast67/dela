@@ -16,6 +16,7 @@ import { LockScreen } from './ui/Lock.tsx';
 import { ActivityView, TemplatesView } from './ui/History.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
+import { tr } from './i18n.ts';
 
 function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
@@ -78,7 +79,7 @@ function Shell() {
       if (e.ctrlKey) {
         if (e.code === 'KeyZ') {
           e.preventDefault();
-          if (doc.undo()) showToast('Отменено');
+          if (doc.undo()) showToast(tr('Отменено'));
         }
         return;
       }
@@ -127,7 +128,7 @@ function Shell() {
             const t = doc.task(taskId);
             if (t) {
               doc.updateTask(taskId, { due: { ...(t.due ?? {}), date: new Intl.DateTimeFormat('en-CA').format(new Date()) } });
-              showToast('Перенесено на сегодня', { label: 'Отменить', run: () => doc.undo() });
+              showToast(tr('Перенесено на сегодня'), { label: tr('Отменить'), run: () => doc.undo() });
             }
           }
           return;
@@ -137,7 +138,7 @@ function Shell() {
             moveFocus(1);
             doc.deleteTask(taskId);
             if (selected === taskId) setSelected(null);
-            showToast('Задача удалена', { label: 'Отменить', run: () => doc.undo() });
+            showToast(tr('Задача удалена'), { label: tr('Отменить'), run: () => doc.undo() });
           }
           return;
         case 'Slash':
@@ -173,7 +174,7 @@ function Shell() {
     // Программа для Windows: через несколько секунд после запуска проверяем новую версию на GitHub.
     const updateTimer = setTimeout(() => {
       void checkDesktopUpdate()
-        .then((u) => u && showToast(`Вышла версия ${u.version}`, { label: 'Обновить', run: () => void u.install() }, 60_000))
+        .then((u) => u && showToast(tr('Вышла версия {version}', { version: u.version }), { label: tr('Обновить'), run: () => void u.install() }, 60_000))
         .catch(() => undefined);
     }, 4000);
     keep(Promise.resolve(() => clearTimeout(updateTimer)));
@@ -224,7 +225,7 @@ function Shell() {
   }, []);
 
   useEffect(() => {
-    controller.onReminder = (r) => showToast(`⏰ ${r.title}`, { label: 'Открыть', run: () => setSelected(r.taskId) }, 60_000);
+    controller.onReminder = (r) => showToast(`⏰ ${r.title}`, { label: tr('Открыть'), run: () => setSelected(r.taskId) }, 60_000);
     const onMessage = (e: MessageEvent<{ type?: string; taskId?: string; key?: string; title?: string }>) => {
       if (e.data?.type === 'open-task' && e.data.taskId) setSelected(e.data.taskId);
       if (e.data?.type === 'push-reminder' && e.data.key && e.data.taskId)
@@ -334,7 +335,7 @@ function Shell() {
         </div>
       )}
       {narrow && !selected && <TabBar route={route} onMore={() => setMenu(true)} />}
-      <button className="fab" onClick={() => setQuickAdd(true)} aria-label="Добавить задачу (Q)">
+      <button className="fab" onClick={() => setQuickAdd(true)} aria-label={tr('Добавить задачу (Q)')}>
         <IconPlus width={24} height={24} />
       </button>
       {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} />}

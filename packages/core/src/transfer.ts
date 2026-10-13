@@ -137,7 +137,8 @@ function groupBy<T>(items: readonly T[], key: (x: T) => string): Map<string, T[]
   return out;
 }
 
-export function importTodoist(doc: Doc, data: TodoistData, options: { now?: number; tz?: string } = {}): ImportSummary {
+export function importTodoist(doc: Doc, data: TodoistData, options: { now?: number; tz?: string; lang?: 'ru' | 'en' } = {}): ImportSummary {
+  const en = options.lang === 'en';
   const now = options.now ?? Date.now();
   const tz = options.tz ?? doc.timeZone;
   doc.ensureInbox();
@@ -244,7 +245,7 @@ export function importTodoist(doc: Doc, data: TodoistData, options: { now?: numb
             changes.push(['task', id, 'recurrence', { ...parsed.recurrence, text: t.due.string } as unknown as Json]);
           } else {
             unparsed.push(t.due.string);
-            description = `${description}${description ? '\n\n' : ''}Повтор в Todoist: ${t.due.string}`;
+            description = `${description}${description ? '\n\n' : ''}${en ? 'Todoist repeat' : 'Повтор в Todoist'}: ${t.due.string}`;
           }
         }
       }
@@ -258,7 +259,7 @@ export function importTodoist(doc: Doc, data: TodoistData, options: { now?: numb
     const comments = notes.get(t.id);
     if (comments) {
       const text = comments.map((n) => `${n.posted_at ? `${n.posted_at.slice(0, 10)}: ` : ''}${n.content}`).join('\n');
-      description = `${description}${description ? '\n\n' : ''}Комментарии из Todoist:\n${text}`;
+      description = `${description}${description ? '\n\n' : ''}${en ? 'Comments from Todoist' : 'Комментарии из Todoist'}:\n${text}`;
     }
     if (description) changes.push(['task', id, 'description', description]);
   }
@@ -328,7 +329,7 @@ export function exportJson(doc: Doc, now = Date.now()): ExportData {
 }
 
 /** Экспорт в Markdown: проекты заголовками, задачи списками с отметками. */
-export function exportMarkdown(doc: Doc): string {
+export function exportMarkdown(doc: Doc, inboxName = 'Входящие'): string {
   const lines: string[] = ['# Dela', ''];
   const labelName = (id: string) => doc.label(id)?.name ?? id;
   const write = (projectId: string, title: string) => {
@@ -356,7 +357,7 @@ export function exportMarkdown(doc: Doc): string {
     lines.push('');
   };
   // У общего пространства нет «Входящих»: его единственный проект выводится ниже.
-  if (doc.kind !== 'shared') write(doc.inboxId, 'Входящие');
+  if (doc.kind !== 'shared') write(doc.inboxId, inboxName);
   for (const p of doc.projects()) write(p.project.id, `${'↳ '.repeat(p.depth)}${p.project.name}`);
   return lines.join('\n');
 }

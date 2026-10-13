@@ -4,6 +4,7 @@ import { controller } from '../controller.ts';
 import { navigate, useDoc } from '../hooks.ts';
 import { IconX } from './icons.tsx';
 import { showToast } from './toast.tsx';
+import { tr, trc } from '../i18n.ts';
 
 interface Member {
   readonly userId: string;
@@ -12,14 +13,14 @@ interface Member {
   readonly publicKey: string;
 }
 
-const ROLE: Record<Member['role'], string> = { owner: 'владелец', editor: 'участник', viewer: 'читатель' };
+const ROLE: Record<Member['role'], string> = { owner: tr('владелец'), editor: tr('участник'), viewer: tr('читатель') };
 
 function errorText(err: unknown): string {
-  if (err instanceof NetworkError) return 'Нет связи с сервером. Общий доступ настраивается только онлайн.';
-  if (err instanceof ApiError && err.code === 'not_found') return 'На этом сервере нет пользователя с таким адресом. Пусть сначала зарегистрируется.';
-  if (err instanceof ApiError && err.code === 'rate_limited') return 'Слишком много запросов. Попробуйте позже.';
-  if (err instanceof Error && err.message === 'self_invite') return 'Себя приглашать не нужно: вы уже владелец проекта.';
-  return 'Не получилось. Попробуйте ещё раз.';
+  if (err instanceof NetworkError) return tr('Нет связи с сервером. Общий доступ настраивается только онлайн.');
+  if (err instanceof ApiError && err.code === 'not_found') return tr('На этом сервере нет пользователя с таким адресом. Пусть сначала зарегистрируется.');
+  if (err instanceof ApiError && err.code === 'rate_limited') return tr('Слишком много запросов. Попробуйте позже.');
+  if (err instanceof Error && err.message === 'self_invite') return tr('Себя приглашать не нужно: вы уже владелец проекта.');
+  return tr('Не получилось. Попробуйте ещё раз.');
 }
 
 export function ShareDialog({ projectId, onClose }: { projectId: string; onClose: () => void }) {
@@ -45,18 +46,17 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
 
   return (
     <div className="modal-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal palette share" role="dialog" aria-label="Общий доступ">
+      <div className="modal palette share" role="dialog" aria-label={tr('Общий доступ')}>
         <div className="share-head">
-          <h2 className="palette-title">Общий доступ</h2>
-          <button className="icon" onClick={onClose} aria-label="Закрыть">
+          <h2 className="palette-title">{tr('Общий доступ')}</h2>
+          <button className="icon" onClick={onClose} aria-label={tr('Закрыть')}>
             <IconX />
           </button>
         </div>
         {!shared ? (
           <div className="share-body">
             <p>
-              Проект переедет в отдельное пространство со своим ключом шифрования. Участники получат этот ключ, запечатанный их личными ключами;
-              сервер его не видит. Метки остаются личными и в общий проект не переносятся.
+              {tr('Проект переедет в отдельное пространство со своим ключом шифрования. Участники получат этот ключ, запечатанный их личными ключами; сервер его не видит. Метки остаются личными и в общий проект не переносятся.')}
             </p>
             <button
               className="primary"
@@ -67,7 +67,7 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                 try {
                   const id = await controller.shareProject(projectId);
                   navigate({ view: 'project', id });
-                  showToast('Проект стал общим. Пригласите участников.');
+                  showToast(tr('Проект стал общим. Пригласите участников.'));
                 } catch (err) {
                   setMsg(errorText(err));
                 } finally {
@@ -75,7 +75,7 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                 }
               }}
             >
-              {busy ? 'Подождите…' : 'Сделать проект общим'}
+              {busy ? tr('Подождите…') : tr('Сделать проект общим')}
             </button>
           </div>
         ) : (
@@ -83,20 +83,20 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
             {warning && (
               <div className="notice" role="alert">
                 {warning === 'unsigned'
-                  ? 'Новый ключ проекта пришёл без подтверждения владельца, поэтому он не принят: правки в этом проекте пока шифруются прежним ключом. Скорее всего, владелец пользуется старой версией Dela.'
-                  : `Новый ключ проекта прислал не тот владелец, которому вы доверяли. Отпечаток отправителя: ${warning}. Если владелец проекта сменился (например, прежний удалил аккаунт), сверьте отпечаток с ним по другому каналу.`}
+                  ? tr('Новый ключ проекта пришёл без подтверждения владельца, поэтому он не принят: правки в этом проекте пока шифруются прежним ключом. Скорее всего, владелец пользуется старой версией Dela.')
+                  : tr('Новый ключ проекта прислал не тот владелец, которому вы доверяли. Отпечаток отправителя: {warning}. Если владелец проекта сменился (например, прежний удалил аккаунт), сверьте отпечаток с ним по другому каналу.', { warning: warning })}
                 {warning !== 'unsigned' && (
-                  <button onClick={() => void controller.trustSpaceSender(projectId).then(() => setMsg('Ключ нового владельца принят.'))}>Доверять этому ключу</button>
+                  <button onClick={() => void controller.trustSpaceSender(projectId).then(() => setMsg(tr('Ключ нового владельца принят.')))}>{tr('Доверять этому ключу')}</button>
                 )}
               </div>
             )}
             {unpinned && (
               <div className="notice" role="alert">
-                <p>Ключ проекта не сменён. Сверьте отпечатки ключей этих участников с ними по другому каналу:</p>
+                <p>{tr('Ключ проекта не сменён. Сверьте отпечатки ключей этих участников с ними по другому каналу:')}</p>
                 {unpinned.map((u) => (
                   <p key={u.userId}>
                     {u.email} · <span className="mono">{fingerprint(fromB64(u.publicKey))}</span>
-                    {u.changed ? ' (ключ изменился с момента приглашения)' : ' (приглашён на другом устройстве или в старой версии)'}
+                    {u.changed ? tr(' (ключ изменился с момента приглашения)') : tr(' (приглашён на другом устройстве или в старой версии)')}
                   </p>
                 ))}
                 <button
@@ -105,23 +105,23 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                     setUnpinned(null);
                     try {
                       await controller.rotateKey(projectId);
-                      setMsg('Ключ проекта заменён.');
+                      setMsg(tr('Ключ проекта заменён.'));
                     } catch (err) {
                       setMsg(errorText(err));
                     }
                   }}
                 >
-                  Отпечатки совпадают, сменить ключ
+                  {tr('Отпечатки совпадают, сменить ключ')}
                 </button>
               </div>
             )}
-            {members === null && !msg && <p className="muted">Загрузка…</p>}
+            {members === null && !msg && <p className="muted">{tr('Загрузка…')}</p>}
             {members?.map((m) => (
               <div key={m.userId} className="trash-row">
                 <span>
                   {m.email} <span className="muted">· {ROLE[m.role]}</span>
                   <br />
-                  <span className="muted mono" title="Отпечаток ключа: сверьте его с участником по другому каналу">
+                  <span className="muted mono" title={tr('Отпечаток ключа: сверьте его с участником по другому каналу')}>
                     {fingerprint(fromB64(m.publicKey))}
                   </span>
                 </span>
@@ -129,14 +129,14 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                   <button
                     onClick={async () => {
                       const self = m.userId === controller.userId;
-                      if (self && !confirm('Выйти из проекта? Его задачи пропадут с ваших устройств.')) return;
+                      if (self && !confirm(tr('Выйти из проекта? Его задачи пропадут с ваших устройств.'))) return;
                       try {
                         await controller.removeMember(projectId, m.userId);
                         if (self) {
                           onClose();
                           navigate({ view: 'today' });
                         } else {
-                          setMsg('Участник убран. Ключ проекта заменён: новых изменений он не увидит.');
+                          setMsg(tr('Участник убран. Ключ проекта заменён: новых изменений он не увидит.'));
                           void load();
                         }
                       } catch (err) {
@@ -147,7 +147,7 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                       }
                     }}
                   >
-                    {m.userId === controller.userId ? 'Выйти' : 'Убрать'}
+                    {m.userId === controller.userId ? trc('проект', 'Выйти') : tr('Убрать')}
                   </button>
                 )}
               </div>
@@ -161,7 +161,7 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                   setMsg(null);
                   try {
                     const fp = await controller.addMember(projectId, email.trim(), 'editor');
-                    setMsg(`Добавлен. Отпечаток ключа участника: ${fp}. Если хотите убедиться, что ключ не подменён, сверьте отпечаток с ним по телефону.`);
+                    setMsg(tr('Добавлен. Отпечаток ключа участника: {fp}. Если хотите убедиться, что ключ не подменён, сверьте отпечаток с ним по телефону.', { fp: fp }));
                     setEmail('');
                     void load();
                   } catch (err) {
@@ -171,9 +171,9 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                   }
                 }}
               >
-                <input type="email" required placeholder="Почта участника" value={email} onChange={(e) => setEmail(e.target.value)} aria-label="Почта участника" />
+                <input type="email" required placeholder={tr('Почта участника')} value={email} onChange={(e) => setEmail(e.target.value)} aria-label={tr('Почта участника')} />
                 <button className="primary" disabled={busy}>
-                  Пригласить
+                  {tr('Пригласить')}
                 </button>
               </form>
             )}

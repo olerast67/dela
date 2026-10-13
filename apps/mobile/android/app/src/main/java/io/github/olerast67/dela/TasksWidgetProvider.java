@@ -62,11 +62,11 @@ public class TasksWidgetProvider extends AppWidgetProvider {
 
         JSONObject snap = WidgetStore.snapshot(c);
         String empty;
-        if (snap == null) empty = "Откройте Dela, чтобы виджет получил задачи";
-        else if (snap.optBoolean("lock") && cfg.hideWhenLocked) empty = "Dela заблокирована. Задачи видны в приложении.";
-        else if ("today".equals(cfg.list)) empty = "На сегодня всё";
-        else if ("week".equals(cfg.list)) empty = "На неделю задач нет";
-        else empty = "В списке нет задач";
+        if (snap == null) empty = c.getString(R.string.empty_no_snapshot);
+        else if (snap.optBoolean("lock") && cfg.hideWhenLocked) empty = c.getString(R.string.empty_locked);
+        else if ("today".equals(cfg.list)) empty = c.getString(R.string.empty_today);
+        else if ("week".equals(cfg.list)) empty = c.getString(R.string.empty_week);
+        else empty = c.getString(R.string.empty_list);
         v.setTextViewText(R.id.widget_empty, empty);
         v.setTextColor(R.id.widget_empty, text);
 

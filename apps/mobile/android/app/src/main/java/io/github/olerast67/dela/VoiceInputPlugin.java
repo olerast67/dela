@@ -23,7 +23,11 @@ public class VoiceInputPlugin extends Plugin {
         Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, lang);
-        i.putExtra(RecognizerIntent.EXTRA_PROMPT, "Скажите задачу, например: позвонить маме завтра в семь");
+        // Подсказка на языке приложения, а не системы: язык распознавания передаёт веб-клиент.
+        i.putExtra(
+            RecognizerIntent.EXTRA_PROMPT,
+            lang.startsWith("ru") ? "Скажите задачу, например: позвонить маме завтра в семь" : "Say a task, for example: call mom tomorrow at seven"
+        );
         i.putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true);
         i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
         return i;
@@ -40,7 +44,7 @@ public class VoiceInputPlugin extends Plugin {
     public void listen(PluginCall call) {
         Intent i = recognizer(call.getString("lang", "ru-RU"));
         if (i.resolveActivity(getContext().getPackageManager()) == null) {
-            call.reject("На телефоне нет распознавания речи", "unavailable");
+            call.reject(getContext().getString(R.string.voice_unavailable), "unavailable");
             return;
         }
         startActivityForResult(call, i, "onResult");

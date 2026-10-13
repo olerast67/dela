@@ -9,15 +9,16 @@ import { IconRepeat, IconTrash, IconX } from './icons.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
 import { TaskTree, completeWithUndo } from './Task.tsx';
 import { showToast } from './toast.tsx';
+import { LOCALE, tr } from '../i18n.ts';
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240];
 
 export const REMINDER_OPTIONS: Array<[number, string]> = [
-  [0, 'в срок'],
-  [10, 'за 10 мин'],
-  [30, 'за 30 мин'],
-  [60, 'за 1 ч'],
-  [1440, 'за день'],
+  [0, tr('в срок')],
+  [10, tr('за 10 мин')],
+  [30, tr('за 30 мин')],
+  [60, tr('за 1 ч')],
+  [1440, tr('за день')],
 ];
 
 /** Поле, которое сохраняет значение при уходе фокуса или Enter. */
@@ -86,8 +87,8 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
     return (
       <aside className="panel">
         <div className="panel-head">
-          <span className="muted">Задача удалена</span>
-          <button className="icon" onClick={onClose} aria-label="Закрыть">
+          <span className="muted">{tr('Задача удалена')}</span>
+          <button className="icon" onClick={onClose} aria-label={tr('Закрыть')}>
             <IconX />
           </button>
         </div>
@@ -104,7 +105,7 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
     if (!text) return;
     const parsed = parseTask(text, { now: Date.now(), tz: TZ });
     if (!parsed.recurrence) {
-      showToast('Не получилось понять повтор. Пример: «каждый понедельник»');
+      showToast(tr('Не получилось понять повтор. Пример: «каждый понедельник»'));
       return;
     }
     const base = parsed.due!;
@@ -116,7 +117,7 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
   }
 
   return (
-    <aside className="panel" aria-label="Задача" ref={panelRef}>
+    <aside className="panel" aria-label={tr('Задача')} ref={panelRef}>
       <div className="panel-grip" {...grip} aria-hidden="true" />
       <div className="panel-head">
         <select
@@ -127,10 +128,10 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
             const [projectId, sectionId] = e.target.value.split('|') as [string, string];
             doc.moveTask(id, { projectId, sectionId: sectionId || null });
           }}
-          aria-label="Проект"
+          aria-label={tr('Проект')}
         >
-          {task.parentId && <option value="">Подзадача</option>}
-          <option value={`${doc.inboxId}|`}>Входящие</option>
+          {task.parentId && <option value="">{tr('Подзадача')}</option>}
+          <option value={`${doc.inboxId}|`}>{tr('Входящие')}</option>
           {projects.map((p) => [
             <option key={p.project.id} value={`${p.project.id}|`}>
               {'  '.repeat(p.depth)}
@@ -144,7 +145,7 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
             )),
           ])}
         </select>
-        <button className="icon" onClick={onClose} aria-label="Закрыть">
+        <button className="icon" onClick={onClose} aria-label={tr('Закрыть')}>
           <IconX />
         </button>
       </div>
@@ -153,7 +154,7 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
         <div className="panel-title-row">
           <button
             className={`check prio-${task.priority}${task.completedAt ? ' checked' : ''}`}
-            aria-label={task.completedAt ? 'Вернуть в работу' : 'Выполнить'}
+            aria-label={task.completedAt ? tr('Вернуть в работу') : tr('Выполнить')}
             onClick={() => (task.completedAt ? doc.reopenTask(id) : completeWithUndo(doc, task))}
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -170,10 +171,10 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
                 (e.target as HTMLTextAreaElement).blur();
               }
             }}
-            aria-label="Название"
+            aria-label={tr('Название')}
           />
         </div>
-        <textarea className="panel-desc" placeholder="Описание" rows={3} {...description} aria-label="Описание" />
+        <textarea className="panel-desc" placeholder={tr('Описание')} rows={3} {...description} aria-label={tr('Описание')} />
         {extractLinks(`${task.title} ${task.description}`).length > 0 && (
           <div className="links">
             {extractLinks(`${task.title} ${task.description}`).map((url) => (
@@ -194,13 +195,13 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
         )}
 
         <dl className="fields">
-          <dt>Срок</dt>
+          <dt>{tr('Срок')}</dt>
           <dd className="row">
             <input
               type="date"
               value={task.due?.date ?? ''}
               onChange={(e) => setDue(e.target.value ? { ...(task.due ?? {}), date: e.target.value } : null)}
-              aria-label="Дата"
+              aria-label={tr('Дата')}
             />
             <input
               type="time"
@@ -211,44 +212,44 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
                 const { time: _t, tz: _z, ...rest } = task.due;
                 setDue(e.target.value ? { ...rest, time: e.target.value, ...(task.due.tz ? { tz: task.due.tz } : {}) } : rest);
               }}
-              aria-label="Время"
+              aria-label={tr('Время')}
             />
             {task.due && (
-              <button className="icon small" onClick={() => setDue(null)} aria-label="Убрать срок">
+              <button className="icon small" onClick={() => setDue(null)} aria-label={tr('Убрать срок')}>
                 <IconX width={14} height={14} />
               </button>
             )}
           </dd>
 
-          <dt>Повтор</dt>
+          <dt>{tr('Повтор')}</dt>
           <dd>
             {task.recurrence ? (
               <div className="row">
                 <span className="pill">
                   <IconRepeat /> {task.recurrence.text || task.recurrence.rule}
-                  {task.recurrence.mode === 'completion' ? ' (от выполнения)' : ''}
+                  {task.recurrence.mode === 'completion' ? tr(' (от выполнения)') : ''}
                 </span>
-                <button onClick={() => doc.skipOccurrence(id)}>Пропустить раз</button>
-                <button className="icon small" onClick={() => doc.updateTask(id, { recurrence: null })} aria-label="Убрать повтор">
+                <button onClick={() => doc.skipOccurrence(id)}>{tr('Пропустить раз')}</button>
+                <button className="icon small" onClick={() => doc.updateTask(id, { recurrence: null })} aria-label={tr('Убрать повтор')}>
                   <IconX width={14} height={14} />
                 </button>
               </div>
             ) : (
               <input
-                placeholder="каждый понедельник, по будням, каждые 3 дня…"
+                placeholder={tr('каждый понедельник, по будням, каждые 3 дня…')}
                 value={repeatText}
                 onChange={(e) => setRepeatText(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && applyRepeat()}
                 onBlur={applyRepeat}
-                aria-label="Повтор"
+                aria-label={tr('Повтор')}
               />
             )}
           </dd>
 
-          <dt>Напоминания</dt>
+          <dt>{tr('Напоминания')}</dt>
           <dd className="row wrap">
             {!task.due?.time ? (
-              <span className="muted">Нужно время срока</span>
+              <span className="muted">{tr('Нужно время срока')}</span>
             ) : (
               <>
                 {REMINDER_OPTIONS.map(([m, label]) => {
@@ -266,42 +267,42 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
                 })}
                 {task.reminders !== null && (
                   <button className="link" onClick={() => doc.updateTask(id, { reminders: null })}>
-                    как по умолчанию
+                    {tr('как по умолчанию')}
                   </button>
                 )}
               </>
             )}
           </dd>
 
-          <dt>Приоритет</dt>
+          <dt>{tr('Приоритет')}</dt>
           <dd className="row prio-picker">
             {([1, 2, 3, 4] as Priority[]).map((p) => (
               <button key={p} className={`prio-btn prio-${p}${task.priority === p ? ' active' : ''}`} onClick={() => doc.updateTask(id, { priority: p })}>
-                {p === 4 ? 'Нет' : `P${p}`}
+                {p === 4 ? tr('Нет') : `P${p}`}
               </button>
             ))}
           </dd>
 
           {doc.isShared(task.projectId) && (
             <>
-              <dt>Исполнитель</dt>
+              <dt>{tr('Исполнитель')}</dt>
               <dd>
                 <select
                   value={task.assignee ?? ''}
                   onChange={(e) => doc.updateTask(id, { assignee: e.target.value || null })}
-                  aria-label="Исполнитель"
+                  aria-label={tr('Исполнитель')}
                 >
-                  <option value="">Никто</option>
+                  <option value="">{tr('Никто')}</option>
                   {controller.cachedMembers(doc.spaceOfTask(id)).map((m) => (
                     <option key={m.userId} value={m.userId}>
-                      {m.userId === controller.userId ? `${m.email} (вы)` : m.email}
+                      {m.userId === controller.userId ? tr('{email} (вы)', { email: m.email }) : m.email}
                     </option>
                   ))}
                 </select>
               </dd>
             </>
           )}
-          {!doc.isShared(task.projectId) && <dt>Метки</dt>}
+          {!doc.isShared(task.projectId) && <dt>{tr('Метки')}</dt>}
           {!doc.isShared(task.projectId) && (
           <dd className="row wrap">
             {labels.map((l) => {
@@ -318,7 +319,7 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
             })}
             <input
               className="inline"
-              placeholder="+ метка"
+              placeholder={tr('+ метка')}
               onKeyDown={(e) => {
                 const v = e.currentTarget.value.trim();
                 if (e.key === 'Enter' && v) {
@@ -328,31 +329,31 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
                   e.currentTarget.value = '';
                 }
               }}
-              aria-label="Новая метка"
+              aria-label={tr('Новая метка')}
             />
           </dd>
           )}
 
-          <dt>Дедлайн</dt>
+          <dt>{tr('Дедлайн')}</dt>
           <dd className="row">
-            <input type="date" value={task.deadline ?? ''} onChange={(e) => doc.updateTask(id, { deadline: e.target.value || null })} aria-label="Дедлайн" />
+            <input type="date" value={task.deadline ?? ''} onChange={(e) => doc.updateTask(id, { deadline: e.target.value || null })} aria-label={tr('Дедлайн')} />
             {task.deadline && <span className="muted">{dateLabel(task.deadline)}</span>}
           </dd>
 
-          <dt>Начать не раньше</dt>
+          <dt>{tr('Начать не раньше')}</dt>
           <dd className="row">
             <input
               type="date"
               value={task.start?.date ?? ''}
               onChange={(e) => doc.updateTask(id, { start: e.target.value ? { date: e.target.value } : null })}
-              aria-label="Дата начала"
+              aria-label={tr('Дата начала')}
             />
           </dd>
 
-          <dt>Длительность</dt>
+          <dt>{tr('Длительность')}</dt>
           <dd>
-            <select value={task.duration ?? ''} onChange={(e) => doc.updateTask(id, { duration: e.target.value ? Number(e.target.value) : null })} aria-label="Длительность">
-              <option value="">Не задана</option>
+            <select value={task.duration ?? ''} onChange={(e) => doc.updateTask(id, { duration: e.target.value ? Number(e.target.value) : null })} aria-label={tr('Длительность')}>
+              <option value="">{tr('Не задана')}</option>
               {[...new Set([...DURATIONS, ...(task.duration ? [task.duration] : [])])]
                 .sort((a, b) => a - b)
                 .map((m) => (
@@ -365,13 +366,13 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
         </dl>
 
         <section className="subtasks">
-          <h3>Подзадачи</h3>
+          <h3>{tr('Подзадачи')}</h3>
           <TaskTree nodes={doc.subtasks(id)} onOpen={onOpen} selectedId={null} showDate />
           {addingSub ? (
-            <QuickAdd defaults={{ parentId: id }} onClose={() => setAddingSub(false)} placeholder="Подзадача" />
+            <QuickAdd defaults={{ parentId: id }} onClose={() => setAddingSub(false)} placeholder={tr('Подзадача')} />
           ) : (
             <button className="add-row" onClick={() => setAddingSub(true)}>
-              + Добавить подзадачу
+              {tr('+ Добавить подзадачу')}
             </button>
           )}
         </section>
@@ -380,16 +381,16 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
       </div>
 
       <div className="panel-foot">
-        <span className="muted">Создано {new Date(task.createdAt).toLocaleString('ru', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+        <span className="muted">{tr('Создано')} {new Date(task.createdAt).toLocaleString(LOCALE, { dateStyle: 'medium', timeStyle: 'short' })}</span>
         <button
           className="danger"
           onClick={() => {
             doc.deleteTask(id);
             onClose();
-            showToast('Задача удалена', { label: 'Отменить', run: () => doc.undo() });
+            showToast(tr('Задача удалена'), { label: tr('Отменить'), run: () => doc.undo() });
           }}
         >
-          <IconTrash width={16} height={16} /> Удалить
+          <IconTrash width={16} height={16} /> {tr('Удалить')}
         </button>
       </div>
     </aside>

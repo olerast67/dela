@@ -1,3 +1,4 @@
+import { LOCALE, tr } from './i18n.ts';
 /**
  * Где запущен клиент: браузер (сервер отдаёт клиент сам), оболочка Tauri на компьютере
  * или Capacitor на телефоне. В оболочках клиент встроен в приложение, а адрес сервера
@@ -201,6 +202,13 @@ export async function onBackButton(fn: () => boolean): Promise<() => void> {
   return () => void handle.remove();
 }
 
+/** Windows: подписи меню в трее на языке интерфейса. */
+export async function localizeTray(): Promise<void> {
+  if (platform() !== 'tauri') return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('tray_labels', { open: tr('Открыть Dela'), add: tr('Новая задача (Ctrl+Shift+Space)'), quit: tr('Выйти из Dela') });
+}
+
 /** Подписка на событие оболочки «быстрая задача» (трей, глобальное сочетание клавиш). */
 export async function onQuickAddRequest(fn: () => void): Promise<() => void> {
   if (platform() !== 'tauri') return () => undefined;
@@ -249,9 +257,9 @@ export async function biometryUnlock(): Promise<boolean> {
   try {
     const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
     await BiometricAuth.authenticate({
-      reason: 'Разблокировать Dela',
-      androidTitle: 'Разблокировать Dela',
-      cancelTitle: 'Ввести PIN',
+      reason: tr('Разблокировать Dela'),
+      androidTitle: tr('Разблокировать Dela'),
+      cancelTitle: tr('Ввести PIN'),
       allowDeviceCredential: false,
     });
     return true;
@@ -362,7 +370,7 @@ export async function listenVoice(): Promise<string | null> {
   if (platform() !== 'capacitor') return null;
   const { registerPlugin } = await import('@capacitor/core');
   const Voice = registerPlugin<{ listen(o: { lang: string }): Promise<{ text?: string }> }>('VoiceInput');
-  const lang = navigator.language?.startsWith('en') ? 'en-US' : 'ru-RU';
+  const lang = LOCALE;
   return (await Voice.listen({ lang })).text ?? null;
 }
 

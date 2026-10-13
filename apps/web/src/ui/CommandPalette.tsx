@@ -3,6 +3,7 @@ import { normalizeText } from '#core';
 import { controller } from '../controller.ts';
 import { navigate, useDoc, type Route } from '../hooks.ts';
 import { applyTheme } from './Views.tsx';
+import { tr } from '../i18n.ts';
 
 interface Command {
   readonly id: string;
@@ -30,26 +31,26 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
 
   const commands = useMemo<Command[]>(() => {
     const out: Command[] = [
-      { id: 'add', label: 'Новая задача', group: 'Действия', hint: 'Q', run: onQuickAdd },
-      { id: 'inbox', label: 'Входящие', group: 'Перейти', run: go({ view: 'inbox' }) },
-      { id: 'today', label: 'Сегодня', group: 'Перейти', run: go({ view: 'today' }) },
-      { id: 'upcoming', label: 'Предстоящие', group: 'Перейти', run: go({ view: 'upcoming' }) },
-      { id: 'calendar', label: 'Календарь', group: 'Перейти', run: go({ view: 'calendar', mode: null, date: null }) },
-      { id: 'completed', label: 'Выполненные', group: 'Перейти', run: go({ view: 'completed' }) },
-      { id: 'activity', label: 'История', group: 'Перейти', run: go({ view: 'activity' }) },
-      { id: 'templates', label: 'Шаблоны', group: 'Перейти', run: go({ view: 'templates' }) },
-      { id: 'trash', label: 'Корзина', group: 'Перейти', run: go({ view: 'trash' }) },
-      { id: 'settings', label: 'Настройки', group: 'Перейти', run: go({ view: 'settings' }) },
-      ...doc.projects().map((p) => ({ id: `p${p.project.id}`, label: `# ${p.project.name}`, group: 'Проекты', run: go({ view: 'project', id: p.project.id }) })),
-      ...doc.filters().map((f) => ({ id: `f${f.id}`, label: f.name, group: 'Фильтры', run: go({ view: 'filter', id: f.id }) })),
-      ...doc.labels().map((l) => ({ id: `l${l.id}`, label: `@ ${l.name}`, group: 'Метки', run: go({ view: 'label', id: l.id }) })),
-      { id: 'new-filter', label: 'Новый фильтр', group: 'Действия', run: go({ view: 'filter', id: 'new' }) },
-      { id: 'sync', label: 'Синхронизировать сейчас', group: 'Действия', run: () => void controller.syncNow() },
-      ...(controller.getState().lockEnabled ? [{ id: 'lock', label: 'Заблокировать', group: 'Действия', run: () => controller.lockNow() }] : []),
-      { id: 'undo', label: 'Отменить последнее действие', group: 'Действия', hint: 'Ctrl+Z', run: () => doc.undo() },
-      { id: 'dark', label: 'Тёмная тема', group: 'Действия', run: setTheme('dark') },
-      { id: 'light', label: 'Светлая тема', group: 'Действия', run: setTheme('light') },
-      { id: 'system', label: 'Тема как в системе', group: 'Действия', run: setTheme('system') },
+      { id: 'add', label: tr('Новая задача'), group: tr('Действия'), hint: 'Q', run: onQuickAdd },
+      { id: 'inbox', label: tr('Входящие'), group: tr('Перейти'), run: go({ view: 'inbox' }) },
+      { id: 'today', label: tr('Сегодня'), group: tr('Перейти'), run: go({ view: 'today' }) },
+      { id: 'upcoming', label: tr('Предстоящие'), group: tr('Перейти'), run: go({ view: 'upcoming' }) },
+      { id: 'calendar', label: tr('Календарь'), group: tr('Перейти'), run: go({ view: 'calendar', mode: null, date: null }) },
+      { id: 'completed', label: tr('Выполненные'), group: tr('Перейти'), run: go({ view: 'completed' }) },
+      { id: 'activity', label: tr('История'), group: tr('Перейти'), run: go({ view: 'activity' }) },
+      { id: 'templates', label: tr('Шаблоны'), group: tr('Перейти'), run: go({ view: 'templates' }) },
+      { id: 'trash', label: tr('Корзина'), group: tr('Перейти'), run: go({ view: 'trash' }) },
+      { id: 'settings', label: tr('Настройки'), group: tr('Перейти'), run: go({ view: 'settings' }) },
+      ...doc.projects().map((p) => ({ id: `p${p.project.id}`, label: `# ${p.project.name}`, group: tr('Проекты'), run: go({ view: 'project', id: p.project.id }) })),
+      ...doc.filters().map((f) => ({ id: `f${f.id}`, label: f.name, group: tr('Фильтры'), run: go({ view: 'filter', id: f.id }) })),
+      ...doc.labels().map((l) => ({ id: `l${l.id}`, label: `@ ${l.name}`, group: tr('Метки'), run: go({ view: 'label', id: l.id }) })),
+      { id: 'new-filter', label: tr('Новый фильтр'), group: tr('Действия'), run: go({ view: 'filter', id: 'new' }) },
+      { id: 'sync', label: tr('Синхронизировать сейчас'), group: tr('Действия'), run: () => void controller.syncNow() },
+      ...(controller.getState().lockEnabled ? [{ id: 'lock', label: tr('Заблокировать'), group: tr('Действия'), run: () => controller.lockNow() }] : []),
+      { id: 'undo', label: tr('Отменить последнее действие'), group: tr('Действия'), hint: 'Ctrl+Z', run: () => doc.undo() },
+      { id: 'dark', label: tr('Тёмная тема'), group: tr('Действия'), run: setTheme('dark') },
+      { id: 'light', label: tr('Светлая тема'), group: tr('Действия'), run: setTheme('light') },
+      { id: 'system', label: tr('Тема как в системе'), group: tr('Действия'), run: setTheme('system') },
     ];
     return out;
   }, [doc, onQuickAdd]);
@@ -58,7 +59,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
   const matched = needle ? commands.filter((c) => normalizeText(c.label).includes(needle)) : commands;
   const tasks: Command[] =
     needle.length >= 2
-      ? doc.search(query).slice(0, 8).map((t) => ({ id: `t${t.id}`, label: t.title, group: 'Задачи', run: () => onOpen(t.id) }))
+      ? doc.search(query).slice(0, 8).map((t) => ({ id: `t${t.id}`, label: t.title, group: tr('Задачи'), run: () => onOpen(t.id) }))
       : [];
   const items = [...matched, ...tasks];
   const current = Math.min(active, Math.max(0, items.length - 1));
@@ -77,11 +78,11 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
   let lastGroup = '';
   return (
     <div className="modal-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal palette" role="dialog" aria-label="Команды">
+      <div className="modal palette" role="dialog" aria-label={tr('Команды')}>
         <input
           autoFocus
           className="palette-input"
-          placeholder="Куда перейти или что сделать…"
+          placeholder={tr('Куда перейти или что сделать…')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -96,7 +97,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
               run(items[current]);
             } else if (e.key === 'Escape') onClose();
           }}
-          aria-label="Команда"
+          aria-label={tr('Команда')}
         />
         <div className="palette-list" ref={list} role="listbox">
           {items.map((c, i) => {
@@ -118,7 +119,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
               </div>
             );
           })}
-          {items.length === 0 && <p className="empty">Ничего не найдено.</p>}
+          {items.length === 0 && <p className="empty">{tr('Ничего не найдено.')}</p>}
         </div>
       </div>
     </div>
@@ -126,32 +127,32 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
 }
 
 const SHORTCUTS: Array<[string, string]> = [
-  ['Q', 'Новая задача'],
-  ['Ctrl+K', 'Команды и переход'],
-  ['/', 'Поиск'],
-  ['↓ ↑ или J K', 'Перейти по задачам'],
-  ['Enter', 'Открыть задачу'],
-  ['E', 'Выполнить задачу'],
-  ['T', 'Перенести на сегодня'],
-  ['Delete', 'Удалить задачу'],
-  ['Ctrl+Z', 'Отменить'],
-  ['G затем T / U / C / I', 'Сегодня, Предстоящие, Календарь, Входящие'],
-  ['Esc', 'Закрыть'],
-  ['?', 'Эта справка'],
+  ['Q', tr('Новая задача')],
+  ['Ctrl+K', tr('Команды и переход')],
+  ['/', tr('Поиск')],
+  [tr('↓ ↑ или J K'), tr('Перейти по задачам')],
+  ['Enter', tr('Открыть задачу')],
+  ['E', tr('Выполнить задачу')],
+  ['T', tr('Перенести на сегодня')],
+  ['Delete', tr('Удалить задачу')],
+  ['Ctrl+Z', tr('Отменить')],
+  [tr('G затем T / U / C / I'), tr('Сегодня, Предстоящие, Календарь, Входящие')],
+  ['Esc', tr('Закрыть')],
+  ['?', tr('Эта справка')],
 ];
 
 export function ShortcutsHelp({ onClose }: { onClose: () => void }) {
   return (
     <div className="modal-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal palette" role="dialog" aria-label="Горячие клавиши">
-        <h2 className="palette-title">Горячие клавиши</h2>
-        <p className="muted palette-note">Работают в любой раскладке.</p>
+      <div className="modal palette" role="dialog" aria-label={tr('Горячие клавиши')}>
+        <h2 className="palette-title">{tr('Горячие клавиши')}</h2>
+        <p className="muted palette-note">{tr('Работают в любой раскладке.')}</p>
         <dl className="shortcuts">
           {SHORTCUTS.map(([k, v]) => [<dt key={`k${k}`}><kbd>{k}</kbd></dt>, <dd key={`v${k}`}>{v}</dd>])}
         </dl>
         <div className="row palette-foot">
           <button onClick={onClose} autoFocus>
-            Закрыть
+            {tr('Закрыть')}
           </button>
         </div>
       </div>

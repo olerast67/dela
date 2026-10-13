@@ -24,7 +24,7 @@
             </intent-filter>
 
             <!-- «Поделиться» текстом или ссылкой из других приложений -->
-            <intent-filter android:label="Задача в Dela">
+            <intent-filter android:label="@string/share_label">
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
@@ -35,7 +35,7 @@
         <!-- Виджет «Задачи» на главном экране -->
         <receiver
             android:name=".TasksWidgetProvider"
-            android:label="Dela: задачи"
+            android:label="@string/widget_label"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -57,7 +57,7 @@
 
         <activity
             android:name=".WidgetConfigActivity"
-            android:label="Настройки виджета"
+            android:label="@string/widget_config_title"
             android:theme="@style/WidgetConfigTheme"
             android:taskAffinity=""
             android:excludeFromRecents="true"

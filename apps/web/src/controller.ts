@@ -9,6 +9,7 @@ import {
   openAccountWithPasskey,
   wrapMasterForPasskey,
   widgetSnapshot,
+  WIDGET_TASK_LIMIT,
   type WidgetSnapshot,
   hashPin,
   isValidPin,
@@ -58,6 +59,7 @@ import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
 import { createPasskey, getPasskey } from './passkey.ts';
 import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
+import { LANG, tr } from './i18n.ts';
 
 function loadFired(): string[] {
   try {
@@ -131,10 +133,10 @@ function deviceName(): string {
           ? 'macOS'
           : /Linux/.test(ua)
             ? 'Linux'
-            : 'устройство';
+            : tr('устройство');
   // В приложениях для телефона и Windows движок браузера пользователю ничего не говорит.
-  if (platform() !== 'web') return `Приложение Dela · ${os}`;
-  const browser = /Firefox\//.test(ua) ? 'Firefox' : /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Браузер';
+  if (platform() !== 'web') return tr('Приложение Dela · {os}', { os: os });
+  const browser = /Firefox\//.test(ua) ? 'Firefox' : /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : tr('Браузер');
   return `${browser} · ${os}`;
 }
 
@@ -213,7 +215,7 @@ export class Controller {
     } catch (err) {
       console.error('cannot restore session', err);
       await this.store.clear();
-      this.set({ phase: 'auth', notice: 'Не удалось открыть сохранённую сессию. Войдите снова.' });
+      this.set({ phase: 'auth', notice: tr('Не удалось открыть сохранённую сессию. Войдите снова.') });
     }
   }
 
@@ -226,7 +228,7 @@ export class Controller {
     });
     await this.persistAndStart(session);
     // Новый аккаунт начинается с нескольких задач: первая — подписаться на автора проекта.
-    for (const t of welcomeTasks(new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()))) this.doc?.createTask(t);
+    for (const t of welcomeTasks(new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()), LANG)) this.doc?.createTask(t);
     this.set({ phase: 'recovery', recoveryKey });
   }
 
@@ -279,7 +281,7 @@ export class Controller {
       this.deletingAccount = false;
       throw err;
     }
-    await this.logout('Аккаунт удалён.');
+    await this.logout(tr('Аккаунт удалён.'));
     this.deletingAccount = false;
   }
 
@@ -329,7 +331,7 @@ export class Controller {
       token: '',
       userId: uuidv7(),
       deviceId: 'local',
-      email: 'Без сервера',
+      email: tr('Без сервера'),
       isAdmin: false,
       spaceId: uuidv7(),
       node: newNodeId(),
@@ -338,7 +340,7 @@ export class Controller {
     };
     await this.store.setMeta('session', stored);
     await this.start(stored, secrets);
-    for (const t of welcomeTasks(new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()))) this.doc?.createTask(t);
+    for (const t of welcomeTasks(new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()), LANG)) this.doc?.createTask(t);
   }
 
   private async start(stored: StoredSession, secrets: SecretKeys): Promise<void> {
@@ -403,7 +405,7 @@ export class Controller {
       restamp: () => this.clock!.tick(),
       onStatus: () => this.updateStatus(),
       onUnauthorized: () => {
-        if (!this.deletingAccount) void this.logout('Сессия на этом устройстве завершена. Войдите снова.');
+        if (!this.deletingAccount) void this.logout(tr('Сессия на этом устройстве завершена. Войдите снова.'));
       },
     });
     this.engines.set(spaceId, engine);
@@ -815,7 +817,7 @@ export class Controller {
       if (this.ws !== ws) return;
       this.ws = null;
       if (e.code === 4001) {
-        if (!this.deletingAccount) void this.logout('Сессия на этом устройстве завершена. Войдите снова.');
+        if (!this.deletingAccount) void this.logout(tr('Сессия на этом устройстве завершена. Войдите снова.'));
         return;
       }
       const delay = Math.min(30_000, 1000 * 2 ** this.wsRetry++);
@@ -971,9 +973,9 @@ export class Controller {
       list.map(async (r) => {
         const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(r.key)));
         const id = [...digest.subarray(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
-        const body = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
+        const body = r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
         // Сервер принимает до 1 КБ на напоминание: длинное название обрезается, иначе отклонилось бы всё расписание.
-        const content = { t: (r.title || 'Задача').slice(0, 200), b: body, k: r.key, id: r.taskId };
+        const content = { t: (r.title || tr('Задача')).slice(0, 200), b: body, k: r.key, id: r.taskId };
         return { id, fireAt: r.at, payload: platform() === 'capacitor' ? await this.sealForPhone(content) : await sealLocalB64(this.store, content) };
       }),
     );
@@ -1021,7 +1023,7 @@ export class Controller {
   private syncWidget(): void {
     if (!this.doc) return;
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
-    void updateWidget(widgetSnapshot(this.doc, today, TZ, this.lock !== null)).catch((err) => console.error('widget update failed', err));
+    void updateWidget(widgetSnapshot(this.doc, today, TZ, this.lock !== null, WIDGET_TASK_LIMIT, tr('Входящие'))).catch((err) => console.error('widget update failed', err));
   }
 
   /** Отметки «выполнено» с виджета: применяются как обычное выполнение (повторы переносятся). */
@@ -1044,8 +1046,8 @@ export class Controller {
       list.map((r) => ({
         key: r.key,
         at: r.at,
-        title: r.title || 'Задача',
-        body: r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`,
+        title: r.title || tr('Задача'),
+        body: r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) }),
         taskId: r.taskId,
       })),
     ).catch((err) => console.error('native reminders failed', err));
@@ -1053,14 +1055,14 @@ export class Controller {
 
   private async fire(r: Reminder): Promise<void> {
     this.onReminder?.(r);
-    const text = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
-    if (await nativeNotify(r.title || 'Задача', text).catch(() => false)) return;
+    const text = r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
+    if (await nativeNotify(r.title || tr('Задача'), text).catch(() => false)) return;
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    const body = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
+    const body = r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
-      if (reg) await reg.showNotification(r.title || 'Задача', { body, tag: r.key, data: { taskId: r.taskId }, icon: '/icon-192.png' });
-      else new Notification(r.title || 'Задача', { body, tag: r.key });
+      if (reg) await reg.showNotification(r.title || tr('Задача'), { body, tag: r.key, data: { taskId: r.taskId }, icon: '/icon-192.png' });
+      else new Notification(r.title || tr('Задача'), { body, tag: r.key });
     } catch (err) {
       console.error('notification failed', err);
     }
@@ -1110,14 +1112,14 @@ export class Controller {
 
   /** Задать или сменить PIN. Смена требует текущий PIN. */
   async setPin(pin: string, current?: string): Promise<void> {
-    if (!isValidPin(pin)) throw new Error('PIN: от 4 до 8 цифр');
-    if (this.lock && !(current !== undefined && verifyPin(this.lock.pinHash, current))) throw new Error('Текущий PIN неверный');
+    if (!isValidPin(pin)) throw new Error(tr('PIN: от 4 до 8 цифр'));
+    if (this.lock && !(current !== undefined && verifyPin(this.lock.pinHash, current))) throw new Error(tr('Текущий PIN неверный'));
     await this.saveLock({ pinHash: hashPin(pin), timeoutMin: this.lock?.timeoutMin ?? 1, biometric: this.lock?.biometric ?? false, failures: 0, blockedUntil: 0 });
   }
 
   async disableLock(current: string): Promise<void> {
     if (!this.lock) return;
-    if (!verifyPin(this.lock.pinHash, current)) throw new Error('PIN неверный');
+    if (!verifyPin(this.lock.pinHash, current)) throw new Error(tr('PIN неверный'));
     await this.saveLock(null);
     this.set({ locked: false });
   }
@@ -1147,7 +1149,7 @@ export class Controller {
           // нет сети: неотправленное пропадёт вместе с данными устройства
         }
       }
-      await this.logout('Слишком много неверных PIN-кодов. Данные на этом устройстве стёрты, войдите с паролем.');
+      await this.logout(tr('Слишком много неверных PIN-кодов. Данные на этом устройстве стёрты, войдите с паролем.'));
       return result;
     }
     await this.saveLock(result.config);

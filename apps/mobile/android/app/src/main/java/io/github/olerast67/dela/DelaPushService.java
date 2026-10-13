@@ -60,10 +60,10 @@ public class DelaPushService extends PushService {
         try {
             JSONObject outer = new JSONObject(new String(message.getContent(), StandardCharsets.UTF_8));
             JSONObject r = new JSONObject(decrypt(outer.getString("p")));
-            show(r.optString("t", "Задача"), r.optString("b", ""), r.optString("id", null), r.optString("k", "dela"));
+            show(r.optString("t", getString(R.string.notify_task)), r.optString("b", ""), r.optString("id", null), r.optString("k", "dela"));
         } catch (Exception err) {
             // Без ключа или с чужим ключом показываем общее напоминание: текст на сервере не виден.
-            show("Напоминание Dela", "Откройте приложение", null, "dela");
+            show(getString(R.string.notify_generic_title), getString(R.string.notify_generic_text), null, "dela");
         }
     }
 
@@ -80,7 +80,7 @@ public class DelaPushService extends PushService {
     private void show(String title, String body, String taskId, String key) {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(new NotificationChannel(CHANNEL, "Напоминания", NotificationManager.IMPORTANCE_HIGH));
+            nm.createNotificationChannel(new NotificationChannel(CHANNEL, getString(R.string.notify_channel), NotificationManager.IMPORTANCE_HIGH));
         }
         Intent open = new Intent(this, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -97,7 +97,7 @@ public class DelaPushService extends PushService {
             // На экране блокировки без названия задачи: оно видно после разблокировки телефона.
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(
-                new NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_tile_add).setContentTitle("Напоминание Dela").build()
+                new NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_tile_add).setContentTitle(getString(R.string.notify_generic_title)).build()
             );
         try {
             nm.notify(key.hashCode(), n.build());

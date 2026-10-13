@@ -1,12 +1,13 @@
 /** История действий и шаблоны проектов. */
 import { useRef, useState } from 'react';
-import { BUILTIN_TEMPLATES, applyTemplate, parseTemplate, projectToTemplate, type ProjectTemplate } from '#core';
+import { applyTemplate, builtinTemplates, parseTemplate, projectToTemplate, type ProjectTemplate } from '#core';
 import { controller } from '../controller.ts';
 import { TZ, dayHeading, todayDate } from '../format.ts';
 import { navigate, useDoc } from '../hooks.ts';
 import { showToast } from './toast.tsx';
+import { LANG, LOCALE, tr } from '../i18n.ts';
 
-const KIND: Record<string, string> = { created: 'Создана', completed: 'Выполнена', deleted: 'Удалена', comment: 'Комментарий' };
+const KIND: Record<string, string> = { created: tr('Создана'), completed: tr('Выполнена'), deleted: tr('Удалена'), comment: tr('Комментарий') };
 
 export function ActivityView({ onOpen }: { onOpen: (id: string) => void }) {
   const doc = useDoc();
@@ -20,10 +21,10 @@ export function ActivityView({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <>
       <header className="view-head">
-        <h1>История</h1>
-        <select value={project} onChange={(e) => setProject(e.target.value)} aria-label="Проект">
-          <option value="">Все проекты</option>
-          <option value={doc.inboxId}>Входящие</option>
+        <h1>{tr('История')}</h1>
+        <select value={project} onChange={(e) => setProject(e.target.value)} aria-label={tr('Проект')}>
+          <option value="">{tr('Все проекты')}</option>
+          <option value={doc.inboxId}>{tr('Входящие')}</option>
           {doc.projects().map((p) => (
             <option key={p.project.id} value={p.project.id}>
               {p.project.name}
@@ -31,7 +32,7 @@ export function ActivityView({ onOpen }: { onOpen: (id: string) => void }) {
           ))}
         </select>
       </header>
-      {shown.length === 0 && <p className="empty">Здесь появятся созданные, выполненные и удалённые задачи и комментарии.</p>}
+      {shown.length === 0 && <p className="empty">{tr('Здесь появятся созданные, выполненные и удалённые задачи и комментарии.')}</p>}
       {shown.map((e, i) => {
         const d = day(e.at);
         const head = d !== current;
@@ -42,10 +43,10 @@ export function ActivityView({ onOpen }: { onOpen: (id: string) => void }) {
           <div key={`${e.kind}-${e.taskId}-${e.at}-${i}`}>
             {head && <h2>{dayHeading(d, today)}</h2>}
             <div className={`activity-row kind-${e.kind}${alive ? ' link' : ''}`} onClick={() => alive && onOpen(e.taskId)}>
-              <span className="activity-time">{new Date(e.at).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</span>
+              <span className="activity-time">{new Date(e.at).toLocaleTimeString(LOCALE, { hour: '2-digit', minute: '2-digit' })}</span>
               <span className="activity-kind">{KIND[e.kind]}</span>
               <span className="activity-title">
-                {e.title || 'Без названия'}
+                {e.title || tr('Без названия')}
                 {e.kind === 'comment' && e.text ? <span className="muted"> · {e.text.slice(0, 80)}</span> : null}
               </span>
               {who && <span className="muted activity-who">{who}</span>}
@@ -55,7 +56,7 @@ export function ActivityView({ onOpen }: { onOpen: (id: string) => void }) {
       })}
       {events.length > limit && (
         <button className="add-row" onClick={() => setLimit(limit + 200)}>
-          Показать ещё
+          {tr('Показать ещё')}
         </button>
       )}
     </>
@@ -73,9 +74,9 @@ function download(name: string, data: unknown): void {
 
 /** Сохранить проект как шаблон (кнопка в заголовке проекта). */
 export function saveProjectAsTemplate(doc: ReturnType<typeof useDoc>, projectId: string): void {
-  const tpl = projectToTemplate(doc, projectId, todayDate(), TZ);
+  const tpl = projectToTemplate(doc, projectId, todayDate(), TZ, tr('Входящие'));
   doc.saveTemplate(tpl.name, tpl);
-  showToast('Шаблон сохранён', { label: 'Открыть', run: () => navigate({ view: 'templates' }) });
+  showToast(tr('Шаблон сохранён'), { label: tr('Открыть'), run: () => navigate({ view: 'templates' }) });
 }
 
 export function TemplatesView() {
@@ -90,14 +91,14 @@ export function TemplatesView() {
   return (
     <>
       <header className="view-head">
-        <h1>Шаблоны</h1>
-        <button onClick={() => file.current?.click()}>Загрузить из файла</button>
+        <h1>{tr('Шаблоны')}</h1>
+        <button onClick={() => file.current?.click()}>{tr('Загрузить из файла')}</button>
         <input
           ref={file}
           type="file"
           accept=".json,application/json"
           hidden
-          aria-label="Файл шаблона"
+          aria-label={tr('Файл шаблона')}
           onChange={async (e) => {
             const f = e.target.files?.[0];
             e.target.value = '';
@@ -105,16 +106,16 @@ export function TemplatesView() {
             try {
               const tpl = parseTemplate(JSON.parse(await f.text()));
               doc.saveTemplate(tpl.name, tpl);
-              setMsg(`Шаблон «${tpl.name}» добавлен.`);
+              setMsg(tr('Шаблон «{name}» добавлен.', { name: tpl.name }));
             } catch (err) {
-              setMsg(err instanceof Error ? err.message : 'Файл не подошёл');
+              setMsg(err instanceof Error ? tr(err.message) : tr('Файл не подошёл'));
             }
           }}
         />
       </header>
       {msg && <p className="muted">{msg}</p>}
-      <p className="muted">Шаблон создаёт проект с разделами и задачами. Сроки считаются от дня создания. Свой шаблон: кнопка «Шаблон» в заголовке проекта.</p>
-      {own.length > 0 && <h2>Мои</h2>}
+      <p className="muted">{tr('Шаблон создаёт проект с разделами и задачами. Сроки считаются от дня создания. Свой шаблон: кнопка «Шаблон» в заголовке проекта.')}</p>
+      {own.length > 0 && <h2>{tr('Мои')}</h2>}
       <div className="template-grid">
         {own.map((t) => {
           let tpl: ProjectTemplate | null = null;
@@ -127,36 +128,36 @@ export function TemplatesView() {
           return (
             <div key={t.id} className="template-card">
               <b>{t.name}</b>
-              <span className="muted">{tpl ? `${tpl.sections.length} разд. · ${count} задач` : 'Шаблон повреждён'}</span>
+              <span className="muted">{tpl ? tr('{length} разд. · {count} задач', { length: tpl.sections.length, count: count }) : tr('Шаблон повреждён')}</span>
               <div className="row">
                 {tpl && (
                   <button className="primary" onClick={() => create(tpl!)}>
-                    Создать проект
+                    {tr('Создать проект')}
                   </button>
                 )}
-                {tpl && <button onClick={() => download(t.name, tpl)}>Скачать</button>}
+                {tpl && <button onClick={() => download(t.name, tpl)}>{tr('Скачать')}</button>}
                 <button
                   className="danger"
                   onClick={() => {
-                    if (confirm(`Удалить шаблон «${t.name}»?`)) doc.deleteTemplate(t.id);
+                    if (confirm(tr('Удалить шаблон «{name}»?', { name: t.name }))) doc.deleteTemplate(t.id);
                   }}
                 >
-                  Удалить
+                  {tr('Удалить')}
                 </button>
               </div>
             </div>
           );
         })}
       </div>
-      <h2>Готовые</h2>
+      <h2>{tr('Готовые')}</h2>
       <div className="template-grid">
-        {BUILTIN_TEMPLATES.map((t) => (
+        {builtinTemplates(LANG).map((t) => (
           <div key={t.name} className="template-card">
             <b>{t.name}</b>
             <span className="muted">{t.description}</span>
             <div className="row">
               <button className="primary" onClick={() => create(t)}>
-                Создать проект
+                {tr('Создать проект')}
               </button>
             </div>
           </div>

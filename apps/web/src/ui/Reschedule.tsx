@@ -5,6 +5,7 @@ import { todayDate, weekdayShort } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { haptic } from '../platform.ts';
 import { showToast } from './toast.tsx';
+import { tr } from '../i18n.ts';
 
 export function RescheduleSheet({ task, onClose }: { task: TaskView; onClose: () => void }) {
   const doc = useDoc();
@@ -12,21 +13,21 @@ export function RescheduleSheet({ task, onClose }: { task: TaskView; onClose: ()
   const saturday = addDays(today, ((6 - isoWeekday(today) + 7) % 7) || 7);
   const monday = addDays(today, 8 - isoWeekday(today));
   const options: ReadonlyArray<[string, string | null, string]> = [
-    ['Сегодня', today, weekdayShort(today)],
-    ['Завтра', addDays(today, 1), weekdayShort(addDays(today, 1))],
-    ['В выходные', saturday, `Сб ${Number(saturday.slice(8))}`],
-    ['На следующей неделе', monday, `Пн ${Number(monday.slice(8))}`],
-    ['Без даты', null, ''],
+    [tr('Сегодня'), today, weekdayShort(today)],
+    [tr('Завтра'), addDays(today, 1), weekdayShort(addDays(today, 1))],
+    [tr('В выходные'), saturday, tr('Сб {n}', { n: Number(saturday.slice(8)) })],
+    [tr('На следующей неделе'), monday, tr('Пн {n}', { n: Number(monday.slice(8)) })],
+    [tr('Без даты'), null, ''],
   ];
   const move = (date: string | null) => {
     doc.updateTask(task.id, { due: date ? { ...(task.due ?? {}), date } : null });
     haptic('light');
-    showToast(date ? 'Задача перенесена' : 'Дата убрана', { label: 'Отменить', run: () => doc.undo() });
+    showToast(date ? tr('Задача перенесена') : tr('Дата убрана'), { label: tr('Отменить'), run: () => doc.undo() });
     onClose();
   };
   return createPortal(
     <div className="sheet-scrim" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-label="Перенести задачу" onClick={(e) => e.stopPropagation()}>
+      <div className="sheet" role="dialog" aria-label={tr('Перенести задачу')} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grip" aria-hidden="true" />
         <div className="sheet-title">{task.title}</div>
         {options.map(([label, date, hint]) => (
@@ -36,8 +37,8 @@ export function RescheduleSheet({ task, onClose }: { task: TaskView; onClose: ()
           </button>
         ))}
         <label className="sheet-option">
-          <span>Выбрать дату</span>
-          <input type="date" defaultValue={task.due?.date ?? today} onChange={(e) => e.target.value && move(e.target.value)} aria-label="Дата" />
+          <span>{tr('Выбрать дату')}</span>
+          <input type="date" defaultValue={task.due?.date ?? today} onChange={(e) => e.target.value && move(e.target.value)} aria-label={tr('Дата')} />
         </label>
       </div>
     </div>,

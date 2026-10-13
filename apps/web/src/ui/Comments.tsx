@@ -8,6 +8,7 @@ import { controller } from '../controller.ts';
 import { useDoc } from '../hooks.ts';
 import { openExternal } from '../platform.ts';
 import { IconX } from './icons.tsx';
+import { LOCALE, tr } from '../i18n.ts';
 
 /** Шифротекст файла не больше 7 МиБ: столько принимает сервер. */
 const MAX_FILE = 7 * 1024 * 1024 - 1024;
@@ -15,9 +16,9 @@ const MAX_FILE = 7 * 1024 * 1024 - 1024;
 const RASTER = /^image\/(png|jpeg|gif|webp|avif)$/;
 
 function sizeLabel(n: number): string {
-  if (n < 1024) return `${n} Б`;
-  if (n < 1024 * 1024) return `${Math.round(n / 1024)} КБ`;
-  return `${(n / 1024 / 1024).toFixed(1)} МБ`;
+  if (n < 1024) return tr('{n} Б', { n: n });
+  if (n < 1024 * 1024) return tr('{n} КБ', { n: Math.round(n / 1024) });
+  return tr('{n} МБ', { n: (n / 1024 / 1024).toFixed(1) });
 }
 
 async function decrypt(spaceId: string, file: Attachment): Promise<Blob> {
@@ -61,10 +62,10 @@ function FileView({ spaceId, file }: { spaceId: string; file: Attachment }) {
   return (
     <div className="comment-file">
       {image && url && <img src={url} alt={file.name} onClick={() => void download()} />}
-      <button className="file-chip" onClick={() => void download()} title="Скачать">
+      <button className="file-chip" onClick={() => void download()} title={tr('Скачать')}>
         {file.name} <span className="muted">· {sizeLabel(file.size)}</span>
       </button>
-      {error && <span className="error">Не удалось открыть файл</span>}
+      {error && <span className="error">{tr('Не удалось открыть файл')}</span>}
     </div>
   );
 }
@@ -72,7 +73,7 @@ function FileView({ spaceId, file }: { spaceId: string; file: Attachment }) {
 function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
   const doc = useDoc();
   const mine = c.author !== null && c.author === controller.userId;
-  const who = mine ? 'Вы' : c.author ? (controller.memberEmail(spaceId, c.author) ?? 'Участник') : 'Участник';
+  const who = mine ? tr('Вы') : c.author ? (controller.memberEmail(spaceId, c.author) ?? tr('Участник')) : tr('Участник');
   const links = extractLinks(c.text);
   return (
     <div className="comment">
@@ -81,13 +82,13 @@ function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
           {who[0]!.toUpperCase()}
         </span>
         <b>{who}</b>
-        <span className="muted">{new Date(c.createdAt).toLocaleString('ru', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+        <span className="muted">{new Date(c.createdAt).toLocaleString(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
         {mine && (
           <button
             className="icon small comment-del"
-            aria-label="Удалить комментарий"
+            aria-label={tr('Удалить комментарий')}
             onClick={() => {
-              if (!confirm('Удалить комментарий? Отменить это нельзя.')) return;
+              if (!confirm(tr('Удалить комментарий? Отменить это нельзя.'))) return;
               const file = doc.deleteComment(c.id);
               if (file) void controller.api.deleteFile(spaceId, file.id).catch(() => undefined);
             }}
@@ -136,7 +137,7 @@ export function Comments({ taskId }: { taskId: string }) {
       let attachment: Attachment | null = null;
       if (file) {
         if (file.size > MAX_FILE) {
-          setMsg('Файл больше 7 МБ. Такие файлы пока не помещаются.');
+          setMsg(tr('Файл больше 7 МБ. Такие файлы пока не помещаются.'));
           return;
         }
         const id = uuidv7();
@@ -149,7 +150,7 @@ export function Comments({ taskId }: { taskId: string }) {
       setFile(null);
       if (picker.current) picker.current.value = '';
     } catch {
-      setMsg('Файл не загрузился. Нужна связь с сервером.');
+      setMsg(tr('Файл не загрузился. Нужна связь с сервером.'));
     } finally {
       setBusy(false);
     }
@@ -160,14 +161,14 @@ export function Comments({ taskId }: { taskId: string }) {
     if (!f) return false;
     const pasted = f.name === '' || /^image\.\w+$/.test(f.name);
     const stamp = new Date().toLocaleString('sv-SE').replace(/:/g, '-').slice(0, 16);
-    setFile(pasted ? new File([f], `Снимок ${stamp}.${f.type.split('/')[1] || 'png'}`, { type: f.type }) : f);
+    setFile(pasted ? new File([f], tr('Снимок {stamp}.{n}', { stamp: stamp, n: f.type.split('/')[1] || 'png' }), { type: f.type }) : f);
     setMsg(null);
     return true;
   };
 
   return (
     <section className="comments">
-      <h3>Комментарии{list.length ? ` · ${list.length}` : ''}</h3>
+      <h3>{tr('Комментарии')}{list.length ? ` · ${list.length}` : ''}</h3>
       {list.map((c) => (
         <CommentItem key={c.id} c={c} spaceId={spaceId} />
       ))}
@@ -182,8 +183,8 @@ export function Comments({ taskId }: { taskId: string }) {
       >
         <textarea
           rows={2}
-          placeholder="Комментарий"
-          aria-label="Новый комментарий"
+          placeholder={tr('Комментарий')}
+          aria-label={tr('Новый комментарий')}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onPaste={(e) => {
@@ -197,12 +198,12 @@ export function Comments({ taskId }: { taskId: string }) {
           }}
         />
         <div className="row">
-          <input ref={picker} type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Файл" />
+          <input ref={picker} type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label={tr('Файл')} />
           <button type="button" onClick={() => picker.current?.click()}>
-            {file ? `${file.name} · ${sizeLabel(file.size)}` : 'Прикрепить файл или снимок'}
+            {file ? `${file.name} · ${sizeLabel(file.size)}` : tr('Прикрепить файл или снимок')}
           </button>
           <button type="button" className="primary" disabled={busy || (!text.trim() && !file)} onClick={() => void submit()}>
-            {busy ? 'Отправка...' : 'Отправить'}
+            {busy ? tr('Отправка...') : tr('Отправить')}
           </button>
         </div>
         {msg && (

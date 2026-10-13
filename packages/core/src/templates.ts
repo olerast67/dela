@@ -32,7 +32,7 @@ export interface ProjectTemplate {
 }
 
 /** Собрать шаблон из проекта: открытые задачи, сроки становятся смещением от today. */
-export function projectToTemplate(ws: Workspace, projectId: string, today: string, tz: string): ProjectTemplate {
+export function projectToTemplate(ws: Workspace, projectId: string, today: string, tz: string, inboxName = 'Входящие'): ProjectTemplate {
   const project = ws.project(projectId);
   if (!project) throw new Error('unknown project');
   const labelName = (id: string) => ws.label(id)?.name;
@@ -55,7 +55,7 @@ export function projectToTemplate(ws: Workspace, projectId: string, today: strin
   const view = ws.projectTasks(projectId);
   return {
     v: 1,
-    name: project.isInbox ? 'Входящие' : project.name,
+    name: project.isInbox ? inboxName : project.name,
     color: project.color,
     tasks: view.unsectioned.map(toTpl),
     sections: view.sections.map((s) => ({ name: s.section.name, tasks: s.tasks.map(toTpl) })),
@@ -172,3 +172,47 @@ export const BUILTIN_TEMPLATES: readonly ProjectTemplate[] = [
     sections: [],
   },
 ];
+
+/** Готовые шаблоны по-английски: те же проекты, что в BUILTIN_TEMPLATES. */
+export const BUILTIN_TEMPLATES_EN: readonly ProjectTemplate[] = [
+  {
+    v: 1,
+    name: 'YouTube video',
+    color: 'red',
+    description: 'From the idea to publishing and the retention review',
+    tasks: [],
+    sections: [
+      { name: 'Preparation', tasks: [{ title: 'Collect facts and key points', dueIn: 0 }, { title: 'Write the script', dueIn: 1, priority: 2 }, { title: 'List of extra shots', dueIn: 1 }] },
+      { name: 'Shooting', tasks: [{ title: 'Record the voice-over', dueIn: 2 }, { title: 'Shoot B-roll', dueIn: 2 }] },
+      { name: 'Editing', tasks: [{ title: 'Rough cut', dueIn: 3, priority: 2 }, { title: 'Graphics, music, sound', dueIn: 4 }, { title: 'Thumbnail and three title options', dueIn: 4, priority: 1 }] },
+      { name: 'Publishing', tasks: [{ title: 'Description with chapters', dueIn: 5 }, { title: 'Publish', dueIn: 5, priority: 1 }, { title: 'Review retention a week later', dueIn: 12 }] },
+    ],
+  },
+  {
+    v: 1,
+    name: 'Moving house',
+    color: 'orange',
+    description: 'What to do before and after the move',
+    tasks: [],
+    sections: [
+      { name: 'A month before', tasks: [{ title: 'Choose a moving company', dueIn: 0, priority: 2 }, { title: 'Sort things out, sell what you do not need', dueIn: 7 }] },
+      { name: 'A week before', tasks: [{ title: 'Buy boxes and tape', dueIn: 21 }, { title: 'Move the internet to the new address', dueIn: 21, priority: 1 }] },
+      { name: 'After', tasks: [{ title: 'Change the address at the bank and post office', dueIn: 31 }, { title: 'Submit meter readings', dueIn: 31 }] },
+    ],
+  },
+  {
+    v: 1,
+    name: 'Week',
+    color: 'green',
+    description: 'Weekly review every Sunday',
+    tasks: [
+      { title: 'Weekly review: sort the Inbox', recurrence: { rule: 'FREQ=WEEKLY;BYDAY=SU', mode: 'schedule', text: 'every sunday' }, dueIn: 0 },
+      { title: 'Pick the three main tasks for the week', recurrence: { rule: 'FREQ=WEEKLY;BYDAY=MO', mode: 'schedule', text: 'every monday' }, dueIn: 1, priority: 1 },
+    ],
+    sections: [],
+  },
+];
+
+export function builtinTemplates(lang: 'ru' | 'en' = 'ru'): readonly ProjectTemplate[] {
+  return lang === 'en' ? BUILTIN_TEMPLATES_EN : BUILTIN_TEMPLATES;
+}

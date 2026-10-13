@@ -7,10 +7,11 @@ import { LOCK_TIMEOUTS, MAX_PIN_FAILURES } from '#core';
 import { controller } from '../controller.ts';
 import { useAppState } from '../hooks.ts';
 import { biometryAvailable } from '../platform.ts';
+import { tr } from '../i18n.ts';
 
 function waitText(ms: number): string {
   const s = Math.ceil(ms / 1000);
-  return s >= 60 ? `${Math.ceil(s / 60)} мин` : `${s} с`;
+  return s >= 60 ? tr('{n} мин', { n: Math.ceil(s / 60) }) : tr('{s} с', { s: s });
 }
 
 export function LockScreen() {
@@ -34,10 +35,10 @@ export function LockScreen() {
       if (r.kind === 'wrong')
         setMsg(
           r.config.blockedUntil > Date.now()
-            ? `Неверный PIN. Следующая попытка через ${waitText(r.config.blockedUntil - Date.now())}. Осталось попыток: ${r.left}.`
-            : `Неверный PIN. Осталось попыток: ${r.left}.`,
+            ? tr('Неверный PIN. Следующая попытка через {n}. Осталось попыток: {left}.', { n: waitText(r.config.blockedUntil - Date.now()), left: r.left })
+            : tr('Неверный PIN. Осталось попыток: {left}.', { left: r.left }),
         );
-      if (r.kind === 'blocked') setMsg(`Слишком много ошибок. Подождите ${waitText(r.waitMs)}.`);
+      if (r.kind === 'blocked') setMsg(tr('Слишком много ошибок. Подождите {n}.', { n: waitText(r.waitMs) }));
     } finally {
       setBusy(false);
     }
@@ -46,9 +47,9 @@ export function LockScreen() {
   return (
     <div className="auth lock">
       <form className="auth-card" onSubmit={submit}>
-        <h1>Dela заблокирована</h1>
+        <h1>{tr('Dela заблокирована')}</h1>
         <label>
-          PIN-код
+          {tr('PIN-код')}
           <input
             type="password"
             inputMode="numeric"
@@ -57,7 +58,7 @@ export function LockScreen() {
             autoFocus
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-            aria-label="PIN-код"
+            aria-label={tr('PIN-код')}
           />
         </label>
         {msg && (
@@ -66,28 +67,28 @@ export function LockScreen() {
           </p>
         )}
         <button className="primary" disabled={busy || pin.length < 4}>
-          Разблокировать
+          {tr('Разблокировать')}
         </button>
         {biometric && (
           <button type="button" onClick={() => void controller.unlockWithBiometry()}>
-            Отпечаток пальца
+            {tr('Отпечаток пальца')}
           </button>
         )}
         <button
           type="button"
           className="link"
           onClick={() => {
-            if (confirm('Выйти из аккаунта? Данные на этом устройстве будут стёрты, войти можно снова с паролем.')) void controller.logout();
+            if (confirm(tr('Выйти из аккаунта? Данные на этом устройстве будут стёрты, войти можно снова с паролем.'))) void controller.logout();
           }}
         >
-          Забыли PIN? Выйти и войти с паролем
+          {tr('Забыли PIN? Выйти и войти с паролем')}
         </button>
       </form>
     </div>
   );
 }
 
-const TIMEOUT_LABEL: Record<number, string> = { 0: 'Сразу', 1: 'Через 1 минуту', 5: 'Через 5 минут', 15: 'Через 15 минут', 60: 'Через час' };
+const TIMEOUT_LABEL: Record<number, string> = { 0: tr('Сразу'), 1: tr('Через 1 минуту'), 5: tr('Через 5 минут'), 15: tr('Через 15 минут'), 60: tr('Через час') };
 
 export function LockSettings() {
   const { lockEnabled } = useAppState();
@@ -118,34 +119,33 @@ export function LockSettings() {
 
   const savePin = async (e: FormEvent) => {
     e.preventDefault();
-    if (pin !== repeat) return setMsg('PIN-коды не совпадают.');
+    if (pin !== repeat) return setMsg(tr('PIN-коды не совпадают.'));
     try {
       await controller.setPin(pin, lockEnabled ? current : undefined);
-      reset(lockEnabled ? 'PIN изменён.' : 'Блокировка включена.');
+      reset(lockEnabled ? tr('PIN изменён.') : tr('Блокировка включена.'));
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : 'Не получилось.');
+      setMsg(err instanceof Error ? err.message : tr('Не получилось.'));
     }
   };
 
   return (
     <section className="settings">
-      <h2>Блокировка приложения</h2>
+      <h2>{tr('Блокировка приложения')}</h2>
       <p className="muted">
-        PIN-код закрывает Dela на этом устройстве при запуске и после возвращения из фона. У каждого устройства свой PIN. После {MAX_PIN_FAILURES} неверных
-        попыток подряд данные устройства стираются, и войти можно только с паролем.
+        {tr('PIN-код закрывает Dela на этом устройстве при запуске и после возвращения из фона. У каждого устройства свой PIN. После {n} неверных попыток подряд данные устройства стираются, и войти можно только с паролем.', { n: MAX_PIN_FAILURES })}
       </p>
       {!lockEnabled && (
         <form className="row" onSubmit={savePin}>
-          {pinInput('Новый PIN, 4-8 цифр', pin, setPin)}
-          {pinInput('PIN ещё раз', repeat, setRepeat)}
-          <button disabled={pin.length < 4}>Включить</button>
+          {pinInput(tr('Новый PIN, 4-8 цифр'), pin, setPin)}
+          {pinInput(tr('PIN ещё раз'), repeat, setRepeat)}
+          <button disabled={pin.length < 4}>{tr('Включить')}</button>
         </form>
       )}
       {lockEnabled && config && (
         <>
           <label className="row">
-            <span>Блокировать</span>
-            <select value={config.timeoutMin} onChange={(e) => void controller.updateLock({ timeoutMin: Number(e.target.value) })} aria-label="Когда блокировать">
+            <span>{tr('Блокировать')}</span>
+            <select value={config.timeoutMin} onChange={(e) => void controller.updateLock({ timeoutMin: Number(e.target.value) })} aria-label={tr('Когда блокировать')}>
               {LOCK_TIMEOUTS.map((t) => (
                 <option key={t} value={t}>
                   {TIMEOUT_LABEL[t]}
@@ -156,24 +156,24 @@ export function LockSettings() {
           {bio && (
             <label className="checkline">
               <input type="checkbox" checked={config.biometric} onChange={(e) => void controller.updateLock({ biometric: e.target.checked })} />
-              Разблокировать отпечатком пальца
+              {tr('Разблокировать отпечатком пальца')}
             </label>
           )}
           {mode === 'idle' && (
             <div className="row">
-              <button onClick={() => controller.lockNow()}>Заблокировать сейчас</button>
-              <button onClick={() => setMode('change')}>Сменить PIN</button>
-              <button onClick={() => setMode('disable')}>Отключить</button>
+              <button onClick={() => controller.lockNow()}>{tr('Заблокировать сейчас')}</button>
+              <button onClick={() => setMode('change')}>{tr('Сменить PIN')}</button>
+              <button onClick={() => setMode('disable')}>{tr('Отключить')}</button>
             </div>
           )}
           {mode === 'change' && (
             <form className="row" onSubmit={savePin}>
-              {pinInput('Текущий PIN', current, setCurrent)}
-              {pinInput('Новый PIN', pin, setPin)}
-              {pinInput('Новый PIN ещё раз', repeat, setRepeat)}
-              <button>Сохранить</button>
+              {pinInput(tr('Текущий PIN'), current, setCurrent)}
+              {pinInput(tr('Новый PIN'), pin, setPin)}
+              {pinInput(tr('Новый PIN ещё раз'), repeat, setRepeat)}
+              <button>{tr('Сохранить')}</button>
               <button type="button" onClick={() => reset(null)}>
-                Отмена
+                {tr('Отмена')}
               </button>
             </form>
           )}
@@ -184,16 +184,16 @@ export function LockSettings() {
                 e.preventDefault();
                 try {
                   await controller.disableLock(current);
-                  reset('Блокировка отключена.');
+                  reset(tr('Блокировка отключена.'));
                 } catch {
-                  setMsg('PIN неверный.');
+                  setMsg(tr('PIN неверный.'));
                 }
               }}
             >
-              {pinInput('Текущий PIN', current, setCurrent)}
-              <button>Отключить блокировку</button>
+              {pinInput(tr('Текущий PIN'), current, setCurrent)}
+              <button>{tr('Отключить блокировку')}</button>
               <button type="button" onClick={() => reset(null)}>
-                Отмена
+                {tr('Отмена')}
               </button>
             </form>
           )}

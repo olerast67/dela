@@ -41,9 +41,6 @@ public class TasksWidgetService extends RemoteViewsService {
         }
     }
 
-    private static final String[] WEEKDAYS = { "Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб" };
-    private static final String[] WEEKDAYS_LONG = { "Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота" };
-    private static final String[] MONTHS = { "янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек" };
     private static final Map<String, Integer> COLORS = new HashMap<>();
 
     static {
@@ -75,23 +72,27 @@ public class TasksWidgetService extends RemoteViewsService {
         return c;
     }
 
-    static String dayMonth(String date) {
-        Calendar c = parse(date);
-        return c.get(Calendar.DAY_OF_MONTH) + " " + MONTHS[c.get(Calendar.MONTH)];
+    static String dayMonth(Context c, String date) {
+        Calendar cal = parse(date);
+        String month = c.getResources().getStringArray(R.array.months_short)[cal.get(Calendar.MONTH)];
+        return c.getString(R.string.day_month, cal.get(Calendar.DAY_OF_MONTH), month);
     }
 
-    static String dateLabel(String date) {
-        if (date.equals(day(0))) return "Сегодня";
-        if (date.equals(day(1))) return "Завтра";
-        if (date.equals(day(-1))) return "Вчера";
-        if (date.compareTo(day(0)) > 0 && date.compareTo(day(6)) <= 0) return WEEKDAYS[parse(date).get(Calendar.DAY_OF_WEEK) - 1];
-        return dayMonth(date);
+    static String dateLabel(Context c, String date) {
+        if (date.equals(day(0))) return c.getString(R.string.day_today);
+        if (date.equals(day(1))) return c.getString(R.string.day_tomorrow);
+        if (date.equals(day(-1))) return c.getString(R.string.day_yesterday);
+        if (date.compareTo(day(0)) > 0 && date.compareTo(day(6)) <= 0) {
+            return c.getResources().getStringArray(R.array.weekdays_short)[parse(date).get(Calendar.DAY_OF_WEEK) - 1];
+        }
+        return dayMonth(c, date);
     }
 
-    static String dayHeading(String date) {
-        String base = dayMonth(date) + " · " + WEEKDAYS_LONG[parse(date).get(Calendar.DAY_OF_WEEK) - 1];
-        if (date.equals(day(0))) return "Сегодня · " + base;
-        if (date.equals(day(1))) return "Завтра · " + base;
+    static String dayHeading(Context c, String date) {
+        String weekday = c.getResources().getStringArray(R.array.weekdays_long)[parse(date).get(Calendar.DAY_OF_WEEK) - 1];
+        String base = dayMonth(c, date) + " · " + weekday;
+        if (date.equals(day(0))) return c.getString(R.string.day_today) + " · " + base;
+        if (date.equals(day(1))) return c.getString(R.string.day_tomorrow) + " · " + base;
         return base;
     }
 
@@ -149,13 +150,13 @@ public class TasksWidgetService extends RemoteViewsService {
                 Collections.sort(overdue, (a, b) -> key(a).compareTo(key(b)));
                 Collections.sort(dated, (a, b) -> key(a).compareTo(key(b)));
                 if (!overdue.isEmpty()) {
-                    items.add(new Item("Просрочено", null, false));
+                    items.add(new Item(context.getString(R.string.overdue), null, false));
                     for (JSONObject t : overdue) items.add(new Item(null, t, true));
                 }
                 String current = null;
                 for (JSONObject t : dated) {
                     String d = t.optString("d");
-                    if (!d.equals(current) && (days > 1 || !overdue.isEmpty())) items.add(new Item(dayHeading(d), null, false));
+                    if (!d.equals(current) && (days > 1 || !overdue.isEmpty())) items.add(new Item(dayHeading(context, d), null, false));
                     current = d;
                     items.add(new Item(null, t, false));
                 }
@@ -191,7 +192,7 @@ public class TasksWidgetService extends RemoteViewsService {
             }
             JSONObject t = item.task;
             RemoteViews r = new RemoteViews(context.getPackageName(), cfg.compact ? R.layout.widget_row_compact : R.layout.widget_row);
-            r.setTextViewText(R.id.row_title, t.optString("t").isEmpty() ? "Без названия" : t.optString("t"));
+            r.setTextViewText(R.id.row_title, t.optString("t").isEmpty() ? context.getString(R.string.untitled) : t.optString("t"));
             r.setTextColor(R.id.row_title, text);
             r.setTextViewTextSize(R.id.row_title, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 17.5f : 15.5f);
             int pr = t.optInt("pr", 4);
@@ -206,7 +207,7 @@ public class TasksWidgetService extends RemoteViewsService {
             String due;
             if (d.isEmpty()) due = "";
             else if ("today".equals(cfg.list) && d.equals(day(0))) due = time;
-            else due = (dateLabel(d) + " " + time).trim();
+            else due = (dateLabel(context, d) + " " + time).trim();
             if (t.optBoolean("r") && !due.isEmpty()) due = due + " ↻";
             r.setTextViewText(R.id.row_due, due);
             r.setTextColor(R.id.row_due, item.overdue ? (dark ? 0xFFF07A68 : 0xFFC8402F) : (dark ? 0xFF6FCF9B : 0xFF2E7D5B));

@@ -105,8 +105,8 @@ final class WidgetStore {
 
     /** Название списка для заголовка: «Сегодня», «Неделя», имя проекта. */
     static String listTitle(Context c, String list) {
-        if ("today".equals(list)) return "Сегодня";
-        if ("week".equals(list)) return "Неделя";
+        if ("today".equals(list)) return c.getString(R.string.list_today);
+        if ("week".equals(list)) return c.getString(R.string.list_week);
         JSONObject snap = snapshot(c);
         if (snap != null && list.startsWith("project:")) {
             JSONArray projects = snap.optJSONArray("projects");

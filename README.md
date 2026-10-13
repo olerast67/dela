@@ -58,6 +58,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 | Sharing | Shared projects with members invited by email, assignees, comments with files. The project key is sealed with each member's public key, files are encrypted on the device |
 | Keyboard | `Ctrl+K` command palette, `Q` quick add, `J`/`K`, `E` to complete, `T` for today, `Ctrl+Z` undoes the last 100 actions. Shortcuts use physical keys and work in any layout |
 | Apps | Web app (PWA), Windows app with a tray icon and the global shortcut `Ctrl+Shift+Space`, Android app with "Share to Dela", a home screen widget with a task list and a quick add tile |
+| Languages | English and Russian. The app follows the system language, Settings → Language switches it. Quick add and filters understand phrases in both languages |
 | Your data | Import from Todoist by API token or export file, export to JSON and Markdown, deleting tasks forever and deleting the account |
 | Security | Password never leaves the device, passkeys with PRF, recovery key, two-factor login (TOTP), list of devices with revocation, app lock with a PIN and a fingerprint on Android |
 

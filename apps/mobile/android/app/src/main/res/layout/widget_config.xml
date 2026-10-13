@@ -12,7 +12,7 @@
 
         <TextView
             style="@style/WidgetConfigLabel"
-            android:text="Список" />
+            android:text="@string/cfg_list" />
 
         <Spinner
             android:id="@+id/cfg_list"
@@ -21,21 +21,21 @@
 
         <TextView
             style="@style/WidgetConfigLabel"
-            android:text="Тема" />
+            android:text="@string/cfg_theme" />
 
         <RadioGroup
             android:id="@+id/cfg_theme"
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <RadioButton android:id="@+id/cfg_theme_system" style="@style/WidgetConfigOption" android:text="Как в системе" />
-            <RadioButton android:id="@+id/cfg_theme_light" style="@style/WidgetConfigOption" android:text="Светлая" />
-            <RadioButton android:id="@+id/cfg_theme_dark" style="@style/WidgetConfigOption" android:text="Тёмная" />
+            <RadioButton android:id="@+id/cfg_theme_system" style="@style/WidgetConfigOption" android:text="@string/cfg_theme_system" />
+            <RadioButton android:id="@+id/cfg_theme_light" style="@style/WidgetConfigOption" android:text="@string/cfg_theme_light" />
+            <RadioButton android:id="@+id/cfg_theme_dark" style="@style/WidgetConfigOption" android:text="@string/cfg_theme_dark" />
         </RadioGroup>
 
         <TextView
             style="@style/WidgetConfigLabel"
-            android:text="Непрозрачность фона" />
+            android:text="@string/cfg_opacity" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -60,27 +60,27 @@
 
         <TextView
             style="@style/WidgetConfigLabel"
-            android:text="Размер шрифта" />
+            android:text="@string/cfg_font" />
 
         <RadioGroup
             android:id="@+id/cfg_font"
             android:layout_width="match_parent"
             android:layout_height="wrap_content">
 
-            <RadioButton android:id="@+id/cfg_font_normal" style="@style/WidgetConfigOption" android:text="Обычный" />
-            <RadioButton android:id="@+id/cfg_font_large" style="@style/WidgetConfigOption" android:text="Крупный" />
+            <RadioButton android:id="@+id/cfg_font_normal" style="@style/WidgetConfigOption" android:text="@string/cfg_font_normal" />
+            <RadioButton android:id="@+id/cfg_font_large" style="@style/WidgetConfigOption" android:text="@string/cfg_font_large" />
         </RadioGroup>
 
         <CheckBox
             android:id="@+id/cfg_compact"
             style="@style/WidgetConfigOption"
             android:layout_marginTop="12dp"
-            android:text="Компактный режим: задача в одну строку" />
+            android:text="@string/cfg_compact" />
 
         <CheckBox
             android:id="@+id/cfg_hide_locked"
             style="@style/WidgetConfigOption"
-            android:text="Скрывать задачи, если в приложении включена блокировка PIN-кодом" />
+            android:text="@string/cfg_hide_locked" />
 
         <Button
             android:id="@+id/cfg_done"
@@ -91,6 +91,6 @@
             android:textColor="#FFFFFF"
             android:textAllCaps="false"
             android:textSize="16sp"
-            android:text="Готово" />
+            android:text="@string/cfg_done" />
     </LinearLayout>
 </ScrollView>

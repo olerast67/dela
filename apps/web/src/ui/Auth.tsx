@@ -4,29 +4,30 @@ import { controller } from '../controller.ts';
 import { isNative, normalizeServerUrl, serverUrl, setServerUrl } from '../platform.ts';
 import { useAppState } from '../hooks.ts';
 import { passkeysSupported } from '../passkey.ts';
+import { tr } from '../i18n.ts';
 
 const ERRORS: Record<string, string> = {
-  invalid_credentials: 'Неверный адрес или пароль.',
-  totp_required: 'Введите код из приложения-аутентификатора.',
-  invalid_totp: 'Код не подошёл. Проверьте время на телефоне и введите новый код.',
-  rate_limited: 'Слишком много попыток. Подождите несколько минут.',
-  invite_required: 'Регистрация на этом сервере только по приглашению.',
-  registration_closed: 'Регистрация на этом сервере закрыта.',
-  invalid_invite: 'Приглашение неверное, использовано или истекло.',
-  email_taken: 'Этот адрес уже зарегистрирован. Войдите.',
-  passkeys_disabled: 'На этом сервере вход по passkey выключен: администратору нужно задать DELA_PUBLIC_URL.',
-  challenge_expired: 'Время на вход вышло. Попробуйте ещё раз.',
+  invalid_credentials: tr('Неверный адрес или пароль.'),
+  totp_required: tr('Введите код из приложения-аутентификатора.'),
+  invalid_totp: tr('Код не подошёл. Проверьте время на телефоне и введите новый код.'),
+  rate_limited: tr('Слишком много попыток. Подождите несколько минут.'),
+  invite_required: tr('Регистрация на этом сервере только по приглашению.'),
+  registration_closed: tr('Регистрация на этом сервере закрыта.'),
+  invalid_invite: tr('Приглашение неверное, использовано или истекло.'),
+  email_taken: tr('Этот адрес уже зарегистрирован. Войдите.'),
+  passkeys_disabled: tr('На этом сервере вход по passkey выключен: администратору нужно задать DELA_PUBLIC_URL.'),
+  challenge_expired: tr('Время на вход вышло. Попробуйте ещё раз.'),
 };
 
 function message(err: unknown): string {
-  if (err instanceof NetworkError) return 'Нет связи с сервером.';
-  if (err instanceof ApiError) return ERRORS[err.code] ?? `Ошибка сервера: ${err.code}`;
-  if (err instanceof SyntaxError) return 'Ключ восстановления введён с ошибкой: проверьте символы.';
-  if (err instanceof DecryptError) return 'Ключ не подходит к этому аккаунту.';
+  if (err instanceof NetworkError) return tr('Нет связи с сервером.');
+  if (err instanceof ApiError) return ERRORS[err.code] ?? tr('Ошибка сервера: {code}', { code: err.code });
+  if (err instanceof SyntaxError) return tr('Ключ восстановления введён с ошибкой: проверьте символы.');
+  if (err instanceof DecryptError) return tr('Ключ не подходит к этому аккаунту.');
   if (err instanceof Error && err.message === 'prf_unsupported')
-    return 'Этот passkey не умеет PRF, без него ключи шифрования не открыть. Подойдут Google Password Manager, iCloud Keychain, Windows Hello на Windows 11 и ключи FIDO2.';
-  if (err instanceof Error && (err.name === 'NotAllowedError' || err.message === 'cancelled')) return 'Вход по passkey отменён.';
-  return 'Что-то пошло не так. Попробуйте ещё раз.';
+    return tr('Этот passkey не умеет PRF, без него ключи шифрования не открыть. Подойдут Google Password Manager, iCloud Keychain, Windows Hello на Windows 11 и ключи FIDO2.');
+  if (err instanceof Error && (err.name === 'NotAllowedError' || err.message === 'cancelled')) return tr('Вход по passkey отменён.');
+  return tr('Что-то пошло не так. Попробуйте ещё раз.');
 }
 
 export function AuthScreen() {
@@ -49,20 +50,20 @@ export function AuthScreen() {
     setError(null);
     if (native) {
       const url = normalizeServerUrl(server);
-      if (!url) return setError('Укажите адрес сервера Dela, например tasks.example.com. Нужен HTTPS.');
+      if (!url) return setError(tr('Укажите адрес сервера Dela, например tasks.example.com. Нужен HTTPS.'));
       try {
         await fetch(`${url}/api/health`).then((r) => {
           if (!r.ok) throw new Error();
         });
       } catch {
-        return setError(`По адресу ${url} не отвечает сервер Dela.`);
+        return setError(tr('По адресу {url} не отвечает сервер Dela.', { url: url }));
       }
       setServerUrl(url);
       controller.api.baseUrl = url;
     }
     if (mode !== 'login') {
-      if (password.length < 10) return setError('Пароль должен быть не короче 10 символов.');
-      if (password !== repeat) return setError('Пароли не совпадают.');
+      if (password.length < 10) return setError(tr('Пароль должен быть не короче 10 символов.'));
+      if (password !== repeat) return setError(tr('Пароли не совпадают.'));
     }
     setBusy(true);
     // Даём браузеру отрисовать «Подождите…»: вычисление ключа из пароля занимает около секунды.
@@ -82,33 +83,33 @@ export function AuthScreen() {
     <main className="auth">
       <form className="auth-card" onSubmit={submit}>
         <img src="/icon.svg" alt="" width="48" height="48" />
-        <h1>{mode === 'login' ? 'Вход в Dela' : mode === 'recover' ? 'Новый пароль по ключу' : 'Новый аккаунт Dela'}</h1>
+        <h1>{mode === 'login' ? tr('Вход в Dela') : mode === 'recover' ? tr('Новый пароль по ключу') : tr('Новый аккаунт Dela')}</h1>
         <p className="muted">
           {mode === 'login'
-            ? 'Задачи шифруются на устройстве, сервер видит только шифротекст.'
+            ? tr('Задачи шифруются на устройстве, сервер видит только шифротекст.')
             : mode === 'recover'
-              ? 'Ключ восстановления выдавался при регистрации. С ним можно задать новый пароль, задачи сохранятся. Остальные устройства придётся подключить заново.'
-              : 'Пароль не уходит на сервер: из него на устройстве получаются ключи шифрования.'}
+              ? tr('Ключ восстановления выдавался при регистрации. С ним можно задать новый пароль, задачи сохранятся. Остальные устройства придётся подключить заново.')
+              : tr('Пароль не уходит на сервер: из него на устройстве получаются ключи шифрования.')}
         </p>
         {notice && <p className="notice">{notice}</p>}
         {native && (
           <label>
-            Сервер
+            {tr('Сервер')}
             <input inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="tasks.example.com" required value={server} onChange={(e) => setServer(e.target.value)} />
           </label>
         )}
         <label>
-          Электронная почта
+          {tr('Электронная почта')}
           <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
         {mode === 'recover' && (
           <label>
-            Ключ восстановления
+            {tr('Ключ восстановления')}
             <input autoComplete="off" spellCheck={false} required value={recoveryKey} onChange={(e) => setRecoveryKey(e.target.value)} />
           </label>
         )}
         <label>
-          {mode === 'recover' ? 'Новый пароль' : 'Пароль'}
+          {mode === 'recover' ? tr('Новый пароль') : tr('Пароль')}
           <input
             type="password"
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
@@ -119,20 +120,20 @@ export function AuthScreen() {
         </label>
         {mode === 'login' && needTotp && (
           <label>
-            Код из приложения-аутентификатора
+            {tr('Код из приложения-аутентификатора')}
             <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required value={totp} onChange={(e) => setTotp(e.target.value)} autoFocus />
           </label>
         )}
         {mode !== 'login' && (
           <label>
-            Пароль ещё раз
+            {tr('Пароль ещё раз')}
             <input type="password" autoComplete="new-password" required value={repeat} onChange={(e) => setRepeat(e.target.value)} />
           </label>
         )}
         {mode === 'register' && (
           <>
             <label>
-              Код приглашения <span className="muted">(если сервер его просит)</span>
+              {tr('Код приглашения')} <span className="muted">{tr('(если сервер его просит)')}</span>
               <input value={invite} onChange={(e) => setInvite(e.target.value)} />
             </label>
           </>
@@ -143,7 +144,7 @@ export function AuthScreen() {
           </p>
         )}
         <button className="primary" disabled={busy}>
-          {busy ? 'Подождите…' : mode === 'login' ? 'Войти' : mode === 'recover' ? 'Задать пароль и войти' : 'Создать аккаунт'}
+          {busy ? tr('Подождите…') : mode === 'login' ? tr('Войти') : mode === 'recover' ? tr('Задать пароль и войти') : tr('Создать аккаунт')}
         </button>
         {mode === 'login' && passkeysSupported() && (
           <button
@@ -161,7 +162,7 @@ export function AuthScreen() {
               }
             }}
           >
-            Войти по passkey
+            {tr('Войти по passkey')}
           </button>
         )}
         {mode === 'login' && (
@@ -173,7 +174,7 @@ export function AuthScreen() {
               setError(null);
             }}
           >
-            Забыли пароль?
+            {tr('Забыли пароль?')}
           </button>
         )}
         <button
@@ -184,11 +185,11 @@ export function AuthScreen() {
             setError(null);
           }}
         >
-          {mode === 'login' ? 'Создать аккаунт' : 'Вернуться ко входу'}
+          {mode === 'login' ? tr('Создать аккаунт') : tr('Вернуться ко входу')}
         </button>
         {!isNative() && (
           <button type="button" className="link muted-link" onClick={() => void controller.startLocal()}>
-            Попробовать без сервера: задачи останутся только в этом браузере
+            {tr('Попробовать без сервера: задачи останутся только в этом браузере')}
           </button>
         )}
       </form>
@@ -203,10 +204,9 @@ export function RecoveryScreen() {
   return (
     <main className="auth">
       <div className="auth-card">
-        <h1>Сохраните ключ восстановления</h1>
+        <h1>{tr('Сохраните ключ восстановления')}</h1>
         <p>
-          Если вы забудете пароль, войти и расшифровать задачи можно будет только с этим ключом. Сервер не может восстановить доступ: у него нет ваших
-          ключей.
+          {tr('Если вы забудете пароль, войти и расшифровать задачи можно будет только с этим ключом. Сервер не может восстановить доступ: у него нет ваших ключей.')}
         </p>
         <code className="recovery-key">{recoveryKey}</code>
         <div className="row">
@@ -217,18 +217,18 @@ export function RecoveryScreen() {
               setCopied(true);
             }}
           >
-            {copied ? 'Скопировано' : 'Скопировать'}
+            {copied ? tr('Скопировано') : tr('Скопировать')}
           </button>
           <button type="button" onClick={() => window.print()}>
-            Распечатать
+            {tr('Распечатать')}
           </button>
         </div>
         <label className="checkline">
           <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
-          Ключ сохранён в надёжном месте
+          {tr('Ключ сохранён в надёжном месте')}
         </label>
         <button className="primary" disabled={!saved} onClick={() => controller.confirmRecovery()}>
-          Продолжить
+          {tr('Продолжить')}
         </button>
       </div>
     </main>

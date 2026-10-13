@@ -10,6 +10,7 @@ import { navigate, useDoc, useMedia } from '../hooks.ts';
 import { DRAG_TYPE, setDragged } from './dnd.ts';
 import type { QuickAddDefaults } from './QuickAdd.tsx';
 import { completeWithUndo } from './Task.tsx';
+import { tr } from '../i18n.ts';
 
 export type CalendarMode = 'day' | 'week' | 'month';
 
@@ -83,19 +84,19 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
       <header className="view-head cal-head">
         <h1>{title}</h1>
         <div className="cal-nav">
-          <button className="icon" onClick={() => step(-1)} aria-label="Назад">
+          <button className="icon" onClick={() => step(-1)} aria-label={tr('Назад')}>
             ‹
           </button>
-          <button onClick={() => go(mode, today)}>Сегодня</button>
-          <button className="icon" onClick={() => step(1)} aria-label="Вперёд">
+          <button onClick={() => go(mode, today)}>{tr('Сегодня')}</button>
+          <button className="icon" onClick={() => step(1)} aria-label={tr('Вперёд')}>
             ›
           </button>
-          <div className="segmented" role="tablist" aria-label="Вид календаря">
+          <div className="segmented" role="tablist" aria-label={tr('Вид календаря')}>
             {(
               [
-                ['day', 'День'],
-                ['week', 'Неделя'],
-                ['month', 'Месяц'],
+                ['day', tr('День')],
+                ['week', tr('Неделя')],
+                ['month', tr('Месяц')],
               ] as const
             ).map(([m, label]) => (
               <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'active' : ''} onClick={() => go(m, anchor)}>
@@ -164,7 +165,7 @@ function Chip({ task, onOpen, selected, showTime }: { task: Overdue; onOpen: (id
     >
       <button
         className="cal-dot"
-        aria-label={`Выполнить: ${task.title}`}
+        aria-label={tr('Выполнить: {title}', { title: task.title })}
         disabled={task.projected}
         onClick={(e) => {
           e.stopPropagation();
@@ -221,7 +222,7 @@ function MonthGrid(props: {
               onDropDay(id, d);
             }}
           >
-            <button className="cal-daynum" onClick={() => onDay(d)} aria-label={`Открыть день ${d}`}>
+            <button className="cal-daynum" onClick={() => onDay(d)} aria-label={tr('Открыть день {d}', { d: d })}>
               {Number(d.slice(8))}
             </button>
             {tasks.slice(0, LIMIT).map((t) => (
@@ -229,7 +230,7 @@ function MonthGrid(props: {
             ))}
             {tasks.length > LIMIT && (
               <button className="cal-more" onClick={() => onDay(d)}>
-                ещё {tasks.length - LIMIT}
+                {tr('ещё {n}', { n: tasks.length - LIMIT })}
               </button>
             )}
           </div>
@@ -342,7 +343,7 @@ function TimeGrid(props: {
         ))}
       </div>
       <div className="cal-row cal-allday">
-        <div className="cal-gutter">Весь день</div>
+        <div className="cal-gutter">{tr('Весь день')}</div>
         {dates.map((d) => (
           <div
             key={d}

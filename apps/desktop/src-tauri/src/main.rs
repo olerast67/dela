@@ -16,6 +16,20 @@ fn show_main(app: &AppHandle) {
     }
 }
 
+/** Пункты меню в трее: подписи задаёт веб-клиент на языке интерфейса. */
+struct TrayItems {
+    open: MenuItem<tauri::Wry>,
+    add: MenuItem<tauri::Wry>,
+    quit: MenuItem<tauri::Wry>,
+}
+
+#[tauri::command]
+fn tray_labels(items: tauri::State<'_, TrayItems>, open: String, add: String, quit: String) {
+    let _ = items.open.set_text(open);
+    let _ = items.add.set_text(add);
+    let _ = items.quit.set_text(quit);
+}
+
 fn quick_add(app: &AppHandle) {
     show_main(app);
     let _ = app.emit("quick-add", ());
@@ -48,8 +62,9 @@ fn main() {
             }
             let open = MenuItem::with_id(app, "open", "Открыть Dela", true, None::<&str>)?;
             let add = MenuItem::with_id(app, "add", "Новая задача (Ctrl+Shift+Space)", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Выйти", true, None::<&str>)?;
+            let quit = MenuItem::with_id(app, "quit", "Выйти из Dela", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &add, &quit])?;
+            app.manage(TrayItems { open: open.clone(), add: add.clone(), quit: quit.clone() });
             TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().cloned().expect("window icon"))
                 .tooltip("Dela")
@@ -75,6 +90,7 @@ fn main() {
             Ok(())
         })
         // Закрытие окна прячет его в трей: напоминания продолжают приходить.
+        .invoke_handler(tauri::generate_handler![tray_labels])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();
