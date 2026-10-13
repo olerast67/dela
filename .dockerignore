@@ -6,3 +6,13 @@ playwright-report
 .git
 .claude
 *.log
+.env*
+*.jks
+*.keystore
+*.pem
+*.key
+*.p12
+*.pfx
+apps/mobile/android
+apps/desktop/src-tauri/target
+site

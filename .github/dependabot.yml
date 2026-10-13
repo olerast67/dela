@@ -17,6 +17,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Сервер держится на LTS-версии Node: нечётные и ещё не LTS выпуски не предлагать.
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
   - package-ecosystem: cargo
     directory: /apps/desktop/src-tauri
     schedule:
@@ -25,3 +29,7 @@ updates:
     directory: /apps/mobile/android
     schedule:
       interval: monthly
+    ignore:
+      # Gradle 9.6+ не работает с Android Gradle Plugin 8, на котором собраны Capacitor 8 и его плагины.
+      - dependency-name: gradle-wrapper
+        update-types: ['version-update:semver-major']
