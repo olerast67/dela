@@ -12,7 +12,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p apps/web/tsconfig.sw.json",
     "check": "npm run typecheck && npm test",
     "server": "node --disable-warning=ExperimentalWarning apps/server/src/main.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
@@ -35,7 +35,10 @@
     "typescript": "^7.0.2",
     "vite": "^8.3.4",
     "vite-plugin-pwa": "^2.0.0",
-    "vitest": "^5.0.4"
+    "vitest": "^5.0.4",
+    "workbox-core": "^7.4.1",
+    "workbox-precaching": "^7.4.1",
+    "workbox-routing": "^7.4.1"
   },
   "dependencies": {
     "@hono/node-server": "^1.19.17",

@@ -18,6 +18,8 @@ import {
   newNodeId,
   persistLocal,
   recoverAccount,
+  remindersBetween,
+  type Reminder,
   signIn,
   signUp,
   spaceKeys,
@@ -27,6 +29,24 @@ import {
   type SyncStatus,
 } from '#core';
 import { IdbStore, openLocal, sealLocal } from './storage.ts';
+import { TZ } from './format.ts';
+
+function loadFired(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem('firedReminders') ?? '[]') as string[];
+  } catch {
+    return [];
+  }
+}
+
+function saveFired(fired: Set<string>): void {
+  try {
+    // Хватает последних 500: старые напоминания в окно поиска уже не попадут.
+    localStorage.setItem('firedReminders', JSON.stringify([...fired].slice(-500)));
+  } catch {
+    // без localStorage повторный показ после перезагрузки возможен, это не страшно
+  }
+}
 
 export type Phase = 'loading' | 'auth' | 'recovery' | 'ready';
 
@@ -97,6 +117,10 @@ export class Controller {
   private wsRetry = 0;
   private wsTimer: ReturnType<typeof setTimeout> | undefined;
   private stopFns: Array<() => void> = [];
+  private reminderTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly fired = new Set<string>(loadFired());
+  /** Показать напоминание внутри приложения (уведомление в интерфейсе). */
+  onReminder: ((r: Reminder) => void) | null = null;
 
   // ---------- подписки для React ----------
 
@@ -227,6 +251,7 @@ export class Controller {
       }),
       doc.subscribe((ops, origin) => {
         this.docVersion++;
+        this.scheduleRemindersSoon();
         for (const fn of this.docListeners) fn();
         // Изменения из этой вкладки (свои и полученные с сервера) пересылаем остальным вкладкам.
         if (!this.fromChannel) this.channel?.postMessage({ type: 'ops', ops: [...ops] } satisfies ChannelMessage);
@@ -246,6 +271,7 @@ export class Controller {
     const locks = (navigator as Navigator & { locks?: LockManager }).locks;
     const lead = () => {
       this.leader = true;
+      this.scheduleReminders();
       this.connectWs();
       void this.syncNow();
       const interval = setInterval(() => void this.syncNow(), 60_000);
@@ -340,6 +366,70 @@ export class Controller {
     }
   }
 
+  // ---------- напоминания ----------
+
+  /** Минуты до срока по умолчанию для задач со временем. */
+  reminderDefaults(): number[] {
+    try {
+      const v = JSON.parse(localStorage.getItem('reminderDefaults') ?? '[0]') as unknown;
+      return Array.isArray(v) && v.every((x) => typeof x === 'number') ? (v as number[]) : [0];
+    } catch {
+      return [0];
+    }
+  }
+
+  setReminderDefaults(offsets: number[]): void {
+    try {
+      localStorage.setItem('reminderDefaults', JSON.stringify(offsets));
+    } catch {
+      // без localStorage настройка действует до перезагрузки
+    }
+    this.scheduleReminders();
+  }
+
+  private remindersDebounce: ReturnType<typeof setTimeout> | undefined;
+
+  private scheduleRemindersSoon(): void {
+    clearTimeout(this.remindersDebounce);
+    this.remindersDebounce = setTimeout(() => this.scheduleReminders(), 500);
+  }
+
+  /**
+   * Напоминания показывает только синхронизирующая вкладка, иначе одно и то же
+   * уведомление пришло бы из каждой открытой вкладки.
+   */
+  scheduleReminders(): void {
+    clearTimeout(this.reminderTimer);
+    if (!this.doc || !this.leader) return;
+    const now = Date.now();
+    // Пропущенные за последние 10 минут (вкладка спала) тоже показываем.
+    const list = remindersBetween(this.doc, now - 10 * 60_000, now + 48 * 3600_000, TZ, this.reminderDefaults());
+    for (const r of list) {
+      if (r.at > now) break;
+      if (this.fired.has(r.key)) continue;
+      this.fired.add(r.key);
+      saveFired(this.fired);
+      void this.fire(r);
+    }
+    const next = list.find((r) => r.at > now);
+    // Не дольше часа: таймеры браузера в фоне неточны, пересчитываем регулярно.
+    const delay = next ? Math.min(next.at - now, 3600_000) : 3600_000;
+    this.reminderTimer = setTimeout(() => this.scheduleReminders(), Math.max(1000, delay));
+  }
+
+  private async fire(r: Reminder): Promise<void> {
+    this.onReminder?.(r);
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const body = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      if (reg) await reg.showNotification(r.title || 'Задача', { body, tag: r.key, data: { taskId: r.taskId }, icon: '/icon-192.png' });
+      else new Notification(r.title || 'Задача', { body, tag: r.key });
+    } catch (err) {
+      console.error('notification failed', err);
+    }
+  }
+
   // ---------- выход ----------
 
   async logout(notice: string | null = null): Promise<void> {
@@ -358,6 +448,7 @@ export class Controller {
     }
     for (const fn of this.stopFns.splice(0)) fn();
     clearTimeout(this.wsTimer);
+    clearTimeout(this.reminderTimer);
     const ws = this.ws;
     this.ws = null;
     ws?.close();

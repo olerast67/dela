@@ -133,6 +133,20 @@ function Shell() {
 
   useEffect(() => setMenu(false), [route]);
 
+  useEffect(() => {
+    controller.onReminder = (r) => showToast(`⏰ ${r.title}`, { label: 'Открыть', run: () => setSelected(r.taskId) }, 60_000);
+    const onMessage = (e: MessageEvent<{ type?: string; taskId?: string }>) => {
+      if (e.data?.type === 'open-task' && e.data.taskId) setSelected(e.data.taskId);
+    };
+    navigator.serviceWorker?.addEventListener('message', onMessage);
+    const fromUrl = new URLSearchParams(location.hash.split('?')[1] ?? '').get('task');
+    if (fromUrl) setSelected(fromUrl);
+    return () => {
+      controller.onReminder = null;
+      navigator.serviceWorker?.removeEventListener('message', onMessage);
+    };
+  }, []);
+
   const props = { onOpen: open, selectedId: selected };
   let view: React.ReactNode;
   switch (route.view) {

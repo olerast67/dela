@@ -76,6 +76,7 @@ export interface TaskInput {
   readonly deadline?: string | null;
   readonly duration?: number | null;
   readonly recurrence?: Recurrence | null;
+  readonly reminders?: readonly number[] | null;
   readonly position?: Position;
 }
 
@@ -88,6 +89,7 @@ export interface TaskPatch {
   readonly deadline?: string | null;
   readonly duration?: number | null;
   readonly recurrence?: Recurrence | null;
+  readonly reminders?: readonly number[] | null;
 }
 
 const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
@@ -99,6 +101,7 @@ const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   deadline: 'deadline',
   duration: 'duration',
   recurrence: 'recurrence',
+  reminders: 'reminders',
 };
 
 interface Snapshot {
@@ -554,6 +557,7 @@ export class Doc {
     if (input.deadline) changes.push(['task', id, 'deadline', input.deadline]);
     if (input.duration) changes.push(['task', id, 'duration', input.duration]);
     if (input.recurrence) changes.push(['task', id, 'recurrence', input.recurrence as unknown as Json]);
+    if (input.reminders) changes.push(['task', id, 'reminders', [...input.reminders]]);
     for (const label of input.labels ?? []) changes.push(['task', id, LABEL_PREFIX + label, true]);
     this.write(changes);
     return id;

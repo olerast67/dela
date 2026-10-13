@@ -143,3 +143,4 @@ export {
   type TodoistData,
 } from './transfer.ts';
 export { parseFilter, runFilter, FilterSyntaxError, type FilterResult } from './filter.ts';
+export { remindersBetween, offsetsOf, isReminderList, MAX_REMINDERS, type Reminder } from './reminders.ts';

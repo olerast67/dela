@@ -9,5 +9,8 @@
     "vitest.config.ts",
     "e2e",
     "playwright.config.ts"
+  ],
+  "exclude": [
+    "apps/web/src/sw.ts"
   ]
 }

@@ -5,6 +5,7 @@
  */
 import { isDate, isDateSpec, type DateSpec } from './dates.ts';
 import type { Json } from './op.ts';
+import { isReminderList } from './reminders.ts';
 
 export type Priority = 1 | 2 | 3 | 4;
 export type ProjectView = 'list' | 'board' | 'calendar';
@@ -58,6 +59,8 @@ export interface Task {
   /** Длительность в минутах. */
   readonly duration: number | null;
   readonly recurrence: Recurrence | null;
+  /** Минуты до срока для напоминаний; null — по умолчанию пользователя, [] — без напоминаний. */
+  readonly reminders: readonly number[] | null;
   readonly order: string;
   readonly completedAt: number | null;
   readonly deletedAt: number | null;
@@ -185,6 +188,7 @@ export function toTask(id: string, r: Rec): Task {
     deadline: isDate(r.deadline) ? (r.deadline as string) : null,
     duration: duration !== null && duration > 0 && duration <= 24 * 60 * 31 ? Math.round(duration) : null,
     recurrence: recurrence(r.recurrence),
+    reminders: isReminderList(r.reminders) ? [...new Set(r.reminders as number[])].sort((a, b) => a - b) : null,
     order: order(r.order),
     completedAt: num(r.completed_at),
     deletedAt: num(r.deleted_at),

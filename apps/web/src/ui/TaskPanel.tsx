@@ -2,12 +2,21 @@ import { useEffect, useState } from 'react';
 import { parseTask, type DateSpec, type Priority } from '#core';
 import { TZ, dateLabel, durationLabel } from '../format.ts';
 import { useDoc } from '../hooks.ts';
+import { controller } from '../controller.ts';
 import { IconRepeat, IconTrash, IconX } from './icons.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
 import { TaskTree, completeWithUndo } from './Task.tsx';
 import { showToast } from './toast.tsx';
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240];
+
+export const REMINDER_OPTIONS: Array<[number, string]> = [
+  [0, 'в срок'],
+  [10, 'за 10 мин'],
+  [30, 'за 30 мин'],
+  [60, 'за 1 ч'],
+  [1440, 'за день'],
+];
 
 /** Поле, которое сохраняет значение при уходе фокуса или Enter. */
 function useDraft(value: string, commit: (v: string) => void) {
@@ -177,6 +186,34 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
                 onBlur={applyRepeat}
                 aria-label="Повтор"
               />
+            )}
+          </dd>
+
+          <dt>Напоминания</dt>
+          <dd className="row wrap">
+            {!task.due?.time ? (
+              <span className="muted">Нужно время срока</span>
+            ) : (
+              <>
+                {REMINDER_OPTIONS.map(([m, label]) => {
+                  const current = task.reminders ?? controller.reminderDefaults();
+                  const on = current.includes(m);
+                  return (
+                    <button
+                      key={m}
+                      className={`pill toggle c-green${on ? ' on' : ''}`}
+                      onClick={() => doc.updateTask(id, { reminders: on ? current.filter((x) => x !== m) : [...current, m].sort((a, b) => a - b) })}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+                {task.reminders !== null && (
+                  <button className="link" onClick={() => doc.updateTask(id, { reminders: null })}>
+                    как по умолчанию
+                  </button>
+                )}
+              </>
             )}
           </dd>
 

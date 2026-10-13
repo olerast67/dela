@@ -137,3 +137,20 @@ test('клавиатура, палитра команд и перетаскив�
   await page.keyboard.press('Shift+Slash');
   await expect(page.getByRole('dialog', { name: 'Горячие клавиши' })).toBeVisible();
 });
+
+test('напоминание срабатывает в срок', async ({ page }) => {
+  await page.clock.install();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Электронная почта').fill(`rem-${Date.now()}@dela.test`);
+  await page.getByLabel('Пароль', { exact: true }).fill('reminder-pass-1');
+  await page.getByLabel('Пароль ещё раз').fill('reminder-pass-1');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Ключ сохранён в надёжном месте').check({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await addTask(page, 'Выключить духовку через 2 минуты');
+  await expect(page.getByText('Выключить духовку')).toBeVisible();
+  await expect(page.getByText('⏰ Выключить духовку')).toBeHidden();
+  await page.clock.fastForward('03:00');
+  await expect(page.getByText('⏰ Выключить духовку')).toBeVisible({ timeout: 10_000 });
+});

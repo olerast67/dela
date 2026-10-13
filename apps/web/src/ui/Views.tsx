@@ -5,6 +5,7 @@ import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, useAppState, useDoc } from '../hooks.ts';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
+import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
 import { showToast } from './toast.tsx';
 
@@ -392,6 +393,7 @@ export function SettingsView() {
           </div>
         ))}
       </section>
+      <ReminderSettings />
       <ChangePassword />
       <ImportExport />
       {isAdmin && (
@@ -642,5 +644,44 @@ export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string 
       {result && <TaskList tasks={result.tasks} onOpen={onOpen} selectedId={selectedId} />}
       {result && result.tasks.length === 0 && !error && <Empty>Под фильтр ничего не попадает.</Empty>}
     </>
+  );
+}
+
+export function ReminderSettings() {
+  const [permission, setPermission] = useState(() => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission));
+  const [defaults, setDefaults] = useState(() => controller.reminderDefaults());
+  return (
+    <section className="settings">
+      <h2>Напоминания</h2>
+      <p className="muted">
+        Задачам со временем Dela напоминает по умолчанию так, как выбрано ниже. У отдельной задачи это можно изменить в её карточке. Пока приложение
+        закрыто, напоминания не приходят: это появится вместе с push-уведомлениями.
+      </p>
+      {permission === 'default' && (
+        <button className="primary" onClick={async () => setPermission(await Notification.requestPermission())}>
+          Разрешить уведомления
+        </button>
+      )}
+      {permission === 'denied' && <p className="notice">Уведомления запрещены в настройках браузера. Напоминания будут видны только внутри приложения.</p>}
+      {permission === 'unsupported' && <p className="notice">Этот браузер не умеет показывать уведомления.</p>}
+      <div className="row wrap" style={{ marginTop: 10 }}>
+        {REMINDER_OPTIONS.map(([m, label]) => {
+          const on = defaults.includes(m);
+          return (
+            <button
+              key={m}
+              className={`pill toggle c-green${on ? ' on' : ''}`}
+              onClick={() => {
+                const next = on ? defaults.filter((x) => x !== m) : [...defaults, m].sort((a, b) => a - b);
+                setDefaults(next);
+                controller.setReminderDefaults(next);
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
