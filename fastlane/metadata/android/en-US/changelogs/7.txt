@@ -1,0 +1,1 @@
+The home screen widget shows tasks again, reminders arrive on time, pop-up messages can be swiped away, screenshots can be pasted into comments.
