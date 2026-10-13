@@ -1070,9 +1070,10 @@ export class Doc {
    * остаётся только отметка purged_at. Сервер хранит последнее значение каждого поля,
    * поэтому прежний зашифрованный текст с него тоже уходит. Отменить нельзя.
    */
-  purgeTask(id: string): void {
+  purgeTask(id: string): Attachment[] {
     const root = this.snapshot().tasks.get(id);
-    if (!root || root.deletedAt === null || this.purged(id)) return;
+    if (!root || root.deletedAt === null || this.purged(id)) return [];
+    const files: Attachment[] = [];
     const all = this.replica.all('task');
     const ids = new Set([id]);
     for (let grew = true; grew; ) {
@@ -1095,19 +1096,23 @@ export class Doc {
     }
     for (const [cid, rec] of this.replica.all('comment')) {
       if (typeof rec.task !== 'string' || !ids.has(rec.task)) continue;
+      const file = toComment(cid, rec).file;
+      if (file) files.push(file);
       for (const [field, value] of Object.entries(rec)) {
         if (value !== null && field !== 'deleted_at' && field !== 'task') changes.push(['comment', cid, field, null]);
       }
       if (rec.deleted_at == null) changes.push(['comment', cid, 'deleted_at', t]);
     }
     this.write(changes, { undoable: false });
+    return files;
   }
 
   /** Очистить корзину: все удалённые задачи навсегда. */
-  emptyTrash(): number {
+  /** Очистить корзину. Возвращает файлы комментариев, которые надо удалить с сервера. */
+  emptyTrash(): { count: number; files: Attachment[] } {
     const roots = this.trash();
-    for (const task of roots) this.purgeTask(task.id);
-    return roots.length;
+    const files = roots.flatMap((task) => this.purgeTask(task.id));
+    return { count: roots.length, files };
   }
 }
 

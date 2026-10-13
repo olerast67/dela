@@ -361,8 +361,9 @@ export function TrashView() {
           <button
             onClick={() => {
               if (confirm(`Удалить навсегда ${plural(doc.trash().length, 'задачу', 'задачи', 'задач')}? Отменить это нельзя.`)) {
-                const n = doc.emptyTrash();
-                showToast(`Удалено навсегда: ${n}`);
+                const r = doc.emptyTrash();
+                for (const f of r.files) void controller.api.deleteFile(f.spaceId, f.file.id).catch(() => undefined);
+                showToast(`Удалено навсегда: ${r.count}`);
               }
             }}
           >
@@ -377,7 +378,8 @@ export function TrashView() {
           <button
             className="danger"
             onClick={() => {
-              if (confirm(`Удалить «${t.title}» навсегда? Отменить это нельзя.`)) doc.purgeTask(t.id);
+              if (!confirm(`Удалить «${t.title}» навсегда? Отменить это нельзя.`)) return;
+              for (const f of doc.purgeTask(t.id)) void controller.api.deleteFile(f.spaceId, f.file.id).catch(() => undefined);
             }}
           >
             Удалить навсегда

@@ -31,9 +31,10 @@ describe('комментарии и исполнитель', () => {
     const task = doc.createTask({ title: 'Покрасить стены' });
     doc.updateTask(task, { assignee: '01929c3e-0000-7000-8000-0000000000b2' });
     expect(doc.task(task)?.assignee).toBe('01929c3e-0000-7000-8000-0000000000b2');
-    const c = doc.addComment(task, { text: 'Цвет: белый', author: null });
+    const file = { id: '01929c3e-0000-7000-8000-0000000000f2', name: 'цвет.jpg', size: 10, type: 'image/jpeg', key: 'a2V5' };
+    const c = doc.addComment(task, { text: 'Цвет: белый', author: null, file });
     doc.deleteTask(task);
-    doc.purgeTask(task);
+    expect(doc.purgeTask(task)).toEqual([file]);
     expect(doc.replica.get('comment', c)).toMatchObject({ text: null, author: null });
     expect(doc.replica.get('comment', c)?.deleted_at).not.toBeNull();
   });

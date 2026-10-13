@@ -43,7 +43,7 @@ describe('корзина', () => {
     const doc = make();
     const keep = doc.createTask({ title: 'Остаётся' });
     for (const title of ['а', 'б', 'в']) doc.deleteTask(doc.createTask({ title }));
-    expect(doc.emptyTrash()).toBe(3);
+    expect(doc.emptyTrash().count).toBe(3);
     expect(doc.trash()).toEqual([]);
     expect(doc.task(keep)?.title).toBe('Остаётся');
     // Задачу не из корзины удалить навсегда нельзя.

@@ -288,16 +288,25 @@ export class Workspace {
     return this.docForTask(taskId).spaceId;
   }
 
-  purgeTask(id: string): void {
-    this.batch(() => this.docForTask(id).purgeTask(id));
+  /** Удалить задачу навсегда. Возвращает файлы её комментариев с пространством: их удаляют с сервера. */
+  purgeTask(id: string): Array<{ spaceId: string; file: Attachment }> {
+    const doc = this.docForTask(id);
+    let files: Attachment[] = [];
+    this.batch(() => (files = doc.purgeTask(id)));
+    return files.map((file) => ({ spaceId: doc.spaceId, file }));
   }
 
-  emptyTrash(): number {
-    let n = 0;
+  emptyTrash(): { count: number; files: Array<{ spaceId: string; file: Attachment }> } {
+    let count = 0;
+    const files: Array<{ spaceId: string; file: Attachment }> = [];
     this.batch(() => {
-      for (const d of this.docs()) n += d.emptyTrash();
+      for (const d of this.docs()) {
+        const r = d.emptyTrash();
+        count += r.count;
+        files.push(...r.files.map((file) => ({ spaceId: d.spaceId, file })));
+      }
     });
-    return n;
+    return { count, files };
   }
 
   moveTask(id: string, target: { projectId?: string; sectionId?: string | null; parentId?: string | null; position?: Position }): void {
