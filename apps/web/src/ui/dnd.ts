@@ -9,6 +9,9 @@ export const DRAG_TYPE = 'application/x-dela-task';
 
 export type DropWhere = 'before' | 'after' | 'inside';
 
+/** Сколько держать задачу над серединой строки, чтобы сделать её подзадачей (палец). */
+const INSIDE_HOLD_MS = 450;
+
 export type DropOnTask = (draggedId: string, target: TaskView, where: DropWhere) => void;
 
 export const DropContext = createContext<DropOnTask | null>(null);
@@ -60,15 +63,28 @@ export function startTouchDrag(taskId: string, source: HTMLElement, x: number, y
     if (marked) marked.classList.remove(markClass);
     marked = null;
   };
+  // Вложить задачу пальцем можно, только задержав её над серединой строки: иначе при обычном
+  // перетаскивании задача случайно становилась подзадачей.
+  let middleRow: Element | null = null;
+  let middleSince = 0;
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
   const locate = (cx: number, cy: number) => {
     unmark();
     target = null;
+    clearTimeout(holdTimer);
     const hit = document.elementFromPoint(cx, cy);
     const row = hit?.closest('.task[data-id]');
     if (row && row !== source && touchTasks.has(row)) {
       const r = row.getBoundingClientRect();
       const rel = (cy - r.top) / r.height;
-      const where: DropWhere = rel < 0.3 ? 'before' : rel > 0.7 ? 'after' : 'inside';
+      const middle = rel >= 0.35 && rel <= 0.65;
+      if (!middle || middleRow !== row) {
+        middleRow = middle ? row : null;
+        middleSince = Date.now();
+      }
+      const held = middle && Date.now() - middleSince >= INSIDE_HOLD_MS;
+      if (middle && !held) holdTimer = setTimeout(() => locate(cx, cy), INSIDE_HOLD_MS);
+      const where: DropWhere = held ? 'inside' : rel < 0.5 ? 'before' : 'after';
       target = { kind: 'task', el: row, where };
       marked = row;
       markClass = `drop-${where}`;
@@ -94,6 +110,7 @@ export function startTouchDrag(taskId: string, source: HTMLElement, x: number, y
   };
   const noScroll = (e: TouchEvent) => e.preventDefault();
   const finish = (drop: boolean) => {
+    clearTimeout(holdTimer);
     document.removeEventListener('pointermove', move);
     document.removeEventListener('pointerup', up);
     document.removeEventListener('pointercancel', cancel);

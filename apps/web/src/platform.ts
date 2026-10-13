@@ -100,7 +100,33 @@ let permissionAsked = false;
  * при закрытом приложении и без связи с сервером. Android держит ограниченное число
  * будильников, поэтому ставятся ближайшие 60.
  */
-export async function syncNativeReminders(list: readonly NativeReminder[]): Promise<void> {
+export function syncNativeReminders(list: readonly NativeReminder[]): Promise<void> {
+  // Пересчёты идут по очереди: иначе отмена из одного вызова снимала бы то, что поставил другой.
+  const run = reminderQueue.then(() => replaceNativeReminders(list));
+  reminderQueue = run.catch(() => undefined);
+  return run;
+}
+
+let reminderQueue: Promise<void> = Promise.resolve();
+
+/** Какие уведомления и на какое время Dela уже поставила в Android (id → время). */
+function loadScheduled(): Map<number, number> {
+  try {
+    return new Map(JSON.parse(localStorage.getItem('nativeReminders') ?? '[]') as Array<[number, number]>);
+  } catch {
+    return new Map();
+  }
+}
+
+function saveScheduled(m: ReadonlyMap<number, number>): void {
+  try {
+    localStorage.setItem('nativeReminders', JSON.stringify([...m]));
+  } catch {
+    // без localStorage старые напоминания снимутся при следующем пересчёте
+  }
+}
+
+async function replaceNativeReminders(list: readonly NativeReminder[]): Promise<void> {
   if (platform() !== 'capacitor') return;
   const { LocalNotifications } = await import('@capacitor/local-notifications');
   let perm = await LocalNotifications.checkPermissions();
@@ -109,23 +135,49 @@ export async function syncNativeReminders(list: readonly NativeReminder[]): Prom
     perm = await LocalNotifications.requestPermissions();
   }
   if (perm.display !== 'granted') return;
-  const pending = await LocalNotifications.getPending();
-  if (pending.notifications.length > 0) {
-    await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
-  }
   const now = Date.now();
   const next = list.filter((r) => r.at > now).slice(0, 60);
+  const wanted = new Set(next.map((r) => notificationId(r.key)));
+  const known = loadScheduled();
+  // Наступившие напоминания не отменяются: Android показывает их с задержкой до минуты,
+  // а отмена убрала бы и уже показанное уведомление из шторки. Старше суток снимаются из хранилища плагина.
+  const stale = (await LocalNotifications.getPending()).notifications.filter((n) => {
+    if (wanted.has(n.id)) return false;
+    const at = known.get(n.id);
+    return at === undefined || at > now || at < now - 24 * 3600_000;
+  });
+  if (stale.length > 0) await LocalNotifications.cancel({ notifications: stale.map((n) => ({ id: n.id })) });
+  for (const n of stale) known.delete(n.id);
+  for (const r of next) known.set(notificationId(r.key), r.at);
+  saveScheduled(known);
   if (next.length === 0) return;
+  // Без разрешения на точное время Android может сдвинуть напоминание на несколько минут.
+  // Само разрешение пользователь даёт кнопкой в настройках: иначе плагин открывал бы системный экран при каждом пересчёте.
+  const exact = (await LocalNotifications.checkExactNotificationSetting()).exact_alarm === 'granted';
   await LocalNotifications.schedule({
     notifications: next.map((r) => ({
       id: notificationId(r.key),
       title: r.title,
       body: r.body,
       schedule: { at: new Date(r.at), allowWhileIdle: true },
+      isExactNotification: exact,
       extra: { taskId: r.taskId },
       smallIcon: 'ic_stat_dela',
     })),
   });
+}
+
+/** Телефон: можно ли ставить напоминания на точное время. null вне Android. */
+export async function exactRemindersAllowed(): Promise<boolean | null> {
+  if (platform() !== 'capacitor') return null;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  return (await LocalNotifications.checkExactNotificationSetting()).exact_alarm === 'granted';
+}
+
+/** Телефон: открыть системный экран «Будильники и напоминания» и вернуть итог. */
+export async function allowExactReminders(): Promise<boolean> {
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  return (await LocalNotifications.changeExactNotificationSetting()).exact_alarm === 'granted';
 }
 
 /** Телефон: тап по уведомлению открывает задачу. */
@@ -234,32 +286,42 @@ interface DelaWidgetPlugin {
   addListener(event: 'completed', cb: () => void): Promise<{ remove(): Promise<void> }>;
 }
 
-async function widgetPlugin(): Promise<DelaWidgetPlugin | null> {
+/**
+ * Прокси плагина Capacitor нельзя вернуть из async-функции напрямую: await вызовет у него then(),
+ * а такого метода у плагина нет. Поэтому плагин лежит в обёртке и регистрируется один раз.
+ */
+const plugins = new Map<string, unknown>();
+
+async function nativePlugin<T>(name: string): Promise<{ readonly p: T } | null> {
   if (platform() !== 'capacitor') return null;
-  const { registerPlugin } = await import('@capacitor/core');
-  return registerPlugin<DelaWidgetPlugin>('DelaWidget');
+  if (!plugins.has(name)) {
+    const { registerPlugin } = await import('@capacitor/core');
+    plugins.set(name, registerPlugin<T>(name));
+  }
+  return { p: plugins.get(name) as T };
 }
+
 
 /** Отдать виджету на главном экране свежий снимок задач. */
 export async function updateWidget(snapshot: unknown): Promise<void> {
-  const w = await widgetPlugin();
+  const w = (await nativePlugin<DelaWidgetPlugin>('DelaWidget'))?.p;
   await w?.update({ snapshot: JSON.stringify(snapshot) });
 }
 
 /** Задачи, отмеченные выполненными на виджете, пока приложение было закрыто или в фоне. */
 export async function takeWidgetCompleted(): Promise<string[]> {
-  const w = await widgetPlugin();
+  const w = (await nativePlugin<DelaWidgetPlugin>('DelaWidget'))?.p;
   return w ? (await w.takeCompleted()).ids : [];
 }
 
 export async function onWidgetCompleted(fn: () => void): Promise<void> {
-  const w = await widgetPlugin();
+  const w = (await nativePlugin<DelaWidgetPlugin>('DelaWidget'))?.p;
   await w?.addListener('completed', fn);
 }
 
 /** Приложение открыто с виджета или плитки: показать задачу или быстрое добавление. */
 export async function onWidgetLaunch(fn: (e: { taskId?: string; quickAdd?: boolean; voice?: boolean }) => void): Promise<() => void> {
-  const w = await widgetPlugin();
+  const w = (await nativePlugin<DelaWidgetPlugin>('DelaWidget'))?.p;
   if (!w) return () => undefined;
   const handle = await w.addListener('launch', fn);
   const first = await w.takeLaunch();
@@ -312,18 +374,13 @@ interface UnifiedPushPlugin {
   addListener(event: 'endpoint', cb: (e: { url?: string; p256dh?: string; auth?: string }) => void): Promise<{ remove(): Promise<void> }>;
 }
 
-async function unifiedPush(): Promise<UnifiedPushPlugin | null> {
-  if (platform() !== 'capacitor') return null;
-  const { registerPlugin } = await import('@capacitor/core');
-  return registerPlugin<UnifiedPushPlugin>('UnifiedPush');
-}
 
 /**
  * Телефон: подписка на напоминания через UnifiedPush (ntfy и другие распространители).
  * Возвращает адрес и ключи Web Push для сервера; null, если распространитель не установлен.
  */
 export async function nativePushSubscribe(vapid: string, textKey: string): Promise<{ endpoint: string; keys: { p256dh: string; auth: string } } | null> {
-  const up = await unifiedPush();
+  const up = (await nativePlugin<UnifiedPushPlugin>('UnifiedPush'))?.p;
   if (!up) return null;
   await up.setKey({ key: textKey });
   const got = new Promise<{ url?: string; p256dh?: string; auth?: string }>((resolve) => {
@@ -339,5 +396,5 @@ export async function nativePushSubscribe(vapid: string, textKey: string): Promi
 }
 
 export async function nativePushUnsubscribe(): Promise<void> {
-  await (await unifiedPush())?.unregister();
+  await (await nativePlugin<UnifiedPushPlugin>('UnifiedPush'))?.p.unregister();
 }

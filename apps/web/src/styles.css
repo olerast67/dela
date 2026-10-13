@@ -1112,6 +1112,11 @@ input.inline {
   box-shadow: var(--shadow);
   z-index: 30;
   max-width: calc(100% - 32px);
+  touch-action: none;
+  user-select: none;
+  transition:
+    transform 160ms var(--ease),
+    opacity 160ms var(--ease);
 }
 
 .toast-action {
@@ -1120,6 +1125,37 @@ input.inline {
   color: var(--accent-soft);
   font-weight: 600;
   padding: 2px 4px;
+}
+
+.toast-close {
+  border: none;
+  background: none;
+  color: inherit;
+  opacity: 0.6;
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 4px;
+  margin-right: -6px;
+}
+
+.toast-close:hover:not(:disabled) {
+  background: none;
+  opacity: 1;
+}
+
+.toast-leave-left {
+  transform: translate(calc(-50% - 120vw), 0);
+  opacity: 0;
+}
+
+.toast-leave-right {
+  transform: translate(calc(-50% + 120vw), 0);
+  opacity: 0;
+}
+
+.toast-leave-down {
+  transform: translate(-50%, 120px);
+  opacity: 0;
 }
 
 .toast-action:hover:not(:disabled) {
@@ -2525,4 +2561,12 @@ kbd {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+/* Экранная клавиатура открыта: вкладки и «+» убираются, чтобы не закрывать список над клавиатурой. */
+@media (pointer: coarse) {
+  html.typing .tabbar,
+  html.typing .fab {
+    display: none;
+  }
 }

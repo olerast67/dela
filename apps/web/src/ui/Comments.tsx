@@ -155,19 +155,40 @@ export function Comments({ taskId }: { taskId: string }) {
     }
   };
 
+  // Снимок экрана из буфера (Ctrl+V) или файл, брошенный на поле, прикрепляются так же, как через кнопку.
+  const take = (f: File | undefined) => {
+    if (!f) return false;
+    const pasted = f.name === '' || /^image\.\w+$/.test(f.name);
+    const stamp = new Date().toLocaleString('sv-SE').replace(/:/g, '-').slice(0, 16);
+    setFile(pasted ? new File([f], `Снимок ${stamp}.${f.type.split('/')[1] || 'png'}`, { type: f.type }) : f);
+    setMsg(null);
+    return true;
+  };
+
   return (
     <section className="comments">
       <h3>Комментарии{list.length ? ` · ${list.length}` : ''}</h3>
       {list.map((c) => (
         <CommentItem key={c.id} c={c} spaceId={spaceId} />
       ))}
-      <div className="comment-new">
+      <div
+        className="comment-new"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('Files')) e.preventDefault();
+        }}
+        onDrop={(e) => {
+          if (take(e.dataTransfer.files[0])) e.preventDefault();
+        }}
+      >
         <textarea
           rows={2}
           placeholder="Комментарий"
           aria-label="Новый комментарий"
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onPaste={(e) => {
+            if (take(e.clipboardData.files[0])) e.preventDefault();
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
@@ -178,7 +199,7 @@ export function Comments({ taskId }: { taskId: string }) {
         <div className="row">
           <input ref={picker} type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Файл" />
           <button type="button" onClick={() => picker.current?.click()}>
-            {file ? `${file.name} · ${sizeLabel(file.size)}` : 'Прикрепить файл'}
+            {file ? `${file.name} · ${sizeLabel(file.size)}` : 'Прикрепить файл или снимок'}
           </button>
           <button type="button" className="primary" disabled={busy || (!text.trim() && !file)} onClick={() => void submit()}>
             {busy ? 'Отправка...' : 'Отправить'}

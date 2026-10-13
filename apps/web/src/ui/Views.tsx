@@ -10,7 +10,7 @@ import { LockSettings } from './Lock.tsx';
 import { passkeysSupported } from '../passkey.ts';
 import { passwordProof } from '#core';
 import { saveProjectAsTemplate } from './History.tsx';
-import { checkDesktopUpdate, platform } from '../platform.ts';
+import { allowExactReminders, checkDesktopUpdate, exactRemindersAllowed, platform } from '../platform.ts';
 import { ShareDialog } from './Share.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
@@ -783,12 +783,21 @@ export function ReminderSettings() {
   const [defaults, setDefaults] = useState(() => controller.reminderDefaults());
   const [push, setPush] = useState(() => controller.pushEnabled());
   const [pushMsg, setPushMsg] = useState<string | null>(null);
+  const [exact, setExact] = useState<boolean | null>(null);
+  useEffect(() => {
+    const check = () => void exactRemindersAllowed().then(setExact, () => setExact(null));
+    check();
+    document.addEventListener('visibilitychange', check);
+    return () => document.removeEventListener('visibilitychange', check);
+  }, []);
   return (
     <section className="settings">
       <h2>Напоминания</h2>
       <p className="muted">
-        Задачам со временем Dela напоминает по умолчанию так, как выбрано ниже. У отдельной задачи это можно изменить в её карточке. Пока приложение
-        закрыто, напоминания приходят через push: сервер знает только время отправки, текст зашифрован ключом этого устройства.
+        Задачам со временем Dela напоминает по умолчанию так, как выбрано ниже. У отдельной задачи это можно изменить в её карточке.{' '}
+        {platform() !== 'capacitor'
+          ? 'Пока приложение закрыто, напоминания приходят через push: сервер знает только время отправки, текст зашифрован ключом этого устройства.'
+          : 'Задачи, которые уже есть на телефоне, напоминают о себе и без интернета. Push нужен для задач, добавленных на другом устройстве, пока Dela на телефоне закрыта: сервер знает только время отправки, текст зашифрован ключом этого телефона.'}
       </p>
       <label className="checkline">
         <input
@@ -818,16 +827,29 @@ export function ReminderSettings() {
             }
           }}
         />
-        Напоминать, когда приложение закрыто
+        {platform() === 'capacitor' ? 'Push для задач с других устройств' : 'Напоминать, когда приложение закрыто'}
       </label>
       {pushMsg && <p className="notice">{pushMsg}</p>}
+      {exact === false && (
+        <div className="notice">
+          <p>Android сейчас может сдвинуть напоминание на несколько минут. Чтобы оно приходило точно в срок, разрешите Dela будильники и напоминания.</p>
+          <button
+            onClick={async () => {
+              setExact(await allowExactReminders().catch(() => false));
+              controller.scheduleReminders();
+            }}
+          >
+            Разрешить точное время
+          </button>
+        </div>
+      )}
       {permission === 'default' && (
         <button className="primary" onClick={async () => setPermission(await Notification.requestPermission())}>
           Разрешить уведомления
         </button>
       )}
       {permission === 'denied' && <p className="notice">Уведомления запрещены в настройках браузера. Напоминания будут видны только внутри приложения.</p>}
-      {permission === 'unsupported' && <p className="notice">Этот браузер не умеет показывать уведомления.</p>}
+      {permission === 'unsupported' && platform() !== 'capacitor' && <p className="notice">Этот браузер не умеет показывать уведомления.</p>}
       <div className="row wrap" style={{ marginTop: 10 }}>
         {REMINDER_OPTIONS.map(([m, label]) => {
           const on = defaults.includes(m);

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cfg_bg">#1C1B18</color>
+    <color name="cfg_text">#EDE8DD</color>
+    <color name="cfg_label">#A39C8F</color>
+</resources>

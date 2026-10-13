@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Цвета экрана настроек виджета; тёмный вариант в values-night. -->
+<resources>
+    <color name="cfg_bg">#F6F3EC</color>
+    <color name="cfg_text">#25221C</color>
+    <color name="cfg_label">#766F63</color>
+</resources>

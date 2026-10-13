@@ -58,7 +58,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <View
+    <FrameLayout
         android:id="@+id/row_divider"
         android:layout_width="match_parent"
         android:layout_height="1dp"

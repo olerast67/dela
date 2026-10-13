@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.2
+
+Fixes found while testing on a phone:
+
+- Android: the home screen widget stayed empty or showed "Loading..." forever. The app could not pass tasks to it, and the row layout used a view type widgets do not allow.
+- Android: a reminder could be cancelled by the app at the moment it was due, so it never showed. The app no longer opens the system "Alarms & reminders" screen on its own; Settings has a button for exact reminder times instead.
+- Android: reminders and the widget are cleared on sign out.
+- Android: widget settings follow the dark theme and return to the home screen after "Done".
+- Pop-up messages can be swiped away or closed with ×; they stay 2.5 s, or 4 s when they have a button.
+- A screenshot can be pasted into a comment with Ctrl+V or dropped onto it.
+- Phone: dragging a task makes it a subtask only after holding it over the middle of another task.
+- Phone: the tab bar and the + button hide while the on-screen keyboard is open.
+- The device list names the apps "Dela app" instead of the browser engine.
+- Key rotation started by hand and by a member leaving no longer race each other; deleting the account no longer races with sign out.
+
 ## 0.4.1
 
 Security fixes after an audit:

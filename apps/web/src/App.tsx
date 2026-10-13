@@ -38,6 +38,22 @@ function Shell() {
   const open = useCallback((id: string) => setSelected(id), []);
   const close = useCallback(() => setSelected(null), []);
 
+  // Пока открыта экранная клавиатура, панель вкладок и кнопка «+» не висят над ней и не закрывают список.
+  useEffect(() => {
+    const typing = (el: Element | null) =>
+      el instanceof HTMLTextAreaElement ||
+      (el instanceof HTMLInputElement && !['checkbox', 'radio', 'range', 'button', 'submit', 'color', 'file'].includes(el.type)) ||
+      (el instanceof HTMLElement && el.isContentEditable);
+    const update = () => document.documentElement.classList.toggle('typing', typing(document.activeElement));
+    const later = () => setTimeout(update, 0);
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', later);
+    return () => {
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', later);
+    };
+  }, []);
+
   useEffect(() => {
     let gPressed = 0;
     const rows = () => [...document.querySelectorAll<HTMLElement>('.content .task[data-id]')];

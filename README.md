@@ -123,7 +123,7 @@ Argon2id derives two keys from the password on the device: one proves the login 
 
 The server sees email addresses, devices, members of shared projects, change times, sizes rounded to 64 bytes and reminder times. Task text, dates, labels, project names, field names and record IDs reach the server only encrypted. If both the password and the recovery key are lost, the data cannot be decrypted.
 
-Known limitations: in the browser the data is stored decrypted in IndexedDB (the account keys are wrapped by a non-extractable WebCrypto key); a member removed from a shared project keeps what they already saw, and the project gets a new key, so they cannot read later changes; the PIN lock closes the app screen and does not add another layer of encryption to the data on the device; the author of a comment in a shared project is not signed, so members trust each other for it; the recovery key opens the account without the TOTP code. Details are in [docs/architecture.md](docs/architecture.md), the report process is in [SECURITY.md](SECURITY.md).
+Known limitations: in the browser the data is stored decrypted in IndexedDB (the account keys are wrapped by a non-extractable WebCrypto key); a member removed from a shared project keeps what they already saw, and the project gets a new key, so they cannot read later changes; the PIN lock closes the app screen and does not add another layer of encryption to the data on the device; the author of a comment in a shared project is not signed, so members trust each other for it; the recovery key opens the account without the TOTP code; the Android widget keeps the tasks it shows unencrypted in the app's private folder; voice input on Android uses the system speech recognizer, and the recognition service (usually Google) may send the audio online even though Dela asks for on-device recognition. Details are in [docs/architecture.md](docs/architecture.md), the report process is in [SECURITY.md](SECURITY.md).
 
 ## Support the project
 
@@ -141,7 +141,7 @@ I make videos about the projects I build and test on myself: [YouTube](https://w
 
 ## Roadmap
 
-Next on the [roadmap](ROADMAP.md): passkeys, activity history and templates, code signing for the Windows installer, iOS app, REST API and an MCP server for AI assistants.
+Next on the [roadmap](ROADMAP.md): code signing for the Windows installer, iOS app, REST API and an MCP server for AI assistants.
 
 ## Development
 

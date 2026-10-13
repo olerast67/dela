@@ -9,6 +9,7 @@ import {
   openAccountWithPasskey,
   wrapMasterForPasskey,
   widgetSnapshot,
+  type WidgetSnapshot,
   hashPin,
   isValidPin,
   lockAfterBackground,
@@ -131,6 +132,8 @@ function deviceName(): string {
           : /Linux/.test(ua)
             ? 'Linux'
             : 'устройство';
+  // В приложениях для телефона и Windows движок браузера пользователю ничего не говорит.
+  if (platform() !== 'web') return `Приложение Dela · ${os}`;
   const browser = /Firefox\//.test(ua) ? 'Firefox' : /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Браузер';
   return `${browser} · ${os}`;
 }
@@ -1201,6 +1204,9 @@ export class Controller {
     this.secrets = null;
     this.api.token = null;
     await this.store.clear();
+    // Телефон: снять напоминания и очистить виджет, чтобы названия задач не остались после выхода.
+    await syncNativeReminders([]).catch(() => undefined);
+    await updateWidget({ v: 1, lock: false, projects: [], tasks: [] } satisfies WidgetSnapshot).catch(() => undefined);
     this.channel?.postMessage({ type: 'logout' } satisfies ChannelMessage);
     this.leader = false;
     this.lock = null;
