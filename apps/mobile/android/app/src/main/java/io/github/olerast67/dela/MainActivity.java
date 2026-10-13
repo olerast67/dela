@@ -13,5 +13,9 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
         ShareIntentPlugin.store(getIntent());
         WidgetBridgePlugin.store(getIntent());
+        // Отладочная сборка: страница https://localhost обращается к серверу разработчика http://localhost.
+        if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            getBridge().getWebView().getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
     }
 }

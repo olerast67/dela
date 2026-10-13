@@ -33,6 +33,11 @@ android {
         }
     }
     buildTypes {
+        // Отладочная сборка ставится рядом с обычной и ходит к серверу разработчика по USB (adb reverse).
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
         release {
             if (signingProps['storeFile']) signingConfig signingConfigs.release
             minifyEnabled false
