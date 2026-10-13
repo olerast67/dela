@@ -279,6 +279,7 @@ export class Controller {
     doc.load(await this.store.loadCells(stored.spaceId));
     const ws = new Workspace(doc);
     this.doc = ws;
+    ws.setActor(stored.userId);
     this.attach(doc, fromB64(secrets.spaceKey));
     for (const sp of secrets.shared ?? []) {
       const shared = new Doc({ spaceId: sp.id, clock: this.clock, now, kind: 'shared' });

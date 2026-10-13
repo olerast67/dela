@@ -159,3 +159,5 @@ export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';
 export { weekStart, weekDates, monthGrid, monthStart, slotOf, moveDue, snapMinute, layoutDay, type TimedItem, type PlacedItem } from './calendar.ts';
 export { applyPinAttempt, failureDelayMs, isValidPin, lockAfterBackground, LOCK_TIMEOUTS, MAX_PIN_FAILURES, type LockConfig, type PinResult } from './applock.ts';
 export { widgetSnapshot, WIDGET_TASK_LIMIT, type WidgetSnapshot, type WidgetTask } from './widget.ts';
+export { applyTemplate, parseTemplate, projectToTemplate, BUILTIN_TEMPLATES, type ProjectTemplate, type TemplateTask } from './templates.ts';
+export type { ActivityEvent } from './doc.ts';

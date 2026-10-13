@@ -36,6 +36,8 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
       { id: 'upcoming', label: 'Предстоящие', group: 'Перейти', run: go({ view: 'upcoming' }) },
       { id: 'calendar', label: 'Календарь', group: 'Перейти', run: go({ view: 'calendar', mode: null, date: null }) },
       { id: 'completed', label: 'Выполненные', group: 'Перейти', run: go({ view: 'completed' }) },
+      { id: 'activity', label: 'История', group: 'Перейти', run: go({ view: 'activity' }) },
+      { id: 'templates', label: 'Шаблоны', group: 'Перейти', run: go({ view: 'templates' }) },
       { id: 'trash', label: 'Корзина', group: 'Перейти', run: go({ view: 'trash' }) },
       { id: 'settings', label: 'Настройки', group: 'Перейти', run: go({ view: 'settings' }) },
       ...doc.projects().map((p) => ({ id: `p${p.project.id}`, label: `# ${p.project.name}`, group: 'Проекты', run: go({ view: 'project', id: p.project.id }) })),

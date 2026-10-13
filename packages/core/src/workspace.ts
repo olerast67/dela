@@ -7,7 +7,7 @@
  * перешифровываются ключом нового пространства.
  */
 import { localDate, instant } from './dates.ts';
-import type { Change, Doc, Listener, Position, ProjectNode, ProjectTasks, TaskInput, TaskNode, TaskPatch, TaskView } from './doc.ts';
+import type { ActivityEvent, Change, Doc, Listener, Position, ProjectNode, ProjectTasks, TaskInput, TaskNode, TaskPatch, TaskView } from './doc.ts';
 import { compareOrder } from './fractional.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
 
@@ -73,6 +73,7 @@ export class Workspace {
   addShared(doc: Doc): void {
     if (this.shared.has(doc.spaceId)) return;
     this.shared.set(doc.spaceId, doc);
+    doc.actor = this.actor;
     this.watch(doc);
     for (const fn of this.listeners) fn([], 'remote');
   }
@@ -281,6 +282,36 @@ export class Workspace {
 
   comments(taskId: string): Comment[] {
     return this.docForTask(taskId).comments(taskId);
+  }
+
+  /** История действий по всем пространствам, новые первыми. */
+  activity(limit = 500): Array<ActivityEvent & { spaceId: string }> {
+    return this.docs()
+      .flatMap((d) => d.activity().map((e) => ({ ...e, spaceId: d.spaceId })))
+      .sort((a, b) => b.at - a.at)
+      .slice(0, limit);
+  }
+
+  /** Кто работает на этом устройстве: пишется в историю общих проектов. */
+  setActor(userId: string | null): void {
+    for (const d of this.docs()) d.actor = userId;
+    this.actor = userId;
+  }
+
+  actor: string | null = null;
+
+  saveTemplate(name: string, data: unknown): string {
+    let id = '';
+    this.batch(() => (id = this.personal.saveTemplate(name, data)));
+    return id;
+  }
+
+  deleteTemplate(id: string): void {
+    this.batch(() => this.personal.deleteTemplate(id));
+  }
+
+  templates() {
+    return this.personal.templates();
   }
 
   /** Пространство задачи: для общих проектов нужен список участников. */

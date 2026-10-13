@@ -7,6 +7,7 @@ import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
 import { LockSettings } from './Lock.tsx';
+import { saveProjectAsTemplate } from './History.tsx';
 import { checkDesktopUpdate, platform } from '../platform.ts';
 import { ShareDialog } from './Share.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
@@ -211,6 +212,9 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
             <button onClick={() => setSharing(true)}>{doc.isShared(id) ? 'Участники' : 'Поделиться'}</button>
             <button onClick={() => setRenaming(true)}>Переименовать</button>
             <button onClick={() => setAddingSection(true)}>Раздел</button>
+            <button onClick={() => saveProjectAsTemplate(doc, id)} title="Сохранить проект как шаблон">
+              Шаблон
+            </button>
             {(!doc.isShared(id) || controller.roleIn(id) === 'owner') && (
             <button
               className="danger"

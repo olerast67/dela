@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- History of actions: created, completed and deleted tasks and comments by day, with the author in shared projects.
+- Project templates: save a project as a template, create a project from it, three ready templates, import and export as a file. Due dates are kept relative to the day of creation.
+
 ## 0.3.0
 
 - Phone: hold a task to drag it with a finger to another place in the list, into another task or onto another day.

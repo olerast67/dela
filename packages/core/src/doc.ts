@@ -37,6 +37,17 @@ import { uuidv7 } from './uuid.ts';
 export type Change = readonly [table: string, record: string, field: string, value: Json];
 export type Origin = 'local' | 'remote';
 /** undoable: локальная запись попала в историю отмены. */
+export interface ActivityEvent {
+  readonly kind: 'created' | 'completed' | 'deleted' | 'comment';
+  readonly at: number;
+  readonly taskId: string;
+  readonly title: string;
+  readonly projectId: string;
+  /** Кто сделал (id пользователя), если известно. */
+  readonly actor: string | null;
+  readonly text?: string;
+}
+
 export type Listener = (ops: readonly Op[], origin: Origin, undoable?: boolean) => void;
 
 /** Задача с действующими значениями: проект, раздел и родитель после разбора дерева. */
@@ -102,7 +113,7 @@ export interface TaskPatch {
 const PROJECT_PALETTE = ['blue', 'green', 'orange', 'violet', 'teal', 'red', 'pink', 'yellow', 'brown'] as const;
 
 /** Таблицы с мягким удалением: отмена создания помечает запись удалённой. */
-const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment']);
+const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template']);
 
 const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   title: 'title',
@@ -203,6 +214,8 @@ export class Doc {
   private outbox: Op[] = [];
   private readonly listeners = new Set<Listener>();
   private snap: Snapshot | null = null;
+  /** Кто делает правки на этом устройстве (id пользователя): для истории в общих проектах. */
+  actor: string | null = null;
 
   constructor(options: DocOptions) {
     this.spaceId = options.spaceId;
@@ -590,6 +603,7 @@ export class Doc {
       ['task', id, 'parent', parentId],
       ['task', id, 'order', this.orderBetween(siblings, id, input.position)],
       ['task', id, 'created_at', this.now()],
+      ...(this.actor && this.kind === 'shared' ? ([['task', id, 'created_by', this.actor]] as Change[]) : []),
     ];
     if (input.description) changes.push(['task', id, 'description', input.description]);
     if (input.priority !== undefined && input.priority !== 4) changes.push(['task', id, 'priority', input.priority]);
@@ -672,6 +686,7 @@ export class Doc {
     }
     const t = this.now();
     const changes: Change[] = [['task', id, 'completed_at', t]];
+    if (this.actor && this.kind === 'shared') changes.push(['task', id, 'completed_by', this.actor]);
     for (const d of this.descendants(id)) {
       if (s.tasks.get(d)!.completedAt === null) changes.push(['task', d, 'completed_at', t]);
     }
@@ -700,6 +715,7 @@ export class Doc {
     if (complete) {
       const cid = Doc.completionId(task.id, occurrence);
       changes.push(['completion', cid, 'task', task.id], ['completion', cid, 'occurrence', occurrence], ['completion', cid, 'completed_at', t]);
+      if (this.actor && this.kind === 'shared') changes.push(['completion', cid, 'by', this.actor]);
     }
     let next: string | null = null;
     if (rule) {
@@ -774,6 +790,74 @@ export class Doc {
       }
     }
     return out;
+  }
+
+  // ---------- история ----------
+
+  /**
+   * История действий по отметкам времени, которые и так лежат в записях: создание, выполнение
+   * (в том числе каждого повтора), удаление, комментарии. Автор известен в общих проектах.
+   */
+  activity(): ActivityEvent[] {
+    const out: ActivityEvent[] = [];
+    const tasks = this.replica.all('task');
+    const info = (id: string) => {
+      const rec = tasks.get(id);
+      if (!rec || rec.purged_at != null) return null;
+      return { title: typeof rec.title === 'string' ? rec.title : '', projectId: typeof rec.project === 'string' ? rec.project : '' };
+    };
+    const who = (v: Json | undefined) => (typeof v === 'string' ? v : null);
+    for (const [id, rec] of tasks) {
+      const t = info(id);
+      if (!t) continue;
+      if (typeof rec.created_at === 'number') out.push({ kind: 'created', at: rec.created_at, taskId: id, ...t, actor: who(rec.created_by) });
+      if (typeof rec.completed_at === 'number') out.push({ kind: 'completed', at: rec.completed_at, taskId: id, ...t, actor: who(rec.completed_by) });
+      if (typeof rec.deleted_at === 'number') out.push({ kind: 'deleted', at: rec.deleted_at, taskId: id, ...t, actor: null });
+    }
+    for (const [, rec] of this.replica.all('completion')) {
+      const id = typeof rec.task === 'string' ? rec.task : '';
+      const t = info(id);
+      if (t && typeof rec.completed_at === 'number') out.push({ kind: 'completed', at: rec.completed_at, taskId: id, ...t, actor: who(rec.by) });
+    }
+    for (const [, rec] of this.replica.all('comment')) {
+      const id = typeof rec.task === 'string' ? rec.task : '';
+      const t = info(id);
+      if (t && rec.deleted_at == null && typeof rec.created_at === 'number') {
+        out.push({ kind: 'comment', at: rec.created_at, taskId: id, ...t, actor: who(rec.author), text: typeof rec.text === 'string' ? rec.text : '' });
+      }
+    }
+    return out.sort((a, b) => b.at - a.at);
+  }
+
+  // ---------- шаблоны ----------
+
+  saveTemplate(name: string, data: unknown): string {
+    const id = uuidv7(this.now());
+    this.write([
+      ['template', id, 'name', name.trim()],
+      ['template', id, 'data', data as Json],
+      ['template', id, 'created_at', this.now()],
+    ]);
+    return id;
+  }
+
+  deleteTemplate(id: string): void {
+    this.write(
+      [
+        ['template', id, 'data', null],
+        ['template', id, 'deleted_at', this.now()],
+      ],
+      { undoable: false },
+    );
+  }
+
+  templates(): Array<{ id: string; name: string; data: Json; createdAt: number }> {
+    const out: Array<{ id: string; name: string; data: Json; createdAt: number }> = [];
+    for (const [id, rec] of this.replica.all('template')) {
+      if (rec.deleted_at != null || rec.data == null) continue;
+      out.push({ id, name: typeof rec.name === 'string' ? rec.name : '', data: rec.data, createdAt: typeof rec.created_at === 'number' ? rec.created_at : 0 });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
   }
 
   // ---------- комментарии ----------

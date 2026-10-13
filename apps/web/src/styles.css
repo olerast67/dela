@@ -2431,3 +2431,78 @@ kbd {
 .drag-source {
   opacity: 0.35;
 }
+
+/* ---------- история и шаблоны ---------- */
+
+.activity-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.activity-row.link {
+  cursor: pointer;
+}
+
+.activity-row.link:hover {
+  background: var(--surface);
+}
+
+.activity-time {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.activity-kind {
+  flex: none;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+
+.kind-completed .activity-kind {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.kind-deleted .activity-kind {
+  color: var(--danger);
+}
+
+.activity-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.activity-who {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--card-shadow);
+}
+
+.template-card .row {
+  margin-top: auto;
+  padding-top: 8px;
+  flex-wrap: wrap;
+}

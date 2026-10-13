@@ -81,6 +81,18 @@ export const IconSearch = (p: P) => (
     <path d="M20 20l-4-4" />
   </Svg>
 );
+export const IconHistory = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4" />
+    <path d="M12 8v4l3 2" />
+  </Svg>
+);
+export const IconTemplate = (p: P) => (
+  <Svg {...p}>
+    <rect x="4" y="4" width="16" height="16" rx="2.5" />
+    <path d="M4 9.5h16M9.5 9.5V20" />
+  </Svg>
+);
 export const IconComment = (p: P) => (
   <Svg width="13" height="13" {...p}>
     <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h-1A.5.5 0 0 1 4 15.5z" />

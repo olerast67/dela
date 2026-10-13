@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAppState, useDoc, href, navigate, type Route } from '../hooks.ts';
 import { TZ, todayDate } from '../format.ts';
 import { dropZone } from './dnd.ts';
-import { IconDone, IconFilter, IconUsers, IconInbox, IconCalendar, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
+import { IconDone, IconHistory, IconTemplate, IconFilter, IconUsers, IconInbox, IconCalendar, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
 
 function same(a: Route, b: Route): boolean {
   // Календарь подсвечивается в любом виде и на любой дате.
@@ -156,6 +156,8 @@ export function Sidebar({ route, onNavigate }: { route: Route; onNavigate?: () =
 
       <div className="nav-foot">
         {item({ view: 'completed' }, <IconDone />, 'Выполненные')}
+        {item({ view: 'activity' }, <IconHistory />, 'История')}
+        {item({ view: 'templates' }, <IconTemplate />, 'Шаблоны')}
         {item({ view: 'trash' }, <IconTrash />, 'Корзина')}
         {item({ view: 'settings' }, <IconSettings />, 'Настройки')}
         <SyncBadge />

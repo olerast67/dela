@@ -49,7 +49,8 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 |---|---|
 | Quick add | English and Russian phrases: "call mom tomorrow at 7pm #Home every week p1". Recognized parts are highlighted; one click keeps a word as plain text. In the Russian layout `№` works as `#` and `!1` as `p1` |
 | Organizing | Projects with sub-projects, sections, subtasks, labels, priorities 1-4, due date with time and time zone, start date, deadline, duration |
-| Views | Today, Upcoming, project as a list or a board, labels, search, completed tasks, trash |
+| Views | Today, Upcoming, project as a list or a board, labels, search, completed tasks, history of actions, trash |
+| Templates | Save a project as a template and create projects from it, ready templates, templates as files |
 | Calendar | Day, week and month. Drag a task to another day or into the hour grid, drag its bottom edge to change the duration, click an empty hour to add a task there |
 | Recurrence | By schedule or from the completion date: "every 2nd tuesday of the month", "every 3 days after completion", "last day of the month" |
 | Filters | Todoist syntax `(today \| overdue) & p1`, `#Work & !@waiting`, `7 days`, `search: milk`, plus Russian keywords |

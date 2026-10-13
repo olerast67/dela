@@ -13,6 +13,7 @@ import { completeWithUndo } from './ui/Task.tsx';
 import { checkDesktopUpdate, onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch } from './platform.ts';
 import { CalendarView } from './ui/Calendar.tsx';
 import { LockScreen } from './ui/Lock.tsx';
+import { ActivityView, TemplatesView } from './ui/History.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 
@@ -258,6 +259,12 @@ function Shell() {
       break;
     case 'completed':
       view = <CompletedView {...props} />;
+      break;
+    case 'activity':
+      view = <ActivityView onOpen={open} />;
+      break;
+    case 'templates':
+      view = <TemplatesView />;
       break;
     case 'trash':
       view = <TrashView />;
