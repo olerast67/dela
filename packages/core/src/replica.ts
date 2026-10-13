@@ -32,6 +32,19 @@ export class MemoryReplica {
     return true;
   }
 
+  /** Метка последней записи в ячейку. */
+  hlcOf(table: string, record: string, field: string): string | undefined {
+    return this.cells.get(cellKey(table, record, field))?.hlc;
+  }
+
+  /** Все ячейки как операции: для сохранения состояния на устройстве. */
+  *ops(): IterableIterator<Op> {
+    for (const [key, c] of this.cells) {
+      const [table, record, field] = JSON.parse(key) as [string, string, string];
+      yield { table, record, field, value: c.value, hlc: c.hlc };
+    }
+  }
+
   get(table: string, record: string): Readonly<Record<string, Json>> | undefined {
     return this.records.get(table)?.get(record);
   }
