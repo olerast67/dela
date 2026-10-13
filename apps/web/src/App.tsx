@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { controller } from './controller.ts';
 import { useAppState, useDoc, useMedia, useRoute } from './hooks.ts';
 import { AuthScreen, RecoveryScreen } from './ui/Auth.tsx';
-import { IconMenu, IconPlus } from './ui/icons.tsx';
+import { IconPlus } from './ui/icons.tsx';
+import { TabBar } from './ui/TabBar.tsx';
 import { QuickAdd } from './ui/QuickAdd.tsx';
 import { Sidebar } from './ui/Sidebar.tsx';
 import { TaskPanel } from './ui/TaskPanel.tsx';
@@ -265,15 +266,9 @@ function Shell() {
         </>
       )}
       <main className="content">
-        {narrow && (
-          <div className="topbar">
-            <button className="icon" onClick={() => setMenu(true)} aria-label="Меню">
-              <IconMenu />
-            </button>
-          </div>
-        )}
         <div className="content-inner">{view}</div>
       </main>
+      {selected && narrow && <div className="panel-scrim" onClick={close} />}
       {selected && <TaskPanel id={selected} onClose={close} onOpen={open} />}
       {quickAdd && (
         <div
@@ -298,6 +293,7 @@ function Shell() {
           </div>
         </div>
       )}
+      {narrow && !selected && <TabBar route={route} onMore={() => setMenu(true)} />}
       <button className="fab" onClick={() => setQuickAdd(true)} aria-label="Добавить задачу (Q)">
         <IconPlus width={24} height={24} />
       </button>

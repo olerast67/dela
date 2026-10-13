@@ -5,6 +5,7 @@ import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, useAppState, useDoc } from '../hooks.ts';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
+import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
 import { LockSettings } from './Lock.tsx';
 import { ShareDialog } from './Share.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
@@ -26,8 +27,44 @@ function AddTask({ defaults, label = 'Добавить задачу' }: { defaul
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="empty">{children}</p>;
+function Empty({ children, art }: { children: React.ReactNode; art?: EmptyKind | undefined }) {
+  if (!art) return <p className="empty">{children}</p>;
+  return (
+    <div className="empty with-art">
+      <EmptyArt kind={art} />
+      <p>{children}</p>
+    </div>
+  );
+}
+
+/** Заголовок «Сегодня»: дата и кольцо прогресса (выполнено сегодня из запланированного на сегодня). */
+function TodayHead({ open, today }: { open: number; today: string }) {
+  const doc = useDoc();
+  const done = doc.completedTasks().filter((t) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(t.completedAt!)) === today).length;
+  const total = open + done;
+  const r = 20;
+  const c = 2 * Math.PI * r;
+  const part = total ? (c * done) / total : 0;
+  const date = new Intl.DateTimeFormat('ru', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${today}T12:00:00`));
+  return (
+    <header className="view-head today-head">
+      <div>
+        <h1>Сегодня</h1>
+        <div className="today-date">{date[0]!.toUpperCase() + date.slice(1)}</div>
+      </div>
+      {total > 0 && (
+        <div className="ring" role="img" aria-label={`Выполнено ${done} из ${total}`} title={`Выполнено ${done} из ${total}`}>
+          <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
+            <circle cx="26" cy="26" r={r} className="ring-track" />
+            <circle cx="26" cy="26" r={r} className="ring-value" strokeDasharray={`${part} ${c}`} transform="rotate(-90 26 26)" />
+          </svg>
+          <span>
+            {done}/{total}
+          </span>
+        </div>
+      )}
+    </header>
+  );
 }
 
 export function TodayView({ onOpen, selectedId }: ViewProps) {
@@ -36,10 +73,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
   const { overdue, today: todays } = doc.today(today, TZ);
   return (
     <>
-      <header className="view-head">
-        <h1>Сегодня</h1>
-        <span className="muted">{plural(overdue.length + todays.length, 'задача', 'задачи', 'задач')}</span>
-      </header>
+      <TodayHead open={overdue.length + todays.length} today={today} />
       {overdue.length > 0 && (
         <section>
           <div className="section-head">
@@ -66,7 +100,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
         <TaskList tasks={todays} onOpen={onOpen} selectedId={selectedId} showDate={false} />
         <AddTask defaults={{ due: { date: today } }} />
       </section>
-      {overdue.length + todays.length === 0 && <Empty>На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.</Empty>}
+      {overdue.length + todays.length === 0 && <Empty art="today">На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.</Empty>}
     </>
   );
 }
@@ -243,7 +277,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
           }}
         />
       )}
-      {total === 0 && <Empty>{isInbox ? 'Входящие пусты. Всё, что не разобрано по проектам, попадает сюда.' : 'В проекте пока нет задач.'}</Empty>}
+      {total === 0 && <Empty art={isInbox ? 'inbox' : undefined}>{isInbox ? 'Входящие пусты. Всё, что не разобрано по проектам, попадает сюда.' : 'В проекте пока нет задач.'}</Empty>}
     </DropContext.Provider>
   );
 }
@@ -296,7 +330,7 @@ export function SearchView({ q, onOpen, selectedId }: ViewProps & { q: string })
         </label>
       </header>
       <TaskList tasks={results} onOpen={onOpen} selectedId={selectedId} />
-      {normalizeText(q) && results.length === 0 && <Empty>Ничего не найдено.</Empty>}
+      {normalizeText(q) && results.length === 0 && <Empty art="search">Ничего не найдено.</Empty>}
     </>
   );
 }
@@ -310,7 +344,7 @@ export function CompletedView({ onOpen, selectedId }: ViewProps) {
         <h1>Выполненные</h1>
       </header>
       <TaskList tasks={tasks} onOpen={onOpen} selectedId={selectedId} />
-      {tasks.length === 0 && <Empty>Здесь будут выполненные задачи.</Empty>}
+      {tasks.length === 0 && <Empty art="done">Здесь будут выполненные задачи.</Empty>}
     </>
   );
 }

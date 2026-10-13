@@ -1,4 +1,4 @@
-import '@fontsource-variable/onest';
+import '@fontsource-variable/manrope';
 import './styles.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

@@ -215,3 +215,13 @@ export async function onAppPauseResume(onPause: () => void, onResume: () => void
   await App.addListener('pause', onPause);
   await App.addListener('resume', onResume);
 }
+
+/** Короткая вибрация на телефоне: отклик на жест и выполнение задачи. */
+export function haptic(kind: 'light' | 'medium' | 'success' = 'light'): void {
+  if (platform() !== 'capacitor') return;
+  void import('@capacitor/haptics')
+    .then(({ Haptics, ImpactStyle, NotificationType }) =>
+      kind === 'success' ? Haptics.notification({ type: NotificationType.Success }) : Haptics.impact({ style: kind === 'medium' ? ImpactStyle.Medium : ImpactStyle.Light }),
+    )
+    .catch(() => undefined);
+}

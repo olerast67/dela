@@ -201,6 +201,8 @@ const DATE_FORMS: readonly DateForm[] = [
   form('послезавтра|day after tomorrow', (_m, t) => addDays(t, 2)),
   form('сегодня|today', (_m, t) => t),
   form('завтра|tomorrow|tmrw', (_m, t) => addDays(t, 1)),
+  form('позавчера', (_m, t) => addDays(t, -2)),
+  form('вчера|yesterday', (_m, t) => addDays(t, -1)),
   form(`(?:через|in)\\s+(?:(${NUM})\\s+)?(дн(?:я|ей)|день|недел[юиь]|месяц(?:а|ев)?|год(?:а)?|лет|days?|weeks?|months?|years?)`, (m, t) =>
     shift(t, numOf(m[1]), unitOf(m[2]!)),
   ),

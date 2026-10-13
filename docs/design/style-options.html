@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#e9e7e2;font-family:Inter,sans-serif;padding:36px 40px 36px;width:1440px}
+.cols{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+.col h2{font:700 22px Manrope,sans-serif;color:#1d211e;margin:0 0 4px 4px}
+.col p.note{font:400 14px/20px Inter,sans-serif;color:#5d625e;margin:0 0 16px 4px;min-height:40px}
+.pair{display:flex;gap:14px}
+.phone{width:210px;height:443px;border-radius:30px;overflow:hidden;position:relative;box-shadow:0 18px 40px rgba(0,0,0,.18);border:5px solid #121212;flex:none}
+.screen{position:absolute;inset:0;width:390px;height:844px;transform:scale(.5128);transform-origin:0 0;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--font)}
+.status{height:40px;display:flex;justify-content:space-between;align-items:center;padding:0 26px;font:600 15px var(--font);color:var(--text)}
+.head{padding:8px 22px 6px}
+.title-row{display:flex;align-items:flex-end;justify-content:space-between}
+h1{font:var(--h1);letter-spacing:var(--h1ls);color:var(--title)}
+.date{font:500 16px var(--font);color:var(--muted);margin-top:4px}
+.ring{width:54px;height:54px;position:relative}
+.ring span{position:absolute;inset:0;display:grid;place-items:center;font:700 13px var(--font);color:var(--text)}
+.sec{font:700 14px var(--font);color:var(--sec);padding:16px 22px 6px;display:flex;justify-content:space-between}
+.sec b{font-weight:600;color:var(--accent)}
+.list{padding:0 var(--listpad)}
+.row{position:relative;display:flex;gap:14px;align-items:flex-start;padding:14px var(--rowpad);min-height:60px;background:var(--row);border-radius:var(--rowr);margin-bottom:var(--rowgap);box-shadow:var(--rowsh);border-bottom:var(--rowline)}
+.chk{width:26px;height:26px;border-radius:50%;border:2.5px solid var(--pc);flex:none;margin-top:1px;background:var(--pcbg)}
+.t{font:500 17px/22px var(--font);color:var(--text)}
+.meta{display:flex;gap:10px;align-items:center;margin-top:5px;font:500 13.5px var(--font);color:var(--muted)}
+.meta .time{color:var(--timec)}
+.meta .over{color:#d1453b}
+.proj{margin-left:auto;display:flex;align-items:center;gap:6px;font:500 13px var(--font);color:var(--muted);white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%}
+.tag{padding:1px 8px;border-radius:9px;background:var(--tagbg);color:var(--tagc);font-size:12.5px}
+.swipe{position:relative;margin-bottom:var(--rowgap);border-radius:var(--rowr);overflow:hidden;background:#2fa36b}
+.swipe .under{position:absolute;inset:0;display:flex;align-items:center;padding-left:24px;gap:10px;color:#fff;font:700 15px var(--font)}
+.swipe .row{transform:translateX(118px);margin:0;box-shadow:-6px 0 18px rgba(0,0,0,.12)}
+.done .t{text-decoration:line-through;color:var(--muted)}
+.done .chk{background:var(--pc);border-color:var(--pc)}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:86px;display:flex;justify-content:space-around;align-items:flex-start;padding-top:10px;background:var(--tabbg);border-top:var(--tabline);backdrop-filter:blur(14px)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;font:600 11.5px var(--font);color:var(--muted);width:64px}
+.tab svg{width:26px;height:26px}
+.tab.on{color:var(--accent)}
+.tab.on .ic{background:var(--tabpill);border-radius:16px;padding:3px 16px}
+.fab{position:absolute;right:20px;bottom:104px;width:62px;height:62px;border-radius:var(--fabr);background:var(--fab);display:grid;place-items:center;box-shadow:0 10px 24px var(--fabsh)}
+.fab svg{width:30px;height:30px;stroke:#fff}
+.hint{position:absolute;left:0;right:0;bottom:92px;text-align:center;font:500 12px var(--font);color:var(--muted)}
+/* ---------- A: Бумага ---------- */
+.a{--font:Manrope,sans-serif;--h1:800 38px Manrope,sans-serif;--h1ls:-1px;--listpad:14px;--rowpad:14px;--rowr:16px;--rowgap:8px;--rowline:none;--fabr:20px}
+.a.light{--bg:#f6f3ec;--row:#fffdf8;--rowsh:0 1px 2px rgba(60,50,30,.06),0 4px 14px rgba(60,50,30,.05);--text:#25221c;--title:#25221c;--muted:#8a8478;--sec:#25221c;--accent:#2e7d5b;--timec:#2e7d5b;--tagbg:#f0ebe0;--tagc:#7b7466;--tabbg:rgba(246,243,236,.92);--tabline:1px solid #e6e0d3;--tabpill:#e3efe7;--fab:#2e7d5b;--fabsh:rgba(46,125,91,.35)}
+.a.dark{--bg:#1a1916;--row:#24221e;--rowsh:none;--text:#efeae0;--title:#efeae0;--muted:#a19a8c;--sec:#efeae0;--accent:#6fcf9b;--timec:#6fcf9b;--tagbg:#302d27;--tagc:#b5ad9e;--tabbg:rgba(26,25,22,.92);--tabline:1px solid #2e2b26;--tabpill:#24382d;--fab:#3d9a6d;--fabsh:rgba(0,0,0,.5)}
+/* ---------- B: Цвет ---------- */
+.b{--font:Nunito,sans-serif;--h1:800 36px Nunito,sans-serif;--h1ls:-.5px;--listpad:14px;--rowpad:14px;--rowr:18px;--rowgap:10px;--rowline:none;--fabr:50%}
+.b .head{background:var(--hero);margin:0 12px;border-radius:26px;padding:20px 20px 18px;color:#fff}
+.b h1,.b .date{color:#fff}.b .date{opacity:.85}
+.b .ring span{color:#fff}
+.b.light{--bg:#f1f3fb;--hero:#5b6cf0;--row:#fff;--rowsh:0 6px 16px rgba(60,70,140,.08);--text:#1f2340;--title:#fff;--muted:#7c82a3;--sec:#1f2340;--accent:#5b6cf0;--timec:#5b6cf0;--tagbg:#eef0ff;--tagc:#5b6cf0;--tabbg:rgba(255,255,255,.95);--tabline:none;--tabpill:#e8ebff;--fab:#ff7a59;--fabsh:rgba(255,122,89,.45)}
+.b.dark{--bg:#12131c;--hero:#4a55c9;--row:#1d1f2d;--rowsh:none;--text:#eceefe;--title:#fff;--muted:#9097bd;--sec:#eceefe;--accent:#8f9bff;--timec:#8f9bff;--tagbg:#272a40;--tagc:#a9b1ff;--tabbg:rgba(18,19,28,.95);--tabline:1px solid #23253a;--tabpill:#272b4a;--fab:#ff7a59;--fabsh:rgba(0,0,0,.5)}
+/* ---------- C: Строгий ---------- */
+.c{--font:Inter,sans-serif;--h1:700 32px Inter,sans-serif;--h1ls:-1px;--listpad:0px;--rowpad:22px;--rowr:0;--rowgap:0;--rowsh:none;--fabr:16px}
+.c.light{--bg:#ffffff;--row:#ffffff;--rowline:1px solid #eeeeee;--text:#111;--title:#111;--muted:#8b8b8b;--sec:#8b8b8b;--accent:#111;--timec:#e5484d;--tagbg:#f2f2f2;--tagc:#555;--tabbg:rgba(255,255,255,.9);--tabline:1px solid #eee;--tabpill:#f0f0f0;--fab:#111;--fabsh:rgba(0,0,0,.25)}
+.c.dark{--bg:#0b0b0c;--row:#0b0b0c;--rowline:1px solid #1d1d1f;--text:#f2f2f2;--title:#fff;--muted:#7d7d82;--sec:#7d7d82;--accent:#fff;--timec:#ff6369;--tagbg:#1c1c1e;--tagc:#b0b0b5;--tabbg:rgba(11,11,12,.88);--tabline:1px solid #1d1d1f;--tabpill:#1e1e20;--fab:#f2f2f2;--fabsh:rgba(0,0,0,.6)}
+.c.dark .fab svg{stroke:#0b0b0c}
+.c .sec{text-transform:uppercase;letter-spacing:.6px;font-size:12px}
+.c .chk{border-radius:7px}
+</style></head><body>
+<div class="cols" id="cols"></div>
+<script>
+const styles=[
+ {cls:'a',name:'А. Бумага',note:'Тёплый фон, карточки с мягкой тенью, крупный жирный заголовок. Спокойно, как блокнот.'},
+ {cls:'b',name:'Б. Цвет',note:'Цветной блок дня сверху, яркие акценты, скруглённые карточки, оранжевая кнопка. Бодро и дружелюбно.'},
+ {cls:'c',name:'В. Строгий',note:'Белый или чёрный фон, тонкие линии, квадратные флажки, минимум цвета. Как Linear и Things.'},
+];
+const P={p1:'#e5484d',p2:'#f08c2a',p3:'#4c7ef0',p4:'#9a9a9a'};
+const tasks=[
+ {sec:'Просрочено',title:'Оплатить интернет',meta:['<span class="over">Вчера</span>'],p:'p1',proj:['Дом','#e5a43a']},
+ {sec:'Сегодня',title:'Созвон с командой',meta:['<span class="time">10:00-11:30</span>'],p:'p2',proj:['Работа','#4c7ef0']},
+ {swipe:true,title:'Записать ролик про Dela',meta:['<span class="time">15:00</span>','<span class="tag">видео</span>'],p:'p1',proj:['Канал','#d6457a']},
+ {title:'Купить продукты',meta:['<span class="tag">магазин</span>'],p:'p4',proj:['Дом','#e5a43a']},
+ {title:'Полить цветы',meta:['каждую неделю'],p:'p3',proj:['Дом','#e5a43a']},
+ {done:true,title:'Разобрать почту',meta:[],p:'p4',proj:['Входящие','#9a9a9a']},
+];
+const ic={
+ today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9h17M8 3v3M16 3v3"/><text x="12" y="17.6" text-anchor="middle" font-size="7.5" fill="currentColor" stroke="none" font-weight="700">13</text></svg>',
+ up:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+ cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="4.5" width="17" height="16" rx="3"/><path d="M3.5 9h17M8 3v3M16 3v3M8 13h2M12 13h2M16 13h1M8 16.5h2M12 16.5h2"/></svg>',
+ inbox:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13h4l1.5 3h5L16 13h4"/><path d="M5.5 5h13L21 13v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-5z"/></svg>',
+ more:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg>',
+ plus:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+ check:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+function ring(dark,cls){
+ const track=cls==='b'?'rgba(255,255,255,.3)':(dark?'#333':'#e4e0d6');
+ const fg=cls==='b'?'#fff':(cls==='c'?(dark?'#fff':'#111'):(dark?'#6fcf9b':'#2e7d5b'));
+ const c=2*Math.PI*22, part=c*(1/6);
+ return `<div class="ring"><svg width="54" height="54" viewBox="0 0 54 54"><circle cx="27" cy="27" r="22" fill="none" stroke="${track}" stroke-width="5"/><circle cx="27" cy="27" r="22" fill="none" stroke="${fg}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${part} ${c}" transform="rotate(-90 27 27)"/></svg><span>1/6</span></div>`;
+}
+function row(t){
+ const r=`<div class="row${t.done?' done':''}" style="--pc:${P[t.p]};--pcbg:${t.p==='p4'||t.done?'transparent':P[t.p]+'1f'}"><div class="chk"></div><div style="flex:1;min-width:0"><div class="t">${t.title}</div><div class="meta">${t.meta.join('')}<span class="proj"><i class="dot" style="background:${t.proj[1]}"></i>${t.proj[0]}</span></div></div></div>`;
+ return t.swipe?`<div class="swipe"><div class="under">${ic.check}Готово</div>${r}</div>`:r;
+}
+function screen(cls,dark){
+ let html='',sec='';
+ for(const t of tasks){ if(t.sec&&t.sec!==sec){sec=t.sec;html+=`<div class="sec"><span>${sec}</span>${sec==='Просрочено'?'<b>Перенести</b>':''}</div>`;} if(!t.sec&&!sec){} html+=row(t); }
+ return `<div class="phone"><div class="screen ${cls} ${dark?'dark':'light'}">
+ <div class="status"><span>9:41</span><span>●●● ▮</span></div>
+ <div class="head"><div class="title-row"><div><h1>Сегодня</h1><div class="date">Вторник, 13 октября</div></div>${ring(dark,cls)}</div></div>
+ <div class="list">${html.replace('<div class="sec"><span>Сегодня</span>','<div class="sec"><span>Сегодня</span>')}</div>
+ <div class="fab">${ic.plus}</div>
+ <div class="tabs"><div class="tab on"><span class="ic">${ic.today}</span>Сегодня</div><div class="tab"><span class="ic">${ic.up}</span>Скоро</div><div class="tab"><span class="ic">${ic.cal}</span>Календарь</div><div class="tab"><span class="ic">${ic.inbox}</span>Входящие</div><div class="tab"><span class="ic">${ic.more}</span>Ещё</div></div>
+ </div></div>`;
+}
+document.getElementById('cols').innerHTML=styles.map(s=>`<div class="col"><h2>${s.name}</h2><p class="note">${s.note}</p><div class="pair">${screen(s.cls,false)}${screen(s.cls,true)}</div></div>`).join('');
+</script></body></html>

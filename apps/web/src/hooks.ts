@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { flushSync } from 'react-dom';
 import type { Workspace } from '#core';
 import { controller, type AppState } from './controller.ts';
 
@@ -78,7 +79,12 @@ export function navigate(route: Route): void {
 export function useRoute(): Route {
   const [route, setRoute] = useState(() => parseRoute(location.hash));
   useEffect(() => {
-    const on = () => setRoute(parseRoute(location.hash));
+    const on = () => {
+      const next = parseRoute(location.hash);
+      const doc = document as Document & { startViewTransition?: (fn: () => void) => unknown };
+      if (doc.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) doc.startViewTransition(() => flushSync(() => setRoute(next)));
+      else setRoute(next);
+    };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);

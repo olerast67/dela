@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { extractLinks, parseTask, type DateSpec, type Priority } from '#core';
 import { openExternal } from '../platform.ts';
 import { TZ, dateLabel, durationLabel } from '../format.ts';
@@ -46,6 +46,41 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  // На телефоне карточка задачи открыта листом снизу: потянуть за полоску вниз, чтобы закрыть.
+  const panelRef = useRef<HTMLElement>(null);
+  const grip = {
+    onPointerDown(e: React.PointerEvent) {
+      const el = panelRef.current;
+      if (!el) return;
+      const y0 = e.clientY;
+      let dy = 0;
+      const target = e.currentTarget as HTMLElement;
+      try {
+        target.setPointerCapture(e.pointerId);
+      } catch {
+        // указатель уже отпущен
+      }
+      el.style.transition = 'none';
+      const move = (ev: PointerEvent) => {
+        dy = Math.max(0, ev.clientY - y0);
+        el.style.transform = `translateY(${dy}px)`;
+      };
+      const up = () => {
+        target.removeEventListener('pointermove', move);
+        target.removeEventListener('pointerup', up);
+        target.removeEventListener('pointercancel', up);
+        el.style.transition = '';
+        if (dy > 110) {
+          el.style.transform = 'translateY(100%)';
+          setTimeout(onClose, 200);
+        } else el.style.transform = '';
+      };
+      target.addEventListener('pointermove', move);
+      target.addEventListener('pointerup', up);
+      target.addEventListener('pointercancel', up);
+    },
+  };
+
   if (!task || !doc.isAlive(id)) {
     return (
       <aside className="panel">
@@ -80,7 +115,8 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
   }
 
   return (
-    <aside className="panel" aria-label="Задача">
+    <aside className="panel" aria-label="Задача" ref={panelRef}>
+      <div className="panel-grip" {...grip} aria-hidden="true" />
       <div className="panel-head">
         <select
           className="ghost"

@@ -81,6 +81,13 @@ export const IconSearch = (p: P) => (
     <path d="M20 20l-4-4" />
   </Svg>
 );
+export const IconMore = (p: P) => (
+  <Svg {...p}>
+    <circle cx="5" cy="12" r="1.4" />
+    <circle cx="12" cy="12" r="1.4" />
+    <circle cx="19" cy="12" r="1.4" />
+  </Svg>
+);
 export const IconMenu = (p: P) => (
   <Svg {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />
