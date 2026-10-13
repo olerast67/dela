@@ -1,4 +1,9 @@
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+/** Собранный веб-клиент рядом с сервером в репозитории или в образе. */
+const BUNDLED_WEB = fileURLToPath(new URL('../../web/dist', import.meta.url));
 
 export interface Config {
   readonly port: number;
@@ -33,7 +38,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     openRegistration: bool(env.DELA_OPEN_REGISTRATION, false),
     maxClockDrift: Number(env.DELA_MAX_CLOCK_DRIFT_MS ?? 60_000),
     sessionTtl: Number(env.DELA_SESSION_TTL_DAYS ?? 180) * 24 * 3600 * 1000,
-    webDir: env.DELA_WEB_DIR ?? '',
+    webDir: env.DELA_WEB_DIR ?? (existsSync(join(BUNDLED_WEB, 'index.html')) ? BUNDLED_WEB : ''),
     corsOrigins: (env.DELA_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   };
 }

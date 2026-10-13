@@ -32,6 +32,14 @@ export class MemoryReplica {
     return true;
   }
 
+  /** Записать ячейку без сравнения меток: только для переподписи своих операций после сдвига часов. */
+  force(op: Op): void {
+    const key = cellKey(op.table, op.record, op.field);
+    const had = this.cells.get(key);
+    this.cells.delete(key);
+    if (!this.apply(op) && had) this.cells.set(key, had);
+  }
+
   /** Метка последней записи в ячейку. */
   hlcOf(table: string, record: string, field: string): string | undefined {
     return this.cells.get(cellKey(table, record, field))?.hlc;

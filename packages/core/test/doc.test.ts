@@ -239,3 +239,32 @@ describe('Doc: правки на двух устройствах офлайн', 
     expect(doc.task(id)).toMatchObject({ priority: 4, due: null, title: '' });
   });
 });
+
+describe('Doc: отмена', () => {
+  it('отменяет выполнение с подзадачами и удаление', () => {
+    const { doc } = device('00000000000000aa');
+    const t = doc.createTask({ title: 'Поездка' });
+    const sub = doc.createTask({ title: 'Билеты', parentId: t });
+    doc.completeTask(t);
+    expect(doc.undo()).toBe(true);
+    expect(doc.task(t)?.completedAt).toBeNull();
+    expect(doc.task(sub)?.completedAt).toBeNull();
+    doc.deleteTask(t);
+    doc.undo();
+    expect(doc.isAlive(t)).toBe(true);
+  });
+
+  it('отменяет выполнение повторяющейся задачи', () => {
+    const { doc } = device('00000000000000aa');
+    const t = doc.createTask({
+      title: 'Зарядка',
+      due: { date: '2026-10-13' },
+      recurrence: { rule: 'FREQ=DAILY', mode: 'schedule', text: 'каждый день' },
+    });
+    doc.completeTask(t);
+    expect(doc.task(t)?.due?.date).not.toBe('2026-10-13');
+    doc.undo();
+    expect(doc.task(t)?.due?.date).toBe('2026-10-13');
+    expect(doc.completions(t)).toEqual([]);
+  });
+});

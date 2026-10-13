@@ -1,3 +1,4 @@
+import { serveStatic } from '@hono/node-server/serve-static';
 import { createNodeWebSocket } from '@hono/node-ws';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -5,6 +6,7 @@ import { cors } from 'hono/cors';
 import { HTTPException } from 'hono/http-exception';
 import { secureHeaders } from 'hono/secure-headers';
 import { randomBytes } from 'node:crypto';
+import { relative } from 'node:path';
 import { exceedsDrift, isTimestamp, uuidv7, type AccountBundle, type Envelope } from '#core';
 import { RateLimiter, fakeSalt, hashAuthSecret, newToken, safeEqual, sha256 } from './auth.ts';
 import type { Config } from './config.ts';
@@ -151,7 +153,27 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
     return c.json({ error: 'internal' }, 500);
   });
 
-  app.use('*', secureHeaders());
+  app.use(
+    '*',
+    secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        // libsodium работает через WebAssembly.
+        scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:'],
+        fontSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        workerSrc: ["'self'"],
+        manifestSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'none'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
   if (config.corsOrigins.length > 0) {
     app.use('/api/*', cors({ origin: [...config.corsOrigins], allowHeaders: ['content-type', 'authorization'] }));
   }
@@ -433,6 +455,37 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
       };
     }),
   );
+
+  // ---------- веб-клиент ----------
+
+  if (config.webDir) {
+    const root = relative(process.cwd(), config.webDir) || '.';
+    app.use(
+      '/assets/*',
+      async (c, next) => {
+        await next();
+        if (c.res.ok) c.header('cache-control', 'public, max-age=31536000, immutable');
+      },
+    );
+    app.use(
+      '*',
+      async (c, next) => {
+        await next();
+        const path = c.req.path;
+        if (path === '/' || path.endsWith('.html') || path === '/sw.js' || path === '/registerSW.js' || path.endsWith('.webmanifest')) {
+          c.header('cache-control', 'no-cache');
+        }
+      },
+    );
+    app.use('*', serveStatic({ root }));
+    // Любой другой путь (кроме API) — это маршрут приложения: отдаём index.html.
+    app.get('*', async (c, next) => {
+      if (c.req.path.startsWith('/api/')) return next();
+      return serveStatic({ root, path: 'index.html' })(c, next);
+    });
+  }
+
+  app.notFound((c) => c.json({ error: 'not_found' }, 404));
 
   return { app, injectWebSocket, hub };
 }

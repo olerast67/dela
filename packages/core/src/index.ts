@@ -110,3 +110,15 @@ export {
   type WeekdayNum,
 } from './recurrence.ts';
 export { parseTask, resolveDate, type ParseContext, type ParsedTask, type Token, type TokenKind } from './parse.ts';
+export { ApiClient, ApiError, NetworkError, type DeviceInfo, type Fetcher, type SessionInfo, type SpaceInfo } from './client.ts';
+export { signUp, signIn, ensurePersonalSpace, spaceKeyOf, normalizeEmail, type Session } from './account.ts';
+export {
+  SyncEngine,
+  MemorySyncStore,
+  persistLocal,
+  type OutboxEntry,
+  type SyncEngineOptions,
+  type SyncState,
+  type SyncStatus,
+  type SyncStore,
+} from './sync.ts';

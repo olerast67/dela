@@ -193,13 +193,40 @@ export class Doc {
   // ---------- операции ----------
 
   /** Записать локальные изменения. Возвращает созданные операции. */
-  write(changes: readonly Change[]): Op[] {
+  write(changes: readonly Change[], options: { undoable?: boolean } = {}): Op[] {
     if (changes.length === 0) return [];
+    if (options.undoable !== false) {
+      // Прежние значения в обратном порядке: отмена возвращает ячейки к состоянию до записи.
+      const inverse: Change[] = [];
+      const seen = new Set<string>();
+      for (const [table, record, field] of changes) {
+        const key = `${table}\u0000${record}\u0000${field}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        inverse.push([table, record, field, this.replica.get(table, record)?.[field] ?? null]);
+      }
+      this.undoStack.push(inverse);
+      if (this.undoStack.length > 100) this.undoStack.shift();
+    }
     const ops = changes.map(([table, record, field, value]): Op => ({ table, record, field, value, hlc: this.clock.tick() }));
     for (const op of ops) this.replica.apply(op);
     this.outbox.push(...ops);
     this.changed(ops, 'local');
     return ops;
+  }
+
+  private readonly undoStack: Change[][] = [];
+
+  get canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  /** Отменить последнее действие. Отмена — тоже обычные операции и синхронизируется как правка. */
+  undo(): boolean {
+    const inverse = this.undoStack.pop();
+    if (!inverse) return false;
+    this.write(inverse, { undoable: false });
+    return true;
   }
 
   /** Применить операции, полученные с сервера. Возвращает число изменённых ячеек. */

@@ -122,6 +122,15 @@ export class HybridClock {
     this.bump(counter);
   }
 
+  /**
+   * Забыть показания часов, ушедших вперёд. Вызывается, когда сервер отклонил метки из будущего
+   * и приложение исправило поправку времени.
+   */
+  rewind(): void {
+    this.wall = 0;
+    this.counter = 0;
+  }
+
   /** Последняя выданная или учтённая метка; её сохраняют, чтобы передать в конструктор. */
   current(): string {
     return formatTimestamp({ wall: this.wall, counter: this.counter, node: this.node });
