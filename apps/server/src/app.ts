@@ -163,7 +163,8 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
         styleSrc: ["'self'"],
         imgSrc: ["'self'", 'data:'],
         fontSrc: ["'self'"],
-        connectSrc: ["'self'"],
+        // Импорт из Todoist идёт из браузера напрямую, минуя сервер.
+        connectSrc: ["'self'", 'https://api.todoist.com'],
         workerSrc: ["'self'"],
         manifestSrc: ["'self'"],
         objectSrc: ["'none'"],

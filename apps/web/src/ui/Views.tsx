@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { COLORS, normalizeText, type DeviceInfo, type TaskView } from '#core';
+import { COLORS, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, type DeviceInfo, type TaskView, type TodoistData } from '#core';
 import { controller } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, useAppState, useDoc } from '../hooks.ts';
@@ -370,6 +370,7 @@ export function SettingsView() {
           </div>
         ))}
       </section>
+      <ImportExport />
       {isAdmin && (
         <section className="settings">
           <h2>Приглашения</h2>
@@ -386,5 +387,106 @@ export function SettingsView() {
         </section>
       )}
     </>
+  );
+}
+
+function download(name: string, text: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function ImportExport() {
+  const doc = useDoc();
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [fallback, setFallback] = useState(false);
+
+  function apply(data: TodoistData) {
+    const s = importTodoist(doc, data);
+    const parts = [
+      plural(s.tasks, 'задача', 'задачи', 'задач'),
+      plural(s.projects, 'проект', 'проекта', 'проектов'),
+      plural(s.labels, 'метка', 'метки', 'меток'),
+      plural(s.filters, 'фильтр', 'фильтра', 'фильтров'),
+    ];
+    const warn = s.unparsedRecurrences.length
+      ? ` Не распознаны повторы: ${s.unparsedRecurrences.join('; ')}. Их текст сохранён в описании задач.`
+      : '';
+    setResult(`Перенесено: ${parts.join(', ')}.${warn}`);
+  }
+
+  const confirmImport = () => confirm('Импорт добавит задачи к уже существующим. Повторный импорт создаст копии. Продолжить?');
+
+  return (
+    <section className="settings">
+      <h2>Импорт из Todoist</h2>
+      <p className="muted">
+        Токен: Todoist → Настройки → Интеграции → Для разработчиков. Запрос идёт из браузера напрямую в Todoist, сервер Dela токен не видит.
+      </p>
+      <div className="row wrap">
+        <input type="password" placeholder="Токен API Todoist" value={token} onChange={(e) => setToken(e.target.value)} aria-label="Токен Todoist" />
+        <button
+          className="primary"
+          disabled={!token.trim() || busy}
+          onClick={async () => {
+            if (!confirmImport()) return;
+            setBusy(true);
+            setResult(null);
+            try {
+              apply(await fetchTodoist(token));
+              setToken('');
+            } catch (err) {
+              if (err instanceof Error && err.message === 'todoist_unauthorized') setResult('Todoist не принял токен.');
+              else {
+                setResult('Браузер не смог обратиться к Todoist. Загрузите данные файлом.');
+                setFallback(true);
+              }
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? 'Загрузка…' : 'Импортировать'}
+        </button>
+      </div>
+      {fallback && (
+        <p className="muted">
+          Выполните в терминале и загрузите получившийся файл:
+          <code className="recovery-key">
+            curl https://api.todoist.com/api/v1/sync -H "Authorization: Bearer ТОКЕН" -d sync_token=* -d 'resource_types=["all"]' -o todoist.json
+          </code>
+        </p>
+      )}
+      <label className="row">
+        <span className="muted">или файл JSON:</span>
+        <input
+          type="file"
+          accept="application/json,.json"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file || !confirmImport()) return;
+            try {
+              apply(JSON.parse(await file.text()) as TodoistData);
+            } catch {
+              setResult('Файл не похож на выгрузку Todoist.');
+            }
+          }}
+        />
+      </label>
+      {result && <p className="notice">{result}</p>}
+
+      <h2>Экспорт</h2>
+      <p className="muted">Выгрузка собирается на этом устройстве из расшифрованных данных.</p>
+      <div className="row">
+        <button onClick={() => download(`dela-${todayDate()}.json`, JSON.stringify(exportJson(doc), null, 2), 'application/json')}>JSON</button>
+        <button onClick={() => download(`dela-${todayDate()}.md`, exportMarkdown(doc), 'text/markdown')}>Markdown</button>
+      </div>
+    </section>
   );
 }

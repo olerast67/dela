@@ -122,3 +122,13 @@ export {
   type SyncStatus,
   type SyncStore,
 } from './sync.ts';
+export {
+  importTodoist,
+  fetchTodoist,
+  todoistDue,
+  exportJson,
+  exportMarkdown,
+  type ExportData,
+  type ImportSummary,
+  type TodoistData,
+} from './transfer.ts';
