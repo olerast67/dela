@@ -101,3 +101,39 @@ test('забытый пароль: вход по ключу восстановл
   await page.goto('/#/today');
   await expect(page.getByText('Не потерять')).toBeVisible({ timeout: 20_000 });
 });
+
+test('клавиатура, палитра команд и перетаскивание', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Электронная почта').fill(`kb-${Date.now()}@dela.test`);
+  await page.getByLabel('Пароль', { exact: true }).fill('keyboard-pass-1');
+  await page.getByLabel('Пароль ещё раз').fill('keyboard-pass-1');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Ключ сохранён в надёжном месте').check({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await page.goto('/#/inbox');
+  for (const t of ['Первая', 'Вторая', 'Третья']) await addTask(page, t);
+  const titles = () => page.locator('.content .task-title').allTextContents();
+  await expect.poll(titles).toEqual(['Первая', 'Вторая', 'Третья']);
+
+  // Перетаскивание: «Третья» в верхнюю часть «Первой» — встаёт первой.
+  const first = page.locator('.task', { hasText: 'Первая' });
+  const box = (await first.boundingBox())!;
+  await page.locator('.task', { hasText: 'Третья' }).dragTo(first, { targetPosition: { x: box.width / 2, y: 3 } });
+  await expect.poll(titles).toEqual(['Третья', 'Первая', 'Вторая']);
+
+  // Клавиатура: вниз, выполнить.
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('e');
+  await expect.poll(titles).toEqual(['Третья', 'Вторая']);
+
+  // Палитра: переход в «Предстоящие».
+  await page.keyboard.press('Control+k');
+  await page.getByLabel('Команда').fill('предст');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#\/upcoming$/);
+  await page.keyboard.press('Shift+Slash');
+  await expect(page.getByRole('dialog', { name: 'Горячие клавиши' })).toBeVisible();
+});

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAppState, useDoc, href, navigate, type Route } from '../hooks.ts';
 import { TZ, todayDate } from '../format.ts';
+import { dropZone } from './dnd.ts';
 import { IconDone, IconFilter, IconInbox, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
 
 function same(a: Route, b: Route): boolean {
@@ -39,10 +40,27 @@ export function Sidebar({ route, onNavigate }: { route: Route; onNavigate?: () =
   const open = doc.openTasks();
   const countIn = (projectId: string) => open.filter((x) => x.projectId === projectId && x.parentId === null).length;
 
+  /** Что значит бросить задачу на пункт меню. */
+  const dropFor = (r: Route) => {
+    if (r.view === 'inbox') return dropZone((t) => doc.moveTask(t, { projectId: doc.inboxId }));
+    if (r.view === 'today')
+      return dropZone((t) => {
+        const task = doc.task(t);
+        if (task) doc.updateTask(t, { due: { ...(task.due ?? {}), date: today } });
+      });
+    if (r.view === 'label')
+      return dropZone((t) => {
+        const task = doc.task(t);
+        if (task && !task.labels.includes(r.id)) doc.setLabels(t, [...task.labels, r.id]);
+      });
+    return {};
+  };
+
   const item = (r: Route, icon: React.ReactNode, label: string, count?: number) => (
     <a
       key={href(r)}
       href={href(r)}
+      {...dropFor(r)}
       className={`nav-item${same(r, route) ? ' active' : ''}`}
       onClick={onNavigate}
       aria-current={same(r, route) ? 'page' : undefined}
@@ -105,6 +123,7 @@ export function Sidebar({ route, onNavigate }: { route: Route; onNavigate?: () =
           className={`nav-item${same({ view: 'project', id: p.project.id }, route) ? ' active' : ''}`}
           style={{ paddingLeft: `${12 + p.depth * 16}px` }}
           onClick={onNavigate}
+          {...dropZone((t) => doc.moveTask(t, { projectId: p.project.id }))}
         >
           <span className={`dot-color c-${p.project.color}`} />
           <span className="nav-label">{p.project.name}</span>

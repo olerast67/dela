@@ -3,6 +3,7 @@ import { type Doc, type TaskNode, type TaskView } from '#core';
 import { dueLabel, dueTone, dateLabel, durationLabel } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { IconChevron, IconDeadline, IconRepeat, IconSubtasks, IconTag } from './icons.tsx';
+import { DRAG_TYPE, draggedId, setDragged, useDropOnTask, type DropWhere } from './dnd.ts';
 import { showToast } from './toast.tsx';
 
 export function completeWithUndo(doc: Doc, task: TaskView): void {
@@ -30,7 +31,9 @@ export function TaskRow({
   onToggle?: () => void;
 }) {
   const doc = useDoc();
+  const onDropTask = useDropOnTask();
   const [leaving, setLeaving] = useState(false);
+  const [dropPos, setDropPos] = useState<DropWhere | null>(null);
   const done = task.completedAt !== null;
   const project = showProject ? doc.project(task.projectId) : undefined;
 
@@ -50,8 +53,34 @@ export function TaskRow({
 
   return (
     <div
-      className={`task${selected ? ' selected' : ''}${leaving ? ' leaving' : ''}${done ? ' done' : ''}${task.projected ? ' projected' : ''}`}
+      className={`task${selected ? ' selected' : ''}${leaving ? ' leaving' : ''}${done ? ' done' : ''}${task.projected ? ' projected' : ''}${dropPos ? ` drop-${dropPos}` : ''}`}
       style={{ paddingLeft: `${depth * 28}px` }}
+      data-id={task.id}
+      draggable={!task.projected && !done}
+      onDragStart={(e) => {
+        e.dataTransfer.setData(DRAG_TYPE, task.id);
+        e.dataTransfer.effectAllowed = 'move';
+        setDragged(task.id);
+      }}
+      onDragEnd={() => setDragged(null)}
+      onDragOver={(e) => {
+        if (!onDropTask || !e.dataTransfer.types.includes(DRAG_TYPE) || draggedId() === task.id) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const r = e.currentTarget.getBoundingClientRect();
+        const y = (e.clientY - r.top) / r.height;
+        setDropPos(y < 0.3 ? 'before' : y > 0.7 ? 'after' : 'inside');
+      }}
+      onDragLeave={() => setDropPos(null)}
+      onDrop={(e) => {
+        const id = e.dataTransfer.getData(DRAG_TYPE);
+        const where = dropPos;
+        setDropPos(null);
+        if (!onDropTask || !id || id === task.id || !where) return;
+        e.preventDefault();
+        e.stopPropagation();
+        onDropTask(id, task, where);
+      }}
       onClick={() => onOpen(task.id)}
       role="button"
       tabIndex={0}

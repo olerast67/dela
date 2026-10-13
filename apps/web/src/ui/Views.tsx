@@ -3,6 +3,7 @@ import { COLORS, FilterSyntaxError, exportJson, exportMarkdown, fetchTodoist, im
 import { controller } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, useAppState, useDoc } from '../hooks.ts';
+import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
 import { showToast } from './toast.tsx';
@@ -73,8 +74,15 @@ export function UpcomingView({ onOpen, selectedId }: ViewProps) {
   const [days, setDays] = useState(14);
   const overdue = doc.today(today, TZ).overdue;
   const groups = doc.upcoming(today, days, TZ);
+  const moveTo = (taskId: string, date: string) => {
+    const t = doc.task(taskId);
+    if (t) doc.updateTask(taskId, { due: { ...(t.due ?? {}), date } });
+  };
+  const onDropTask: DropOnTask = (dragId, target) => {
+    if (target.due) moveTo(dragId, target.due.date);
+  };
   return (
-    <>
+    <DropContext.Provider value={onDropTask}>
       <header className="view-head">
         <h1>Предстоящие</h1>
       </header>
@@ -86,7 +94,7 @@ export function UpcomingView({ onOpen, selectedId }: ViewProps) {
       )}
       {groups.map((g) => (
         <section key={g.date} className="day">
-          <h2>{dayHeading(g.date, today)}</h2>
+          <h2 {...dropZone((t) => moveTo(t, g.date))}>{dayHeading(g.date, today)}</h2>
           <TaskList tasks={g.tasks} onOpen={onOpen} selectedId={selectedId} showDate={false} />
           <AddTask defaults={{ due: { date: g.date } }} />
         </section>
@@ -94,7 +102,7 @@ export function UpcomingView({ onOpen, selectedId }: ViewProps) {
       <button className="add-row" onClick={() => setDays(days + 14)}>
         Показать ещё две недели
       </button>
-    </>
+    </DropContext.Provider>
   );
 }
 
@@ -108,11 +116,25 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
   }
   const view = doc.projectTasks(id);
   const isInbox = project.isInbox;
+  const onDropTask: DropOnTask = (dragId, target, where) => {
+    try {
+      if (where === 'inside') doc.moveTask(dragId, { parentId: target.id });
+      else
+        doc.moveTask(dragId, {
+          projectId: target.projectId,
+          sectionId: target.parentId ? null : target.sectionId,
+          parentId: target.parentId,
+          position: where === 'before' ? { before: target.id } : { after: target.id },
+        });
+    } catch {
+      showToast('Нельзя положить задачу внутрь её самой');
+    }
+  };
   const total = view.unsectioned.length + view.sections.reduce((n, s) => n + s.tasks.length, 0);
 
   return (
-    <>
-      <header className="view-head">
+    <DropContext.Provider value={onDropTask}>
+      <header className="view-head" {...dropZone((t) => doc.moveTask(t, { projectId: id, sectionId: null, position: { before: view.unsectioned[0]?.task.id ?? null } }))}>
         {renaming ? (
           <input
             className="h1-input"
@@ -161,7 +183,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
       </section>
       {view.sections.map(({ section, tasks }) => (
         <section key={section.id}>
-          <div className="section-head">
+          <div className="section-head" {...dropZone((t) => doc.moveTask(t, { projectId: id, sectionId: section.id }))}>
             <h2
               onDoubleClick={() => {
                 const name = prompt('Название раздела', section.name);
@@ -200,7 +222,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
         />
       )}
       {total === 0 && <Empty>{isInbox ? 'Входящие пусты. Всё, что не разобрано по проектам, попадает сюда.' : 'В проекте пока нет задач.'}</Empty>}
-    </>
+    </DropContext.Provider>
   );
 }
 

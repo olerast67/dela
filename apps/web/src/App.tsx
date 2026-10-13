@@ -7,6 +7,8 @@ import { QuickAdd } from './ui/QuickAdd.tsx';
 import { Sidebar } from './ui/Sidebar.tsx';
 import { TaskPanel } from './ui/TaskPanel.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
+import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
+import { completeWithUndo } from './ui/Task.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 
 function typing(e: KeyboardEvent): boolean {
@@ -21,33 +23,113 @@ function Shell() {
   const [selected, setSelected] = useState<string | null>(null);
   const [quickAdd, setQuickAdd] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const [help, setHelp] = useState(false);
 
   const open = useCallback((id: string) => setSelected(id), []);
   const close = useCallback(() => setSelected(null), []);
 
   useEffect(() => {
+    let gPressed = 0;
+    const rows = () => [...document.querySelectorAll<HTMLElement>('.content .task[data-id]')];
+    const focusedRow = () => (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('.task[data-id]') ?? null;
+    const moveFocus = (delta: number) => {
+      const list = rows();
+      if (list.length === 0) return;
+      const i = list.indexOf(focusedRow()!);
+      const next = list[i === -1 ? (delta > 0 ? 0 : list.length - 1) : Math.min(list.length - 1, Math.max(0, i + delta))]!;
+      next.focus();
+      next.scrollIntoView({ block: 'nearest' });
+    };
+
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e) || e.metaKey || e.altKey) return;
-      if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+      // Ctrl+K работает даже в поле ввода.
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK') {
         e.preventDefault();
-        if (doc.undo()) showToast('Отменено');
+        setPalette(true);
         return;
       }
-      if (e.ctrlKey) return;
-      if (e.key === 'q' || e.key === 'й' || e.key === 'n' || e.key === 'т') {
-        e.preventDefault();
-        setQuickAdd(true);
-      } else if (e.key === '/') {
-        e.preventDefault();
-        document.getElementById('search')?.focus();
-      } else if (e.key === 'Escape') {
-        setQuickAdd(false);
-        setSelected(null);
+      if (typing(e) || e.metaKey || e.altKey) return;
+      if (e.ctrlKey) {
+        if (e.code === 'KeyZ') {
+          e.preventDefault();
+          if (doc.undo()) showToast('Отменено');
+        }
+        return;
       }
+      const row = focusedRow();
+      const taskId = row?.dataset.id ?? null;
+      // «G, затем T» — переход, как в Todoist и Gmail.
+      if (Date.now() - gPressed < 1000) {
+        gPressed = 0;
+        const target = { KeyT: 'today', KeyU: 'upcoming', KeyI: 'inbox', KeyS: 'settings' }[e.code];
+        if (target) {
+          e.preventDefault();
+          location.hash = `#/${target}`;
+          return;
+        }
+      }
+      switch (e.code) {
+        case 'KeyQ':
+        case 'KeyN':
+          e.preventDefault();
+          setQuickAdd(true);
+          return;
+        case 'KeyG':
+          gPressed = Date.now();
+          return;
+        case 'ArrowDown':
+        case 'KeyJ':
+          e.preventDefault();
+          moveFocus(1);
+          return;
+        case 'ArrowUp':
+        case 'KeyK':
+          e.preventDefault();
+          moveFocus(-1);
+          return;
+        case 'KeyE':
+          if (taskId) {
+            const t = doc.task(taskId);
+            if (t && t.completedAt === null) {
+              moveFocus(1);
+              completeWithUndo(doc, t);
+            }
+          }
+          return;
+        case 'KeyT':
+          if (taskId) {
+            const t = doc.task(taskId);
+            if (t) {
+              doc.updateTask(taskId, { due: { ...(t.due ?? {}), date: new Intl.DateTimeFormat('en-CA').format(new Date()) } });
+              showToast('Перенесено на сегодня', { label: 'Отменить', run: () => doc.undo() });
+            }
+          }
+          return;
+        case 'Delete':
+        case 'Backspace':
+          if (taskId) {
+            moveFocus(1);
+            doc.deleteTask(taskId);
+            if (selected === taskId) setSelected(null);
+            showToast('Задача удалена', { label: 'Отменить', run: () => doc.undo() });
+          }
+          return;
+        case 'Slash':
+          e.preventDefault();
+          if (e.shiftKey) setHelp(true);
+          else document.getElementById('search')?.focus();
+          return;
+        case 'Escape':
+          setQuickAdd(false);
+          setSelected(null);
+          return;
+      }
+      if (e.key === '?') setHelp(true);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [doc]);
+  }, [doc, selected]);
 
   useEffect(() => setMenu(false), [route]);
 
@@ -117,6 +199,8 @@ function Shell() {
       <button className="fab" onClick={() => setQuickAdd(true)} aria-label="Добавить задачу (Q)">
         <IconPlus width={24} height={24} />
       </button>
+      {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} />}
+      {help && <ShortcutsHelp onClose={() => setHelp(false)} />}
       <ToastHost />
     </div>
   );
