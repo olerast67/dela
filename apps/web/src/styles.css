@@ -2419,3 +2419,15 @@ kbd {
 .comment-new .row {
   justify-content: space-between;
 }
+
+/* ---------- перетаскивание пальцем ---------- */
+
+.drag-ghost {
+  box-shadow: 0 16px 40px rgb(0 0 0 / 0.22) !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+.drag-source {
+  opacity: 0.35;
+}

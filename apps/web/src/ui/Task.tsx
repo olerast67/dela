@@ -6,7 +6,7 @@ import { dueLabel, dueTone, dateLabel, durationLabel } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { IconChevron, IconComment, IconDeadline, IconRepeat, IconSubtasks, IconTag } from './icons.tsx';
 import { controller } from '../controller.ts';
-import { DRAG_TYPE, draggedId, setDragged, useDropOnTask, type DropWhere } from './dnd.ts';
+import { DRAG_TYPE, draggedId, registerTouchTask, setDragged, startTouchDrag, useDropOnTask, type DropWhere } from './dnd.ts';
 import { showToast } from './toast.tsx';
 
 /** Порог смахивания, пикселей: дальше него отпускание выполняет действие. */
@@ -17,12 +17,14 @@ const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)
  * Смахивание карточки пальцем вправо и влево. Мышью карточки не смахиваются (там перетаскивание).
  * Жест начинается, только если палец ушёл в сторону заметно больше, чем вверх или вниз: прокрутка не мешает.
  */
-function useSwipe(enabled: boolean, onRight: () => void, onLeft: () => void) {
+function useSwipe(enabled: boolean, onRight: () => void, onLeft: () => void, onLongPress?: (e: { x: number; y: number; el: HTMLElement; done: () => void }) => void) {
   const [dx, setDx] = useState(0);
+  const press = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [dragging, setDragging] = useState(false);
   const st = useRef<{ x: number; y: number; id: number; active: boolean; decided: boolean; passed: boolean; dx: number } | null>(null);
   const swiped = useRef(0);
   const end = () => {
+    clearTimeout(press.current);
     const s = st.current;
     st.current = null;
     if (!s?.active) return;
@@ -44,6 +46,19 @@ function useSwipe(enabled: boolean, onRight: () => void, onLeft: () => void) {
       onPointerDown(e: React.PointerEvent) {
         if (!enabled || e.pointerType !== 'touch') return;
         st.current = { x: e.clientX, y: e.clientY, id: e.pointerId, active: false, decided: false, passed: false, dx: 0 };
+        // Долгое нажатие без движения: перетаскивание.
+        clearTimeout(press.current);
+        if (onLongPress) {
+          const el = e.currentTarget as HTMLElement;
+          const x = e.clientX;
+          const y = e.clientY;
+          press.current = setTimeout(() => {
+            if (!st.current || st.current.decided) return;
+            st.current = null;
+            // Конец перетаскивания гасит щелчок, который браузер пришлёт после отпускания.
+            onLongPress({ x, y, el, done: () => (swiped.current = Date.now()) });
+          }, 450);
+        }
       },
       onPointerMove(e: React.PointerEvent) {
         const s = st.current;
@@ -52,6 +67,7 @@ function useSwipe(enabled: boolean, onRight: () => void, onLeft: () => void) {
         const my = e.clientY - s.y;
         if (!s.decided) {
           if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+          clearTimeout(press.current);
           s.decided = true;
           s.active = Math.abs(mx) > Math.abs(my) * 1.4;
           if (!s.active) {
@@ -78,7 +94,7 @@ function useSwipe(enabled: boolean, onRight: () => void, onLeft: () => void) {
       onPointerUp: end,
       onPointerCancel: end,
       onClickCapture(e: React.MouseEvent) {
-        // Отпускание после смахивания не открывает карточку.
+        // Отпускание после смахивания или перетаскивания не открывает карточку.
         if (Date.now() - swiped.current < 400) {
           e.stopPropagation();
           e.preventDefault();
@@ -127,6 +143,12 @@ export function TaskRow({
       else completeWithUndo(doc, task);
     },
     () => setResched(true),
+    !task.projected && !done
+      ? ({ x, y, el, done }) => {
+          haptic('medium');
+          startTouchDrag(task.id, el, x, y, done);
+        }
+      : undefined,
   );
 
   function toggle(e: MouseEvent) {
@@ -154,6 +176,8 @@ export function TaskRow({
       {resched && <RescheduleSheet task={task} onClose={() => setResched(false)} />}
     <div
       {...swipe.handlers}
+      ref={(el) => registerTouchTask(el, task, onDropTask)}
+      onContextMenu={(e) => coarse && e.preventDefault()}
       className={`task${selected ? ' selected' : ''}${leaving ? ' leaving' : ''}${done ? ' done' : ''}${task.projected ? ' projected' : ''}${dropPos ? ` drop-${dropPos}` : ''}`}
       style={swipe.dx ? { transform: `translateX(${swipe.dx}px)`, transition: swipe.dragging ? 'none' : undefined } : undefined}
       data-id={task.id}

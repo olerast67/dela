@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Phone: hold a task to drag it with a finger to another place in the list, into another task or onto another day.
 - Comments on tasks with files. A file is encrypted on the device with its own key; the server keeps only ciphertext. Images show inline.
 - Assignees in shared projects.
 - Voice input on Android: a mic button in quick add and on the widget, the system recognizer prefers offline recognition.

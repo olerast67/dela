@@ -67,3 +67,38 @@ test('смахивание: вправо выполнить, влево пере
   await page.mouse.up();
   await expect(panel).toHaveCount(0);
 });
+
+test('долгое нажатие: задача перетаскивается пальцем на другое место', async ({ browser }) => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await ctx.newPage();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Электронная почта').fill(`drag-${Date.now()}@dela.test`);
+  await page.getByLabel('Пароль', { exact: true }).fill('drag-pass-1');
+  await page.getByLabel('Пароль ещё раз').fill('drag-pass-1');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Ключ сохранён в надёжном месте').check();
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await page.goto('/#/inbox');
+  // Ждём конца перехода между экранами: во время него касания приходят в слой анимации.
+  await page.waitForTimeout(500);
+  const titles = () => page.locator('.content .task .task-title').allTextContents();
+  const before = await titles();
+  expect(before.length).toBeGreaterThan(2);
+
+  // Последнюю задачу долгим нажатием переносим в начало списка.
+  const last = page.locator('.content .task').last();
+  const first = page.locator('.content .task').first();
+  const from = (await last.boundingBox())!;
+  const to = (await first.boundingBox())!;
+  const cdp = await ctx.newCDPSession(page);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+  const x = from.x + from.width / 2;
+  await touch('touchStart', x, from.y + from.height / 2);
+  await page.waitForTimeout(650);
+  for (let i = 1; i <= 10; i++) await touch('touchMove', x, from.y + from.height / 2 + ((to.y + 6 - (from.y + from.height / 2)) * i) / 10);
+  await touch('touchEnd', x, to.y + 6);
+  await expect.poll(titles).toEqual([before[before.length - 1], ...before.slice(0, -1)]);
+  await expect(page.locator('.panel')).toHaveCount(0);
+});
