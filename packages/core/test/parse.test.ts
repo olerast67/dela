@@ -1,0 +1,146 @@
+/**
+ * Корпус фраз быстрого ввода. Каждый баг разбора добавляется сюда новой строкой.
+ * «Сейчас» — вторник 13 октября 2026, 12:00 по Москве.
+ */
+import { describe, expect, it } from 'vitest';
+import { parseTask, type ParseContext, type ParsedTask } from '../src/index.ts';
+
+const ctx: ParseContext = {
+  now: Date.UTC(2026, 9, 13, 9, 0),
+  tz: 'Europe/Moscow',
+  projects: [
+    { id: 'p-home', name: 'Дом' },
+    { id: 'p-work', name: 'Работа' },
+    { id: 'p-my', name: 'Мой проект' },
+    { id: 'p-home-en', name: 'Home' },
+  ],
+  sections: [{ id: 's-reports', name: 'Отчёты', projectId: 'p-work' }],
+  labels: [
+    { id: 'l-urgent', name: 'срочно' },
+    { id: 'l-call', name: 'звонок' },
+  ],
+};
+
+type Expect = Partial<Omit<ParsedTask, 'recurrence' | 'tokens'>> & { rule?: string | null; mode?: 'schedule' | 'completion' };
+
+const cases: Array<[string, Expect]> = [
+  // Даты
+  ['Купить хлеб сегодня', { title: 'Купить хлеб', due: { date: '2026-10-13' } }],
+  ['завтра купить хлеб', { title: 'купить хлеб', due: { date: '2026-10-14' } }],
+  ['послезавтра в баню', { title: 'в баню', due: { date: '2026-10-15' } }],
+  ['отчёт в пятницу', { title: 'отчёт', due: { date: '2026-10-16' } }],
+  ['отчёт к среде', { title: 'отчёт', due: { date: '2026-10-14' } }],
+  ['отчёт в следующую пятницу', { title: 'отчёт', due: { date: '2026-10-23' } }],
+  ['созвон во вторник в 15:00', { title: 'созвон', due: { date: '2026-10-20', time: '15:00' } }],
+  ['встреча 15 ноября в 10:30', { title: 'встреча', due: { date: '2026-11-15', time: '10:30' } }],
+  ['сдать 15.11', { title: 'сдать', due: { date: '2026-11-15' } }],
+  ['сдать 1.10', { title: 'сдать', due: { date: '2027-10-01' } }],
+  ['сдать 1.10.2026', { title: 'сдать', due: { date: '2026-10-01' } }],
+  ['оплатить 2026-12-01', { title: 'оплатить', due: { date: '2026-12-01' } }],
+  ['через 3 дня проверить', { title: 'проверить', due: { date: '2026-10-16' } }],
+  ['через неделю', { title: '', due: { date: '2026-10-20' } }],
+  ['через два месяца продлить', { title: 'продлить', due: { date: '2026-12-13' } }],
+  ['в конце месяца сверка', { title: 'сверка', due: { date: '2026-10-31' } }],
+  ['на выходных дача', { title: 'дача', due: { date: '2026-10-17' } }],
+  ['на следующей неделе план', { title: 'план', due: { date: '2026-10-19' } }],
+  ['в субботу утром рынок', { title: 'рынок', due: { date: '2026-10-17', time: '09:00' } }],
+  // Время
+  ['через 2 часа выключить духовку', { title: 'выключить духовку', due: { date: '2026-10-13', time: '14:00' } }],
+  ['через полчаса', { title: '', due: { date: '2026-10-13', time: '12:30' } }],
+  ['в 9 позвонить', { title: 'позвонить', due: { date: '2026-10-14', time: '09:00' } }],
+  ['в 7 вечера ужин', { title: 'ужин', due: { date: '2026-10-13', time: '19:00' } }],
+  ['в 3 дня встреча', { title: 'встреча', due: { date: '2026-10-13', time: '15:00' } }],
+  ['завтра 18:30 тренировка', { title: 'тренировка', due: { date: '2026-10-14', time: '18:30' } }],
+  ['созвон в 15:00 по Москве', { title: 'созвон', due: { date: '2026-10-13', time: '15:00', tz: 'Europe/Moscow' } }],
+  // Интервал и длительность
+  ['встреча с 9 до 10:30 завтра', { title: 'встреча', due: { date: '2026-10-14', time: '09:00' }, duration: 90 }],
+  ['уборка на 30 минут', { title: 'уборка', due: null, duration: 30 }],
+  ['уборка на полтора часа', { title: 'уборка', duration: 90 }],
+  ['чтение на 1,5 ч', { title: 'чтение', duration: 90 }],
+  // Повторы
+  ['зарядка каждый день в 7 утра', { title: 'зарядка', due: { date: '2026-10-13', time: '07:00' }, rule: 'FREQ=DAILY' }],
+  ['планёрка по будням в 10', { title: 'планёрка', due: { date: '2026-10-13', time: '10:00' }, rule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' }],
+  ['платить аренду каждое 5 число', { title: 'платить аренду', due: { date: '2026-11-05' }, rule: 'FREQ=MONTHLY;BYMONTHDAY=5' }],
+  [
+    'полить цветы каждые 3 дня после выполнения',
+    { title: 'полить цветы', due: { date: '2026-10-13' }, rule: 'FREQ=DAILY;INTERVAL=3', mode: 'completion' },
+  ],
+  ['уборка каждую субботу', { title: 'уборка', due: { date: '2026-10-17' }, rule: 'FREQ=WEEKLY;BYDAY=SA' }],
+  ['бассейн по понедельникам и средам', { title: 'бассейн', due: { date: '2026-10-14' }, rule: 'FREQ=WEEKLY;BYDAY=MO,WE' }],
+  ['день рождения мамы каждое 3 марта', { title: 'день рождения мамы', due: { date: '2027-03-03' }, rule: 'FREQ=YEARLY;BYMONTHDAY=3;BYMONTH=3' }],
+  ['отчёт каждую последнюю пятницу месяца', { title: 'отчёт', due: { date: '2026-10-30' }, rule: 'FREQ=MONTHLY;BYDAY=-1FR' }],
+  ['созвон каждый второй вторник', { title: 'созвон', due: { date: '2026-10-13' }, rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU' }],
+  ['созвон каждый второй вторник месяца', { title: 'созвон', due: { date: '2026-10-13' }, rule: 'FREQ=MONTHLY;BYDAY=2TU' }],
+  ['счётчики каждый месяц', { title: 'счётчики', due: { date: '2026-10-13' }, rule: 'FREQ=MONTHLY;BYMONTHDAY=13' }],
+  ['каждые 2 недели уборка', { title: 'уборка', due: { date: '2026-10-13' }, rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=TU' }],
+  ['каждую неделю с пятницы', { title: '', due: { date: '2026-10-16' }, rule: 'FREQ=WEEKLY;BYDAY=FR' }],
+  [
+    'курс каждый понедельник с 1 ноября до 1 декабря',
+    { title: 'курс', due: { date: '2026-11-02' }, rule: 'FREQ=WEEKLY;BYDAY=MO;UNTIL=20261201' },
+  ],
+  ['отчёт каждый последний день месяца', { title: 'отчёт', due: { date: '2026-10-31' }, rule: 'FREQ=MONTHLY;BYMONTHDAY=-1' }],
+  // Дедлайн
+  ['проект {пятница}', { title: 'проект', deadline: '2026-10-16' }],
+  ['проект дедлайн 20 октября', { title: 'проект', deadline: '2026-10-20' }],
+  // Приоритет, проект, раздел, метки
+  ['!!! срочно разобраться', { title: 'срочно разобраться', priority: 1 }],
+  ['задача п2', { title: 'задача', priority: 2 }],
+  ['задача !3', { title: 'задача', priority: 3 }],
+  [
+    'сводка @срочно @звонок #Работа /Отчёты',
+    { title: 'сводка', projectId: 'p-work', sectionId: 's-reports', labelIds: ['l-urgent', 'l-call'] },
+  ],
+  ['идея №Мой проект', { title: 'идея', projectId: 'p-my' }],
+  ['идея #Новый @новая', { title: 'идея', projectId: null, newProject: 'Новый', newLabels: ['новая'] }],
+  [
+    'позвонить маме завтра в 19 №Дом каждую неделю !1',
+    { title: 'позвонить маме', due: { date: '2026-10-14', time: '19:00' }, rule: 'FREQ=WEEKLY;BYDAY=WE', projectId: 'p-home', priority: 1 },
+  ],
+  // Английский
+  ['call mom tomorrow at 7pm #Home p2', { title: 'call mom', due: { date: '2026-10-14', time: '19:00' }, projectId: 'p-home-en', priority: 2 }],
+  ['pay rent every month', { title: 'pay rent', due: { date: '2026-10-13' }, rule: 'FREQ=MONTHLY;BYMONTHDAY=13' }],
+  ['standup every weekday at 9:30am', { title: 'standup', due: { date: '2026-10-13', time: '09:30' }, rule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' }],
+  ['review every other friday', { title: 'review', due: { date: '2026-10-16' }, rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR' }],
+  ['water plants every! 3 days', { title: 'water plants', rule: 'FREQ=DAILY;INTERVAL=3', mode: 'completion' }],
+  ['meeting next monday for 1h', { title: 'meeting', due: { date: '2026-10-19' }, duration: 60 }],
+  ['dentist Nov 3 at 10', { title: 'dentist', due: { date: '2026-11-03', time: '10:00' } }],
+  ['report in 2 weeks', { title: 'report', due: { date: '2026-10-27' } }],
+  // Не должно распознаваться
+  ['call Tom', { title: 'call Tom', due: null }],
+  ['buy sun cream', { title: 'buy sun cream', due: null }],
+  ['написать a@b.ru', { title: 'написать a@b.ru', labelIds: [], newLabels: [] }],
+  ['прочитать 2026 год в книгах', { title: 'прочитать 2026 год в книгах', due: null }],
+];
+
+describe('корпус фраз', () => {
+  for (const [input, want] of cases) {
+    it(input, () => {
+      const got = parseTask(input, ctx);
+      const { rule, mode, ...rest } = want;
+      expect(got).toMatchObject(rest);
+      if (rule !== undefined) expect(got.recurrence?.rule ?? null).toBe(rule);
+      if (mode !== undefined) expect(got.recurrence?.mode).toBe(mode);
+    });
+  }
+});
+
+describe('токены и игнорирование', () => {
+  it('токены указывают на исходный текст', () => {
+    const text = 'позвонить маме завтра в 19 №Дом !1';
+    const got = parseTask(text, ctx);
+    for (const t of got.tokens) expect(text.slice(t.start, t.end)).toBe(t.text);
+    expect(got.tokens.map((t) => t.kind)).toEqual(['date', 'time', 'project', 'priority']);
+  });
+
+  it('участок из ignore остаётся в названии', () => {
+    const text = 'купить завтра';
+    const plain = parseTask(text, ctx);
+    const tok = plain.tokens[0]!;
+    const got = parseTask(text, { ...ctx, ignore: [[tok.start, tok.end]] });
+    expect(got).toMatchObject({ title: 'купить завтра', due: null });
+  });
+
+  it('повтор хранит исходную фразу', () => {
+    expect(parseTask('бассейн по понедельникам и средам в 8', ctx).recurrence?.text).toBe('по понедельникам и средам');
+  });
+});

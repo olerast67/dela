@@ -109,3 +109,4 @@ export {
   type Rule,
   type WeekdayNum,
 } from './recurrence.ts';
+export { parseTask, resolveDate, type ParseContext, type ParsedTask, type Token, type TokenKind } from './parse.ts';
