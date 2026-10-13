@@ -290,7 +290,7 @@ export function SearchView({ q, onOpen, selectedId }: ViewProps & { q: string })
     <>
       <header className="view-head">
         <h1>Поиск: {q}</h1>
-        <label className="check">
+        <label className="checkline">
           <input type="checkbox" checked={withDone} onChange={(e) => setWithDone(e.target.checked)} /> с выполненными
         </label>
       </header>
@@ -680,7 +680,7 @@ export function ReminderSettings() {
         Задачам со временем Dela напоминает по умолчанию так, как выбрано ниже. У отдельной задачи это можно изменить в её карточке. Пока приложение
         закрыто, напоминания приходят через push: сервер знает только время отправки, текст зашифрован ключом этого устройства.
       </p>
-      <label className="check">
+      <label className="checkline">
         <input
           type="checkbox"
           checked={push}

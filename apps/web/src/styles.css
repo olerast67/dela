@@ -260,13 +260,24 @@ a:focus-visible,
   color: var(--text);
 }
 
-.auth-card label.check,
-label.check {
+.auth-card label.checkline,
+label.checkline {
+  display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 14px;
   color: var(--text);
+  cursor: pointer;
+}
+
+label.checkline input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  flex: none;
+  accent-color: var(--accent);
 }
 
 .auth-card .primary {

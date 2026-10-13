@@ -193,7 +193,7 @@ export function RecoveryScreen() {
             Распечатать
           </button>
         </div>
-        <label className="check">
+        <label className="checkline">
           <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
           Ключ сохранён в надёжном месте
         </label>

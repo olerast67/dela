@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Fixed the "Key saved in a safe place" checkbox on the recovery key screen and two checkboxes in Settings: the label was squeezed into a narrow column.
+
 ## 0.1.0
 
 The first public version.
