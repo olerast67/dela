@@ -383,3 +383,26 @@ export function openEnvelope(spaceId: string, keys: SpaceKeys, env: Envelope<str
   if (slotFor(keys, body.t, body.r, body.f) !== env.slot) throw new DecryptError('slot mismatch');
   return { table: body.t, record: body.r, field: body.f, value: body.v, hlc: env.hlc };
 }
+
+// ---------- PIN блокировки приложения ----------
+
+/**
+ * Хеш PIN-кода для блокировки экрана на этом устройстве (Argon2id, строка libsodium с солью и параметрами).
+ * PIN короткий, поэтому защита держится на лимите попыток в приложении, а хеш нужен,
+ * чтобы PIN не лежал на устройстве открытым текстом.
+ */
+export function hashPin(pin: string, kdf: KdfParams = PIN_KDF): string {
+  const s = na();
+  return s.crypto_pwhash_str(pin.normalize('NFKC'), kdf.ops, kdf.mem);
+}
+
+export function verifyPin(hash: string, pin: string): boolean {
+  try {
+    return na().crypto_pwhash_str_verify(hash, pin.normalize('NFKC'));
+  } catch {
+    return false;
+  }
+}
+
+/** 2 прохода, 32 МиБ: проверка PIN занимает доли секунды и на телефоне. */
+export const PIN_KDF: KdfParams = { alg: 'argon2id13', ops: 2, mem: 32 * 1024 * 1024 };

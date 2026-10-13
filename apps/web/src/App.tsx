@@ -11,6 +11,7 @@ import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
 import { onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText } from './platform.ts';
 import { CalendarView } from './ui/Calendar.tsx';
+import { LockScreen } from './ui/Lock.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 
@@ -308,10 +309,11 @@ function Shell() {
 }
 
 export function App() {
-  const { phase } = useAppState();
+  const { phase, locked } = useAppState();
   if (phase === 'loading') return <div className="splash" aria-busy="true" />;
   if (phase === 'auth') return <AuthScreen />;
   if (phase === 'recovery') return <RecoveryScreen />;
+  if (locked) return <LockScreen />;
   if (!controller.doc) return <div className="splash" aria-busy="true" />;
   return <Shell />;
 }

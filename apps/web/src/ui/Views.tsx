@@ -5,6 +5,7 @@ import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, useAppState, useDoc } from '../hooks.ts';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
+import { LockSettings } from './Lock.tsx';
 import { ShareDialog } from './Share.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
@@ -416,6 +417,7 @@ export function SettingsView() {
       <ReminderSettings />
       <ChangePassword />
       <TwoFactor />
+      <LockSettings />
       <ImportExport />
       {isAdmin && (
         <section className="settings">

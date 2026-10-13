@@ -43,6 +43,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
       ...doc.labels().map((l) => ({ id: `l${l.id}`, label: `@ ${l.name}`, group: 'Метки', run: go({ view: 'label', id: l.id }) })),
       { id: 'new-filter', label: 'Новый фильтр', group: 'Действия', run: go({ view: 'filter', id: 'new' }) },
       { id: 'sync', label: 'Синхронизировать сейчас', group: 'Действия', run: () => void controller.syncNow() },
+      ...(controller.getState().lockEnabled ? [{ id: 'lock', label: 'Заблокировать', group: 'Действия', run: () => controller.lockNow() }] : []),
       { id: 'undo', label: 'Отменить последнее действие', group: 'Действия', hint: 'Ctrl+Z', run: () => doc.undo() },
       { id: 'dark', label: 'Тёмная тема', group: 'Действия', run: setTheme('dark') },
       { id: 'light', label: 'Светлая тема', group: 'Действия', run: setTheme('light') },

@@ -179,3 +179,39 @@ export async function openExternal(url: string): Promise<void> {
   }
   window.open(url, '_blank', 'noopener,noreferrer');
 }
+
+/** Есть ли на телефоне отпечаток или лицо для разблокировки. На компьютере и в браузере нет. */
+export async function biometryAvailable(): Promise<boolean> {
+  if (platform() !== 'capacitor') return false;
+  try {
+    const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
+    return (await BiometricAuth.checkBiometry()).isAvailable;
+  } catch {
+    return false;
+  }
+}
+
+/** Системный запрос отпечатка. true, если пользователь подтвердил. */
+export async function biometryUnlock(): Promise<boolean> {
+  if (platform() !== 'capacitor') return false;
+  try {
+    const { BiometricAuth } = await import('@aparajita/capacitor-biometric-auth');
+    await BiometricAuth.authenticate({
+      reason: 'Разблокировать Dela',
+      androidTitle: 'Разблокировать Dela',
+      cancelTitle: 'Ввести PIN',
+      allowDeviceCredential: false,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Приложение на телефоне ушло в фон (pause) и вернулось (resume). */
+export async function onAppPauseResume(onPause: () => void, onResume: () => void): Promise<void> {
+  if (platform() !== 'capacitor') return;
+  const { App } = await import('@capacitor/app');
+  await App.addListener('pause', onPause);
+  await App.addListener('resume', onResume);
+}

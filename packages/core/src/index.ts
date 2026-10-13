@@ -51,6 +51,9 @@ export {
   type AccountBundle,
   type NewAccount,
   type SpaceKeys,
+  hashPin,
+  verifyPin,
+  PIN_KDF,
 } from './crypto.ts';
 export {
   addDays,
@@ -148,3 +151,4 @@ export { Workspace } from './workspace.ts';
 export type { FilterSource } from './filter.ts';
 export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';
 export { weekStart, weekDates, monthGrid, monthStart, slotOf, moveDue, snapMinute, layoutDay, type TimedItem, type PlacedItem } from './calendar.ts';
+export { applyPinAttempt, failureDelayMs, isValidPin, lockAfterBackground, LOCK_TIMEOUTS, MAX_PIN_FAILURES, type LockConfig, type PinResult } from './applock.ts';

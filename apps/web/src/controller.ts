@@ -5,6 +5,13 @@
  * через BroadcastChannel. Очередь исходящих общая — в IndexedDB.
  */
 import {
+  applyPinAttempt,
+  hashPin,
+  isValidPin,
+  lockAfterBackground,
+  verifyPin,
+  type LockConfig,
+  type PinResult,
   ApiClient,
   ApiError,
   Doc,
@@ -40,7 +47,7 @@ import {
 } from '#core';
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
-import { nativeNotify, serverUrl, syncNativeReminders } from './platform.ts';
+import { biometryUnlock, nativeNotify, onAppPauseResume, serverUrl, syncNativeReminders } from './platform.ts';
 
 function loadFired(): string[] {
   try {
@@ -68,6 +75,10 @@ export interface AppState {
   readonly status: SyncStatus;
   readonly recoveryKey: string | null;
   readonly notice: string | null;
+  /** Экран закрыт PIN-кодом. */
+  readonly locked: boolean;
+  /** PIN-код задан на этом устройстве. */
+  readonly lockEnabled: boolean;
 }
 
 interface StoredSession {
@@ -122,7 +133,7 @@ export class Controller {
   private secrets: SecretKeys | null = null;
   private clock: HybridClock | null = null;
   private clockOffset = 0;
-  private state: AppState = { phase: 'loading', email: null, isAdmin: false, status: IDLE, recoveryKey: null, notice: null };
+  private state: AppState = { phase: 'loading', email: null, isAdmin: false, status: IDLE, recoveryKey: null, notice: null, locked: false, lockEnabled: false };
   private readonly listeners = new Set<() => void>();
   private docVersion = 0;
   private readonly docListeners = new Set<() => void>();
@@ -171,6 +182,10 @@ export class Controller {
       this.set({ phase: 'auth' });
       return;
     }
+    this.lock = (await this.store.getMeta<LockConfig>('lock')) ?? null;
+    // Приложение открывается закрытым: задачи загружаются и синхронизируются, но экран ждёт PIN.
+    if (this.lock) this.set({ locked: true, lockEnabled: true });
+    this.watchBackground();
     try {
       const secrets = await openLocal<SecretKeys>(this.store, stored.sealed);
       await this.start(stored, secrets);
@@ -697,6 +712,108 @@ export class Controller {
     }
   }
 
+  // ---------- блокировка PIN-кодом ----------
+
+  private lock: LockConfig | null = null;
+  private hiddenAt: number | null = null;
+  private watchingBackground = false;
+  private biometryPrompt = false;
+
+  private watchBackground(): void {
+    if (this.watchingBackground) return;
+    this.watchingBackground = true;
+    const hide = () => {
+      // Системный запрос отпечатка на части телефонов ставит приложение на паузу: это не уход в фон.
+      if (this.biometryPrompt) return;
+      this.hiddenAt ??= Date.now();
+      // «Сразу»: экран закрывается при уходе в фон, в списке недавних приложений задач не видно.
+      if (this.lock && this.lock.timeoutMin === 0) this.set({ locked: true });
+    };
+    const show = () => {
+      if (this.biometryPrompt) return;
+      if (lockAfterBackground(this.lock, this.hiddenAt, Date.now())) this.set({ locked: true });
+      this.hiddenAt = null;
+    };
+    document.addEventListener('visibilitychange', () => (document.visibilityState === 'hidden' ? hide() : show()));
+    // В WebView Android visibilitychange приходит не всегда: дублируем событиями оболочки.
+    void onAppPauseResume(hide, show);
+  }
+
+  private async saveLock(config: LockConfig | null): Promise<void> {
+    this.lock = config;
+    if (config) await this.store.setMeta('lock', config);
+    else await this.store.deleteMeta('lock');
+    this.set({ lockEnabled: config !== null });
+  }
+
+  lockConfig(): LockConfig | null {
+    return this.lock;
+  }
+
+  /** Задать или сменить PIN. Смена требует текущий PIN. */
+  async setPin(pin: string, current?: string): Promise<void> {
+    if (!isValidPin(pin)) throw new Error('PIN: от 4 до 8 цифр');
+    if (this.lock && !(current !== undefined && verifyPin(this.lock.pinHash, current))) throw new Error('Текущий PIN неверный');
+    await this.saveLock({ pinHash: hashPin(pin), timeoutMin: this.lock?.timeoutMin ?? 1, biometric: this.lock?.biometric ?? false, failures: 0, blockedUntil: 0 });
+  }
+
+  async disableLock(current: string): Promise<void> {
+    if (!this.lock) return;
+    if (!verifyPin(this.lock.pinHash, current)) throw new Error('PIN неверный');
+    await this.saveLock(null);
+    this.set({ locked: false });
+  }
+
+  async updateLock(patch: Partial<Pick<LockConfig, 'timeoutMin' | 'biometric'>>): Promise<void> {
+    if (this.lock) await this.saveLock({ ...this.lock, ...patch });
+  }
+
+  lockNow(): void {
+    if (this.lock) this.set({ locked: true });
+  }
+
+  /** Проверить PIN на экране блокировки. */
+  async unlock(pin: string): Promise<PinResult> {
+    if (!this.lock) {
+      this.set({ locked: false });
+      return { kind: 'ok', config: { pinHash: '', timeoutMin: 0, biometric: false, failures: 0, blockedUntil: 0 } };
+    }
+    const lock = this.lock;
+    const result = applyPinAttempt(lock, Date.now(), () => verifyPin(lock.pinHash, pin));
+    if (result.kind === 'wipe') {
+      // Десять неверных PIN подряд: данные устройства стираются, войти можно только с паролем.
+      for (const engine of this.engines.values()) {
+        try {
+          await engine.sync();
+        } catch {
+          // нет сети: неотправленное пропадёт вместе с данными устройства
+        }
+      }
+      await this.logout('Слишком много неверных PIN-кодов. Данные на этом устройстве стёрты, войдите с паролем.');
+      return result;
+    }
+    await this.saveLock(result.config);
+    if (result.kind === 'ok') this.set({ locked: false });
+    return result;
+  }
+
+  /** Разблокировать отпечатком: системный запрос на телефоне. Счётчик ошибок PIN при этом сбрасывается. */
+  async unlockWithBiometry(): Promise<boolean> {
+    if (!this.lock?.biometric || this.biometryPrompt) return false;
+    this.biometryPrompt = true;
+    let ok: boolean;
+    try {
+      ok = await biometryUnlock();
+    } finally {
+      this.biometryPrompt = false;
+      this.hiddenAt = null;
+    }
+    if (!ok || !this.lock) return false;
+    await this.saveLock({ ...this.lock, failures: 0, blockedUntil: 0 });
+    this.set({ locked: false });
+    return true;
+  }
+
   // ---------- выход ----------
 
   async logout(notice: string | null = null): Promise<void> {
@@ -731,7 +848,8 @@ export class Controller {
     await this.store.clear();
     this.channel?.postMessage({ type: 'logout' } satisfies ChannelMessage);
     this.leader = false;
-    this.set({ phase: 'auth', email: null, status: IDLE, notice });
+    this.lock = null;
+    this.set({ phase: 'auth', email: null, status: IDLE, notice, locked: false, lockEnabled: false });
   }
 
   /** Число операций, ещё не отправленных на сервер. */

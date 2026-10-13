@@ -101,6 +101,10 @@ export class IdbStore implements SyncStore {
     await (await this.db).put('meta', value, key);
   }
 
+  async deleteMeta(key: string): Promise<void> {
+    await (await this.db).delete('meta', key);
+  }
+
   /** Стереть данные одного пространства (например, после исключения из общего проекта). */
   async clearSpace(spaceId: string): Promise<void> {
     const db = await this.db;

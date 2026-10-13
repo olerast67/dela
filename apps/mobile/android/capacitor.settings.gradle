@@ -7,3 +7,6 @@ project(':capacitor-app').projectDir = new File('../../../node_modules/@capacito
 
 include ':capacitor-local-notifications'
 project(':capacitor-local-notifications').projectDir = new File('../../../node_modules/@capacitor/local-notifications/android')
+
+include ':aparajita-capacitor-biometric-auth'
+project(':aparajita-capacitor-biometric-auth').projectDir = new File('../../../node_modules/@aparajita/capacitor-biometric-auth/android')
