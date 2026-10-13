@@ -53,7 +53,7 @@
 
 Распространение:
 - [x] 2.12 Автообновление программы для Windows (подписанные обновления из выпусков GitHub)
-- [ ] 2.13 Подпись кода установщика для Windows
+- [ ] 2.13 Подпись кода установщика для Windows: сборка и подпись в Actions готовы (docs/code-signing.md), ждёт заявки автора в SignPath Foundation
 - [ ] 2.14 iOS и iPadOS
 - [x] 2.15 Push на Android без сервисов Google через UnifiedPush (ntfy); FCM и APNs перенесены в 4.1
 - [x] 2.16 Сайт olerast67.github.io/dela, демо без сервера, описание для F-Droid (заявку в F-Droid подаёт автор; Google Play вместе с облаком), проверка CLA в pull request

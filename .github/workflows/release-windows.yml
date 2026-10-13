@@ -1,0 +1,76 @@
+# Установщик для Windows, собранный в GitHub Actions из исходников тега и подписанный через SignPath
+# (бесплатная подпись кода для открытых проектов, SignPath Foundation). Подпись подключается после
+# одобрения заявки: docs/code-signing.md. Без секретов SignPath собирается неподписанный установщик.
+name: Windows release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Тег выпуска, например v0.4.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      # Секреты нельзя проверять в условии шага напрямую.
+      SIGNPATH_ENABLED: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+      CARGO_TARGET_DIR: ${{ github.workspace }}/apps/desktop/src-tauri/target
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      - run: npm ci
+      - run: npm run build:web
+      - name: Build the installer (update signature with the project key)
+        working-directory: apps/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build
+      - id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-installer
+          path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+      - name: Sign with SignPath
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: dela
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.upload.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+      - name: Re-sign the update after code signing, write latest.json
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          dir=apps/desktop/src-tauri/target/release/bundle/nsis
+          cp signed/*.exe "$dir/"
+          # Подпись кода меняет байты установщика: подпись обновления ставится заново на подписанный файл.
+          for f in "$dir"/*.exe; do npx tauri signer sign "$f"; done
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          dir=apps/desktop/src-tauri/target/release/bundle/nsis
+          node scripts/latest-json.mjs > latest.json
+          (cd "$dir" && sha256sum *.exe) > SHA256SUMS-windows.txt
+          gh release upload "${{ inputs.tag }}" "$dir"/*.exe latest.json SHA256SUMS-windows.txt --clobber

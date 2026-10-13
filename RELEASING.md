@@ -10,4 +10,6 @@
 5. Update the server before publishing the apps.
 6. `gh release create v<version>` with the installer, the APK, `SHA256SUMS.txt` and `latest.json`. The tag also builds the Docker image in CI.
 
+Code signing for Windows through SignPath: docs/code-signing.md and the Windows release workflow.
+
 The update signing key and the Android keystore live outside the repository. Losing the update key means the installed Windows apps cannot update themselves any more; keep a backup.
