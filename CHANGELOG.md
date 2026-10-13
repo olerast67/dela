@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - Sign in with a passkey (Windows Hello, fingerprint, Google Password Manager, iCloud Keychain, FIDO2 keys) in the browser. The PRF extension opens the account key on the device, so end-to-end encryption stays without a password. The server needs `DELA_PUBLIC_URL`.
 - Android push without Google services: reminders arrive through a UnifiedPush distributor such as ntfy. The reminder text is encrypted with a key only the phone knows. `DELA_PUSH_HOSTS` allows your own distributor.
