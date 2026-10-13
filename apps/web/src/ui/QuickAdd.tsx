@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { parseTask, type DateSpec, type Doc, type ParsedTask, type Priority, type Token } from '#core';
+import { parseTask, type DateSpec, type ParsedTask, type Priority, type Token, type Workspace } from '#core';
 import { controller } from '../controller.ts';
 import { useDoc } from '../hooks.ts';
 import { TZ, dueLabel, durationLabel, dateLabel } from '../format.ts';
@@ -31,7 +31,7 @@ const KIND_LABEL: Record<Token['kind'], string> = {
 };
 
 /** Создать задачу из разобранной фразы; недостающие проект, раздел и метки создаются. */
-export function createFromParsed(doc: Doc, parsed: ParsedTask, defaults: QuickAddDefaults): string {
+export function createFromParsed(doc: Workspace, parsed: ParsedTask, defaults: QuickAddDefaults): string {
   let projectId = parsed.projectId ?? undefined;
   if (!projectId && parsed.newProject) projectId = doc.createProject({ name: parsed.newProject });
   projectId ??= defaults.projectId;

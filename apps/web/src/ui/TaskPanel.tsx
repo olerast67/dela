@@ -226,7 +226,8 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
             ))}
           </dd>
 
-          <dt>Метки</dt>
+          {!doc.isShared(task.projectId) && <dt>Метки</dt>}
+          {!doc.isShared(task.projectId) && (
           <dd className="row wrap">
             {labels.map((l) => {
               const on = task.labels.includes(l.id);
@@ -255,6 +256,7 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
               aria-label="Новая метка"
             />
           </dd>
+          )}
 
           <dt>Дедлайн</dt>
           <dd className="row">

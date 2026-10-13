@@ -268,3 +268,22 @@ describe('Doc: отмена', () => {
     expect(doc.completions(t)).toEqual([]);
   });
 });
+
+describe('Doc: отмена создания', () => {
+  it('отмена создания задачи не оставляет пустую запись', () => {
+    const { doc } = device('00000000000000aa');
+    doc.createTask({ title: 'Лишняя' });
+    doc.undo();
+    expect(doc.projectTasks(doc.inboxId).unsectioned).toEqual([]);
+    expect(doc.allTasks()).toEqual([]);
+  });
+});
+
+describe('Doc: Входящие и отмена', () => {
+  it('сколько ни отменяй, Входящие остаются', () => {
+    const { doc } = device('00000000000000aa');
+    doc.createTask({ title: 'Первая' });
+    while (doc.undo());
+    expect(doc.project(doc.inboxId)).toMatchObject({ isInbox: true, deletedAt: null });
+  });
+});

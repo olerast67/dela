@@ -144,3 +144,5 @@ export {
 } from './transfer.ts';
 export { parseFilter, runFilter, FilterSyntaxError, type FilterResult } from './filter.ts';
 export { remindersBetween, offsetsOf, isReminderList, MAX_REMINDERS, type Reminder } from './reminders.ts';
+export { Workspace } from './workspace.ts';
+export type { FilterSource } from './filter.ts';

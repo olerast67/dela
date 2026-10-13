@@ -1,12 +1,12 @@
 import { useState, type MouseEvent } from 'react';
-import { type Doc, type TaskNode, type TaskView } from '#core';
+import { type TaskNode, type TaskView, type Workspace } from '#core';
 import { dueLabel, dueTone, dateLabel, durationLabel } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { IconChevron, IconDeadline, IconRepeat, IconSubtasks, IconTag } from './icons.tsx';
 import { DRAG_TYPE, draggedId, setDragged, useDropOnTask, type DropWhere } from './dnd.ts';
 import { showToast } from './toast.tsx';
 
-export function completeWithUndo(doc: Doc, task: TaskView): void {
+export function completeWithUndo(doc: Workspace, task: TaskView): void {
   doc.completeTask(task.id);
   showToast(task.recurrence ? 'Перенесено на следующий раз' : 'Задача выполнена', { label: 'Отменить', run: () => doc.undo() });
 }

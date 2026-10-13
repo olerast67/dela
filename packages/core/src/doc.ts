@@ -33,7 +33,8 @@ import { uuidv7 } from './uuid.ts';
 
 export type Change = readonly [table: string, record: string, field: string, value: Json];
 export type Origin = 'local' | 'remote';
-export type Listener = (ops: readonly Op[], origin: Origin) => void;
+/** undoable: локальная запись попала в историю отмены. */
+export type Listener = (ops: readonly Op[], origin: Origin, undoable?: boolean) => void;
 
 /** Задача с действующими значениями: проект, раздел и родитель после разбора дерева. */
 export interface TaskView extends Task {
@@ -91,6 +92,9 @@ export interface TaskPatch {
   readonly recurrence?: Recurrence | null;
   readonly reminders?: readonly number[] | null;
 }
+
+/** Таблицы с мягким удалением: отмена создания помечает запись удалённой. */
+const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter']);
 
 const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   title: 'title',
@@ -173,12 +177,18 @@ export interface DocOptions {
   readonly now?: () => number;
   /** Пояс пользователя: от него считается «сегодня» при выполнении повторяющихся задач. */
   readonly timeZone?: string;
+  /**
+   * personal — личное пространство со «Входящими»; shared — общее пространство одного проекта,
+   * id проекта совпадает с id пространства, своих «Входящих» нет.
+   */
+  readonly kind?: 'personal' | 'shared';
 }
 
 export class Doc {
   readonly spaceId: string;
   readonly replica: MemoryReplica;
   readonly timeZone: string;
+  readonly kind: 'personal' | 'shared';
   private readonly clock: HybridClock;
   private readonly now: () => number;
   private outbox: Op[] = [];
@@ -191,6 +201,7 @@ export class Doc {
     this.replica = options.replica ?? new MemoryReplica();
     this.now = options.now ?? Date.now;
     this.timeZone = options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    this.kind = options.kind ?? 'personal';
   }
 
   // ---------- операции ----------
@@ -202,11 +213,21 @@ export class Doc {
       // Прежние значения в обратном порядке: отмена возвращает ячейки к состоянию до записи.
       const inverse: Change[] = [];
       const seen = new Set<string>();
+      const created = new Set<string>();
       for (const [table, record, field] of changes) {
+        const existing = this.replica.get(table, record);
+        // Запись создана этим действием: отмена её удаляет, а не оставляет пустую.
+        if (existing === undefined && DELETABLE.has(table)) {
+          if (!created.has(`${table}\u0000${record}`)) {
+            created.add(`${table}\u0000${record}`);
+            inverse.push([table, record, 'deleted_at', this.now()]);
+          }
+          continue;
+        }
         const key = `${table}\u0000${record}\u0000${field}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        inverse.push([table, record, field, this.replica.get(table, record)?.[field] ?? null]);
+        inverse.push([table, record, field, existing?.[field] ?? null]);
       }
       this.undoStack.push(inverse);
       if (this.undoStack.length > 100) this.undoStack.shift();
@@ -214,7 +235,7 @@ export class Doc {
     const ops = changes.map(([table, record, field, value]): Op => ({ table, record, field, value, hlc: this.clock.tick() }));
     for (const op of ops) this.replica.apply(op);
     this.outbox.push(...ops);
-    this.changed(ops, 'local');
+    this.changed(ops, 'local', options.undoable !== false);
     return ops;
   }
 
@@ -273,9 +294,9 @@ export class Doc {
     return () => this.listeners.delete(fn);
   }
 
-  private changed(ops: readonly Op[], origin: Origin): void {
+  private changed(ops: readonly Op[], origin: Origin, undoable = false): void {
     this.snap = null;
-    for (const fn of this.listeners) fn(ops, origin);
+    for (const fn of this.listeners) fn(ops, origin, undoable);
   }
 
   // ---------- снимок ----------
@@ -423,12 +444,17 @@ export class Doc {
   }
 
   ensureInbox(): string {
+    if (this.kind === 'shared') return this.inboxId;
     const p = this.snapshot().projects.get(this.inboxId);
     if (!p || !p.isInbox) {
-      this.write([
-        ['project', this.inboxId, 'inbox', true],
-        ['project', this.inboxId, 'order', 'a0'],
-      ]);
+      // Служебная запись: отмена не должна удалять «Входящие».
+      this.write(
+        [
+          ['project', this.inboxId, 'inbox', true],
+          ['project', this.inboxId, 'order', 'a0'],
+        ],
+        { undoable: false },
+      );
     }
     return this.inboxId;
   }

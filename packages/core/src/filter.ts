@@ -86,8 +86,11 @@ export function parseFilter(query: string): Node {
   return tree;
 }
 
+/** Откуда фильтр берёт задачи: документ одного пространства или Workspace. */
+export type FilterSource = Pick<Doc, 'openTasks' | 'project' | 'label' | 'sections'>;
+
 interface Ctx {
-  readonly doc: Doc;
+  readonly doc: FilterSource;
   readonly today: string;
   readonly tz: string;
   readonly unknown: Set<string>;
@@ -239,7 +242,7 @@ export interface FilterResult {
 }
 
 /** Невыполненные задачи, подходящие под запрос, по сроку и приоритету. */
-export function runFilter(doc: Doc, query: string, today: string, tz: string): FilterResult {
+export function runFilter(doc: FilterSource, query: string, today: string, tz: string): FilterResult {
   const tree = parseFilter(query);
   const ctx: Ctx = { doc, today, tz, unknown: new Set() };
   const tasks = doc.openTasks().filter((t) => evaluate(tree, t, ctx));

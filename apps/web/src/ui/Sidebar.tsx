@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAppState, useDoc, href, navigate, type Route } from '../hooks.ts';
 import { TZ, todayDate } from '../format.ts';
 import { dropZone } from './dnd.ts';
-import { IconDone, IconFilter, IconInbox, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
+import { IconDone, IconFilter, IconUsers, IconInbox, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
 
 function same(a: Route, b: Route): boolean {
   return href(a) === href(b);
@@ -127,6 +127,7 @@ export function Sidebar({ route, onNavigate }: { route: Route; onNavigate?: () =
         >
           <span className={`dot-color c-${p.project.color}`} />
           <span className="nav-label">{p.project.name}</span>
+          {doc.isShared(p.project.id) && <IconUsers width={14} height={14} aria-label="общий" />}
           {countIn(p.project.id) ? <span className="count">{countIn(p.project.id)}</span> : null}
         </a>
       ))}

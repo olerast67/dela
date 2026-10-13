@@ -150,8 +150,24 @@ export class ApiClient {
     return this.call('GET', '/api/spaces');
   }
 
-  createSpace(id: string, key: string): Promise<{ id: string }> {
-    return this.call('POST', '/api/spaces', { id, key });
+  createSpace(id: string, key: string, kind: 'personal' | 'shared' = 'personal'): Promise<{ id: string }> {
+    return this.call('POST', '/api/spaces', { id, key, kind });
+  }
+
+  userPublicKey(email: string): Promise<{ userId: string; publicKey: string }> {
+    return this.call('GET', `/api/users/public-key?email=${encodeURIComponent(email)}`);
+  }
+
+  spaceMembers(spaceId: string): Promise<{ members: Array<{ userId: string; role: 'owner' | 'editor' | 'viewer'; email: string; publicKey: string }> }> {
+    return this.call('GET', `/api/spaces/${spaceId}/members`);
+  }
+
+  addMember(spaceId: string, input: { userId: string; role: 'editor' | 'viewer'; key: string }): Promise<{ ok: true }> {
+    return this.call('POST', `/api/spaces/${spaceId}/members`, input);
+  }
+
+  removeMember(spaceId: string, userId: string): Promise<{ ok: true }> {
+    return this.call('DELETE', `/api/spaces/${spaceId}/members/${encodeURIComponent(userId)}`);
   }
 
   push(spaceId: string, envelopes: readonly Envelope<string>[]): Promise<{ accepted: number; seq: number; serverTime: number }> {

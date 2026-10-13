@@ -115,3 +115,9 @@ export const IconFilter = (p: P) => (
     <path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />
   </Svg>
 );
+export const IconUsers = (p: P) => (
+  <Svg {...p}>
+    <circle cx="9" cy="8" r="3.5" />
+    <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5" />
+  </Svg>
+);

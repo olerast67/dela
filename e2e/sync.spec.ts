@@ -201,3 +201,55 @@ test('push: service worker расшифровывает напоминание �
   // service worker расшифровал текст ключом устройства и передал его окну.
   await expect(page.getByText('⏰ Выключить духовку')).toBeVisible({ timeout: 10_000 });
 });
+
+async function registerUser(page: Page, email: string) {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Электронная почта').fill(email);
+  await page.getByLabel('Пароль', { exact: true }).fill('shared-pass-123');
+  await page.getByLabel('Пароль ещё раз').fill('shared-pass-123');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Ключ сохранён в надёжном месте').check({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await expect(page.getByRole('heading', { name: 'Сегодня' })).toBeVisible();
+}
+
+test('общий проект: приглашение, правки с двух сторон, выход', async ({ browser }) => {
+  const stamp = Date.now();
+  const a = await (await browser.newContext()).newPage();
+  const b = await (await browser.newContext()).newPage();
+  await registerUser(a, `owner-${stamp}@dela.test`);
+  await registerUser(b, `guest-${stamp}@dela.test`);
+
+  // A: проект с задачей → сделать общим.
+  await a.getByRole('button', { name: 'Новый проект' }).click();
+  await a.getByPlaceholder('Название проекта').fill('Семья');
+  await a.getByPlaceholder('Название проекта').press('Enter');
+  await addTask(a, 'Купить подарок');
+  await expect(a.locator('.content').getByText('Купить подарок')).toBeVisible();
+  await a.getByRole('button', { name: 'Поделиться' }).click();
+  await a.getByRole('button', { name: 'Сделать проект общим' }).click();
+  await expect(a.getByRole('button', { name: 'Участники' })).toBeVisible({ timeout: 10_000 });
+  await expect(a.locator('.content').getByText('Купить подарок')).toBeVisible();
+
+  // A приглашает B: окно общего доступа остаётся открытым после создания общего проекта.
+  await a.getByLabel('Почта участника').fill(`guest-${stamp}@dela.test`);
+  await a.getByRole('button', { name: 'Пригласить' }).click();
+  await expect(a.getByText(/Добавлен\. Отпечаток ключа участника/)).toBeVisible({ timeout: 10_000 });
+  await a.getByRole('button', { name: 'Закрыть' }).click();
+
+  // B видит проект без перезагрузки (сигнал по WebSocket).
+  await expect(b.locator('.sidebar').getByText('Семья')).toBeVisible({ timeout: 15_000 });
+  await b.locator('.sidebar').getByText('Семья').click();
+  await expect(b.locator('.content').getByText('Купить подарок')).toBeVisible({ timeout: 10_000 });
+
+  // B добавляет задачу — A её видит.
+  await addTask(b, 'Заказать торт');
+  await expect(a.locator('.content').getByText('Заказать торт')).toBeVisible({ timeout: 15_000 });
+
+  // B выходит — проект пропадает у B.
+  await b.getByRole('button', { name: 'Участники' }).click();
+  b.once('dialog', (d) => d.accept());
+  await b.getByRole('button', { name: 'Выйти' }).click();
+  await expect(b.locator('.sidebar').getByText('Семья')).toBeHidden({ timeout: 10_000 });
+});

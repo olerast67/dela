@@ -5,6 +5,7 @@ import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, useAppState, useDoc } from '../hooks.ts';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
+import { ShareDialog } from './Share.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
 import { showToast } from './toast.tsx';
@@ -46,7 +47,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
               className="link"
               onClick={() => {
                 const changes = overdue.map((t) => ['task', t.id, 'due', { ...t.due!, date: today }] as const);
-                doc.write(changes);
+                doc.writeTasks(changes);
                 showToast(`${plural(overdue.length, 'задача перенесена', 'задачи перенесены', 'задач перенесено')} на сегодня`, {
                   label: 'Отменить',
                   run: () => doc.undo(),
@@ -112,6 +113,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
   const project = doc.project(id);
   const [renaming, setRenaming] = useState(false);
   const [addingSection, setAddingSection] = useState(false);
+  const [sharing, setSharing] = useState(false);
   if (!project || (!doc.projects().some((p) => p.project.id === id) && !project.isInbox)) {
     return <Empty>Проект не найден или удалён.</Empty>;
   }
@@ -170,8 +172,10 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
                 </option>
               ))}
             </select>
+            <button onClick={() => setSharing(true)}>{doc.isShared(id) ? 'Участники' : 'Поделиться'}</button>
             <button onClick={() => setRenaming(true)}>Переименовать</button>
             <button onClick={() => setAddingSection(true)}>Раздел</button>
+            {(!doc.isShared(id) || controller.roleIn(id) === 'owner') && (
             <button
               className="danger"
               onClick={() => {
@@ -183,9 +187,11 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
             >
               Удалить
             </button>
+            )}
           </div>
         )}
       </header>
+      {sharing && <ShareDialog projectId={id} onClose={() => setSharing(false)} />}
       {project.view === 'board' ? (
         <Board projectId={id} view={view} onOpen={onOpen} selectedId={selectedId} onAddSection={() => setAddingSection(true)} />
       ) : (
@@ -446,7 +452,7 @@ export function ImportExport() {
   const [fallback, setFallback] = useState(false);
 
   function apply(data: TodoistData) {
-    const s = importTodoist(doc, data);
+    const s = importTodoist(doc.personal, data);
     const parts = [
       plural(s.tasks, 'задача', 'задачи', 'задач'),
       plural(s.projects, 'проект', 'проекта', 'проектов'),
@@ -523,8 +529,8 @@ export function ImportExport() {
       <h2>Экспорт</h2>
       <p className="muted">Выгрузка собирается на этом устройстве из расшифрованных данных.</p>
       <div className="row">
-        <button onClick={() => download(`dela-${todayDate()}.json`, JSON.stringify(exportJson(doc), null, 2), 'application/json')}>JSON</button>
-        <button onClick={() => download(`dela-${todayDate()}.md`, exportMarkdown(doc), 'text/markdown')}>Markdown</button>
+        <button onClick={() => download(`dela-${todayDate()}.json`, JSON.stringify(exportJson(doc.personal), null, 2), 'application/json')}>JSON</button>
+        <button onClick={() => download(`dela-${todayDate()}.md`, exportMarkdown(doc.personal), 'text/markdown')}>Markdown</button>
       </div>
     </section>
   );

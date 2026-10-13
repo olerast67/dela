@@ -33,7 +33,7 @@ export function offsetsOf(t: TaskView, defaults: readonly number[]): readonly nu
 }
 
 /** Напоминания в полуинтервале [from, to), по времени. */
-export function remindersBetween(doc: Doc, from: number, to: number, tz: string, defaults: readonly number[] = [0]): Reminder[] {
+export function remindersBetween(doc: Pick<Doc, 'openTasks'>, from: number, to: number, tz: string, defaults: readonly number[] = [0]): Reminder[] {
   const out: Reminder[] = [];
   for (const t of doc.openTasks()) {
     if (!t.due?.time) continue;

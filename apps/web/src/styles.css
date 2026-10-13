@@ -1379,3 +1379,31 @@ kbd {
   color: var(--text-muted);
   text-align: left;
 }
+
+/* ---------- общий доступ ---------- */
+
+.share {
+  max-width: 560px;
+}
+
+.share-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-right: 8px;
+}
+
+.share-body {
+  padding: 8px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.share-body form input {
+  flex: 1;
+}
+
+.share-msg {
+  margin: 0 16px 16px;
+}

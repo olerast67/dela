@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import type { Doc } from '#core';
+import type { Workspace } from '#core';
 import { controller, type AppState } from './controller.ts';
 
 export function useAppState(): AppState {
@@ -7,7 +7,7 @@ export function useAppState(): AppState {
 }
 
 /** Документ и номер его версии: компонент перерисовывается при любом изменении данных. */
-export function useDoc(): Doc {
+export function useDoc(): Workspace {
   useSyncExternalStore(controller.subscribeDoc, controller.getDocVersion);
   const doc = controller.doc;
   if (!doc) throw new Error('document is not loaded');

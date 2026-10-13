@@ -417,9 +417,13 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const b = await body(c);
     const id = str(b.id, 'id', { re: UUID_RE });
     const key = b64(b.key, 'key', { maxBytes: 256 }).toString('base64');
+    const kind = b.kind === 'shared' ? 'shared' : 'personal';
     tx(db, () => {
       if (db.prepare('SELECT 1 FROM spaces WHERE id = ?').get(id)) fail(409, 'space_exists');
-      db.prepare("INSERT INTO spaces (id, kind, created_by, created_at) VALUES (?, 'personal', ?, ?)").run(id, userId, now());
+      if (kind === 'personal' && db.prepare("SELECT 1 FROM spaces WHERE created_by = ? AND kind = 'personal'").get(userId)) {
+        fail(409, 'personal_space_exists');
+      }
+      db.prepare('INSERT INTO spaces (id, kind, created_by, created_at) VALUES (?, ?, ?, ?)').run(id, kind, userId, now());
       db.prepare("INSERT INTO members (space_id, user_id, role, key_kind, key) VALUES (?, ?, 'owner', 'wrapped', ?)").run(
         id,
         userId,
@@ -427,6 +431,73 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
       );
     });
     return c.json({ id }, 201);
+  });
+
+  // ---------- общие пространства ----------
+
+  const keyLookup = new RateLimiter(60, 3600_000, now);
+
+  /** Открытый ключ пользователя по адресу: чтобы запечатать для него ключ пространства. */
+  app.get('/api/users/public-key', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    if (!keyLookup.hit(`key:${userId}`)) fail(429, 'rate_limited');
+    const email = normEmail(c.req.query('email'));
+    const row = db.prepare('SELECT id, bundle FROM users WHERE email = ?').get(email) as { id: string; bundle: string } | undefined;
+    if (!row) fail(404, 'not_found');
+    return c.json({ userId: row.id, publicKey: (JSON.parse(row.bundle) as AccountBundle).publicKey });
+  });
+
+  function notifySpace(spaceId: string, extra: string[] = []): void {
+    const members = (db.prepare('SELECT user_id FROM members WHERE space_id = ?').all(spaceId) as Array<{ user_id: string }>).map((r) => r.user_id);
+    hub.notify([...members, ...extra], { type: 'spaces' });
+  }
+
+  app.get('/api/spaces/:id/members', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    membership(spaceId, userId);
+    const rows = db
+      .prepare('SELECT m.user_id, m.role, u.email, u.bundle FROM members m JOIN users u ON u.id = m.user_id WHERE m.space_id = ? ORDER BY m.role, u.email')
+      .all(spaceId) as Array<{ user_id: string; role: string; email: string; bundle: string }>;
+    return c.json({
+      members: rows.map((r) => ({ userId: r.user_id, role: r.role, email: r.email, publicKey: (JSON.parse(r.bundle) as AccountBundle).publicKey })),
+    });
+  });
+
+  /** Добавить участника: владелец передаёт ключ пространства, запечатанный открытым ключом участника. */
+  app.post('/api/spaces/:id/members', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const { role } = membership(spaceId, userId);
+    if (role !== 'owner') fail(403, 'forbidden');
+    const space = db.prepare('SELECT kind FROM spaces WHERE id = ?').get(spaceId) as { kind: string };
+    if (space.kind !== 'shared') bad('personal space cannot be shared');
+    const b = await body(c);
+    const memberId = str(b.userId, 'userId', { re: UUID_RE });
+    const memberRole = b.role === 'viewer' ? 'viewer' : 'editor';
+    const key = b64(b.key, 'key', { maxBytes: 256 }).toString('base64');
+    if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(memberId)) fail(404, 'not_found');
+    db.prepare(
+      `INSERT INTO members (space_id, user_id, role, key_kind, key) VALUES (?, ?, ?, 'sealed', ?)
+       ON CONFLICT (space_id, user_id) DO UPDATE SET role = excluded.role, key = excluded.key, key_kind = excluded.key_kind`,
+    ).run(spaceId, memberId, memberRole, key);
+    notifySpace(spaceId);
+    return c.json({ ok: true }, 201);
+  });
+
+  /** Удалить участника (владелец) или выйти самому. Владелец выйти не может. */
+  app.delete('/api/spaces/:id/members/:userId', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const target = c.req.param('userId') ?? '';
+    const { role } = membership(spaceId, userId);
+    if (target !== userId && role !== 'owner') fail(403, 'forbidden');
+    const targetRole = (db.prepare('SELECT role FROM members WHERE space_id = ? AND user_id = ?').get(spaceId, target) as { role: string } | undefined)?.role;
+    if (!targetRole) fail(404, 'not_found');
+    if (targetRole === 'owner') bad('owner cannot leave; delete the project instead');
+    db.prepare('DELETE FROM members WHERE space_id = ? AND user_id = ?').run(spaceId, target);
+    notifySpace(spaceId, [target]);
+    return c.json({ ok: true });
   });
 
   app.get('/api/spaces', requireAuth, (c) => {

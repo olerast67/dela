@@ -101,6 +101,20 @@ export class IdbStore implements SyncStore {
     await (await this.db).put('meta', value, key);
   }
 
+  /** Стереть данные одного пространства (например, после исключения из общего проекта). */
+  async clearSpace(spaceId: string): Promise<void> {
+    const db = await this.db;
+    const tx = db.transaction(['cells', 'outbox', 'meta'], 'readwrite');
+    await tx.objectStore('cells').delete(IDBKeyRange.bound([spaceId, ''], [spaceId, '\uffff']));
+    let cursor = await tx.objectStore('outbox').index('space').openCursor(spaceId);
+    while (cursor) {
+      await cursor.delete();
+      cursor = await cursor.continue();
+    }
+    await tx.objectStore('meta').delete(`cursor:${spaceId}`);
+    await tx.done;
+  }
+
   /** Стереть всё: при выходе из аккаунта. */
   async clear(): Promise<void> {
     const db = await this.db;

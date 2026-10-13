@@ -13,7 +13,16 @@ import {
   SyncEngine,
   changeAccountPassword,
   ensurePersonalSpace,
+  fingerprint,
   fromB64,
+  newKey,
+  sealSpaceKeyFor,
+  spaceKeyOf,
+  uuidv7,
+  wrapSpaceKey,
+  Workspace,
+  type AccountKeys,
+  type SpaceInfo,
   initCrypto,
   newNodeId,
   persistLocal,
@@ -75,9 +84,11 @@ interface SecretKeys {
   readonly publicKey: string;
   readonly secretKey: string;
   readonly spaceKey: string;
+  /** Ключи общих пространств: нужны, чтобы открыть приложение без сети. */
+  readonly shared?: ReadonlyArray<{ readonly id: string; readonly key: string; readonly role: string }>;
 }
 
-type ChannelMessage = { type: 'ops'; ops: Op[] } | { type: 'sync' } | { type: 'logout' };
+type ChannelMessage = { type: 'ops'; space: string; ops: Op[] } | { type: 'sync' } | { type: 'logout' } | { type: 'spaces' };
 
 const IDLE: SyncStatus = { state: 'idle', pending: 0, lastSyncedAt: null, error: null };
 
@@ -101,8 +112,12 @@ function deviceName(): string {
 export class Controller {
   readonly store = new IdbStore();
   readonly api = new ApiClient('');
-  doc: Doc | null = null;
-  private engine: SyncEngine | null = null;
+  doc: Workspace | null = null;
+  private readonly engines = new Map<string, SyncEngine>();
+  private readonly spaceKeyById = new Map<string, Uint8Array>();
+  private readonly roles = new Map<string, string>();
+  private stored: StoredSession | null = null;
+  private secrets: SecretKeys | null = null;
   private clock: HybridClock | null = null;
   private clockOffset = 0;
   private state: AppState = { phase: 'loading', email: null, isAdmin: false, status: IDLE, recoveryKey: null, notice: null };
@@ -219,50 +234,187 @@ export class Controller {
 
   private async start(stored: StoredSession, secrets: SecretKeys): Promise<void> {
     this.api.token = stored.token;
+    this.stored = stored;
+    this.secrets = secrets;
     const now = () => Date.now() + this.clockOffset;
     const lastHlc = await this.store.getMeta<string>('hlc');
     this.clock = new HybridClock(stored.node, now, lastHlc);
     const doc = new Doc({ spaceId: stored.spaceId, clock: this.clock, now });
     doc.load(await this.store.loadCells(stored.spaceId));
-    this.doc = doc;
+    const ws = new Workspace(doc);
+    this.doc = ws;
+    this.attach(doc, fromB64(secrets.spaceKey));
+    for (const sp of secrets.shared ?? []) {
+      const shared = new Doc({ spaceId: sp.id, clock: this.clock, now, kind: 'shared' });
+      shared.load(await this.store.loadCells(sp.id));
+      this.roles.set(sp.id, sp.role);
+      this.attach(shared, fromB64(sp.key));
+      ws.addShared(shared);
+    }
 
-    this.engine = new SyncEngine({
+    this.stopFns.push(
+      ws.subscribe((ops) => {
+        this.docVersion++;
+        this.scheduleRemindersSoon();
+        for (const fn of this.docListeners) fn();
+      }),
+    );
+
+    doc.ensureInbox();
+    void this.refreshSpaces();
+    this.docVersion++;
+    this.set({ phase: this.state.phase === 'recovery' ? 'recovery' : 'ready', email: stored.email, isAdmin: stored.isAdmin, notice: null });
+    this.becomeLeaderWhenPossible();
+  }
+
+  /** Подключить пространство: движок синхронизации, сохранение и пересылка изменений между вкладками. */
+  private attach(doc: Doc, key: Uint8Array): void {
+    const spaceId = doc.spaceId;
+    this.spaceKeyById.set(spaceId, key);
+    const engine = new SyncEngine({
       api: this.api,
       store: this.store,
       doc,
-      spaceId: stored.spaceId,
-      keys: spaceKeys(fromB64(secrets.spaceKey)),
+      spaceId,
+      keys: spaceKeys(key),
       onServerTime: (serverTime) => {
         this.clockOffset = serverTime - Date.now();
         void this.store.setMeta('clockOffset', this.clockOffset);
         this.clock?.rewind();
       },
       restamp: () => this.clock!.tick(),
-      onStatus: (status) => this.set({ status }),
+      onStatus: () => this.updateStatus(),
       onUnauthorized: () => void this.logout('Сессия на этом устройстве завершена. Войдите снова.'),
     });
+    this.engines.set(spaceId, engine);
+    const stopPersist = persistLocal(doc, this.store, spaceId, () => {
+      void this.store.setMeta('hlc', this.clock!.current());
+      // Сразу показываем, что есть неотправленное: точное число придёт после синхронизации.
+      this.set({ status: { ...this.state.status, pending: this.state.status.pending + 1 } });
+      this.requestSync();
+    });
+    const stopForward = doc.subscribe((ops) => {
+      // Изменения из этой вкладки (свои и полученные с сервера) пересылаем остальным вкладкам.
+      if (!this.fromChannel && ops.length > 0) this.channel?.postMessage({ type: 'ops', space: spaceId, ops: [...ops] } satisfies ChannelMessage);
+    });
+    this.detachFns.set(spaceId, () => {
+      stopPersist();
+      stopForward();
+      this.engines.delete(spaceId);
+      this.spaceKeyById.delete(spaceId);
+    });
+  }
 
-    this.stopFns.push(
-      persistLocal(doc, this.store, stored.spaceId, () => {
-        void this.store.setMeta('hlc', this.clock!.current());
-        // Сразу показываем, что есть неотправленное: точное число придёт после синхронизации.
-        this.set({ status: { ...this.state.status, pending: this.state.status.pending + 1 } });
-        this.requestSync();
-      }),
-      doc.subscribe((ops, origin) => {
-        this.docVersion++;
-        this.scheduleRemindersSoon();
-        for (const fn of this.docListeners) fn();
-        // Изменения из этой вкладки (свои и полученные с сервера) пересылаем остальным вкладкам.
-        if (!this.fromChannel) this.channel?.postMessage({ type: 'ops', ops: [...ops] } satisfies ChannelMessage);
-        void origin;
-      }),
-    );
+  private readonly detachFns = new Map<string, () => void>();
 
-    doc.ensureInbox();
+  /** Общий статус: худшее из состояний движков. */
+  private updateStatus(): void {
+    const all = [...this.engines.values()].map((e) => e.current);
+    const rank = { error: 3, offline: 2, syncing: 1, idle: 0 } as const;
+    const worst = all.reduce((a, b) => (rank[b.state] > rank[a.state] ? b : a), all[0] ?? IDLE);
+    const lastSyncedAt = Math.max(0, ...all.map((x) => x.lastSyncedAt ?? 0)) || null;
+    this.set({ status: { state: worst.state, pending: all.reduce((n, x) => n + x.pending, 0), lastSyncedAt, error: worst.error } });
+  }
+
+  /** Сверить общие пространства с сервером: новые подключить, исчезнувшие (исключили) убрать. */
+  async refreshSpaces(): Promise<void> {
+    const ws = this.doc;
+    if (!ws || !this.secrets || !this.stored) return;
+    let spaces: SpaceInfo[];
+    try {
+      spaces = (await this.api.spaces()).spaces;
+    } catch {
+      return;
+    }
+    const keys = this.accountKeys();
+    const now = () => Date.now() + this.clockOffset;
+    const current = new Set(spaces.filter((x) => x.kind === 'shared').map((x) => x.id));
+    for (const sp of spaces) {
+      if (sp.kind !== 'shared') continue;
+      this.roles.set(sp.id, sp.role);
+      if (ws.sharedDoc(sp.id)) continue;
+      let key: Uint8Array;
+      try {
+        key = spaceKeyOf(sp, keys);
+      } catch {
+        continue;
+      }
+      const doc = new Doc({ spaceId: sp.id, clock: this.clock!, now, kind: 'shared' });
+      doc.load(await this.store.loadCells(sp.id));
+      this.attach(doc, key);
+      ws.addShared(doc);
+    }
+    for (const doc of ws.docs()) {
+      if (doc.kind !== 'shared' || current.has(doc.spaceId)) continue;
+      this.detachFns.get(doc.spaceId)?.();
+      this.detachFns.delete(doc.spaceId);
+      ws.removeShared(doc.spaceId);
+      await this.store.clearSpace(doc.spaceId);
+    }
+    await this.saveSecrets();
     this.docVersion++;
-    this.set({ phase: this.state.phase === 'recovery' ? 'recovery' : 'ready', email: stored.email, isAdmin: stored.isAdmin, notice: null });
-    this.becomeLeaderWhenPossible();
+    for (const fn of this.docListeners) fn();
+    if (this.leader) void this.syncNow();
+  }
+
+  private accountKeys(): AccountKeys {
+    const s = this.secrets!;
+    return { masterKey: fromB64(s.masterKey), publicKey: fromB64(s.publicKey), secretKey: fromB64(s.secretKey) };
+  }
+
+  private async saveSecrets(): Promise<void> {
+    if (!this.secrets || !this.stored || !this.doc) return;
+    const shared = this.doc
+      .docs()
+      .filter((d) => d.kind === 'shared')
+      .map((d) => ({ id: d.spaceId, key: toB64(this.spaceKeyById.get(d.spaceId)!), role: this.roles.get(d.spaceId) ?? 'editor' }));
+    this.secrets = { ...this.secrets, shared };
+    this.stored = { ...this.stored, sealed: await sealLocal(this.store, this.secrets) };
+    await this.store.setMeta('session', this.stored);
+  }
+
+  // ---------- общие проекты ----------
+
+  roleIn(projectId: string): string {
+    return this.roles.get(projectId) ?? 'owner';
+  }
+
+  /** Сделать личный проект общим. Возвращает id общего проекта. */
+  async shareProject(projectId: string): Promise<string> {
+    const ws = this.doc!;
+    const spaceId = uuidv7();
+    const key = newKey();
+    await this.api.createSpace(spaceId, wrapSpaceKey(key, this.accountKeys().masterKey, spaceId), 'shared');
+    const now = () => Date.now() + this.clockOffset;
+    const doc = new Doc({ spaceId, clock: this.clock!, now, kind: 'shared' });
+    this.roles.set(spaceId, 'owner');
+    this.attach(doc, key);
+    ws.shareProject(projectId, doc);
+    await this.saveSecrets();
+    this.requestSync();
+    return spaceId;
+  }
+
+  members(spaceId: string) {
+    return this.api.spaceMembers(spaceId);
+  }
+
+  /** Пригласить по адресу: ключ пространства запечатывается открытым ключом участника. Возвращает отпечаток его ключа. */
+  async addMember(spaceId: string, email: string, role: 'editor' | 'viewer'): Promise<string> {
+    const { userId, publicKey } = await this.api.userPublicKey(email);
+    const key = this.spaceKeyById.get(spaceId);
+    if (!key) throw new Error('unknown space');
+    await this.api.addMember(spaceId, { userId, role, key: sealSpaceKeyFor(key, spaceId, fromB64(publicKey)) });
+    return fingerprint(fromB64(publicKey));
+  }
+
+  async removeMember(spaceId: string, userId: string): Promise<void> {
+    await this.api.removeMember(spaceId, userId);
+    if (userId === this.stored?.userId) await this.refreshSpaces();
+  }
+
+  get userId(): string | null {
+    return this.stored?.userId ?? null;
   }
 
   // ---------- синхронизация ----------
@@ -313,11 +465,13 @@ export class Controller {
   }
 
   async syncNow(): Promise<void> {
-    if (!this.engine || !this.leader) return;
-    try {
-      await this.engine.sync();
-    } catch (err) {
-      if (!(err instanceof NetworkError) && !(err instanceof ApiError && err.status === 401)) console.error(err);
+    if (!this.leader) return;
+    for (const engine of [...this.engines.values()]) {
+      try {
+        await engine.sync();
+      } catch (err) {
+        if (!(err instanceof NetworkError) && !(err instanceof ApiError && err.status === 401)) console.error(err);
+      }
     }
   }
 
@@ -335,6 +489,10 @@ export class Controller {
           this.requestSync();
         }
         if (msg.type === 'changed') this.requestSync();
+        if (msg.type === 'spaces') {
+          void this.refreshSpaces();
+          this.channel?.postMessage({ type: 'spaces' } satisfies ChannelMessage);
+        }
       } catch {
         // не JSON — игнорируем
       }
@@ -354,12 +512,19 @@ export class Controller {
 
   private onChannel(msg: ChannelMessage): void {
     if (msg.type === 'ops' && this.doc) {
+      const doc = this.doc.docs().find((d) => d.spaceId === msg.space);
+      if (!doc) {
+        void this.refreshSpaces();
+        return;
+      }
       this.fromChannel = true;
       try {
-        this.doc.applyRemote(msg.ops);
+        doc.applyRemote(msg.ops);
       } finally {
         this.fromChannel = false;
       }
+    } else if (msg.type === 'spaces') {
+      void this.refreshSpaces();
     } else if (msg.type === 'sync') {
       if (this.leader) this.requestSync();
     } else if (msg.type === 'logout') {
@@ -513,11 +678,13 @@ export class Controller {
 
   async logout(notice: string | null = null): Promise<void> {
     // Перед выходом пробуем отправить всё, что осталось: после выхода данные устройства стираются.
-    if (this.engine && notice === null) {
-      try {
-        await this.engine.sync();
-      } catch {
-        // нет сети: пользователь уже предупреждён в диалоге
+    if (notice === null) {
+      for (const engine of this.engines.values()) {
+        try {
+          await engine.sync();
+        } catch {
+          // нет сети: пользователь уже предупреждён в диалоге
+        }
       }
     }
     try {
@@ -531,8 +698,12 @@ export class Controller {
     const ws = this.ws;
     this.ws = null;
     ws?.close();
-    this.engine = null;
+    for (const fn of this.detachFns.values()) fn();
+    this.detachFns.clear();
+    this.engines.clear();
     this.doc = null;
+    this.stored = null;
+    this.secrets = null;
     this.api.token = null;
     await this.store.clear();
     this.channel?.postMessage({ type: 'logout' } satisfies ChannelMessage);
@@ -543,7 +714,9 @@ export class Controller {
   /** Число операций, ещё не отправленных на сервер. */
   async pendingCount(): Promise<number> {
     if (!this.doc) return 0;
-    return (await this.store.outbox(this.doc.spaceId, 10_000)).length;
+    let n = 0;
+    for (const d of this.doc.docs()) n += (await this.store.outbox(d.spaceId, 10_000)).length;
+    return n;
   }
 }
 
