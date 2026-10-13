@@ -1,37 +1,85 @@
-# Dela
+<p align="center">
+  <img src="docs/images/banner.png" alt="Dela, an open-source task manager with end-to-end encryption" width="100%">
+</p>
 
-[Русский](README.ru.md)
+<h1 align="center">Dela: task manager with end-to-end encryption</h1>
 
-Dela is an open-source task manager that runs in the browser and installs on your own server as one Docker container. Tasks are encrypted on the device with a key the server does not have, and they stay available offline.
+<p align="center">
+  <a href="https://github.com/olerast67/dela/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/olerast67/dela?style=flat-square&color=2E7D5B&label=release"></a>
+  <a href="https://github.com/olerast67/dela/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/olerast67/dela/total?style=flat-square&color=5DBB8F"></a>
+  <a href="https://github.com/olerast67/dela/actions/workflows/ci.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/olerast67/dela/ci.yml?branch=main&style=flat-square&label=build"></a>
+  <a href="LICENSE"><img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue?style=flat-square"></a>
+  <a href="docs/architecture.md"><img alt="End-to-end encrypted" src="https://img.shields.io/badge/encryption-end--to--end-7A5BD1?style=flat-square"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/platforms-web%20%7C%20Windows%20%7C%20Android-3B6FD8?style=flat-square">
+</p>
 
-## Status
+<p align="center">
+  <a href="https://github.com/olerast67/dela/releases/latest"><img alt="Download for Windows" src="https://img.shields.io/badge/Windows-installer-2E7D5B?style=for-the-badge&logo=windows&logoColor=white" height="40"></a>
+  &nbsp;
+  <a href="https://github.com/olerast67/dela/releases/latest"><img alt="Download the Android APK" src="https://img.shields.io/badge/Android-APK-2E7D5B?style=for-the-badge&logo=android&logoColor=white" height="40"></a>
+  &nbsp;
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela"><img alt="Get it on Obtainium" src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" height="40"></a>
+  &nbsp;
+  <a href="#install-the-server"><img alt="Self-host with Docker" src="https://img.shields.io/badge/Docker-self--host-2E7D5B?style=for-the-badge&logo=docker&logoColor=white" height="40"></a>
+</p>
 
-Version 0.1.0, early development. The web app installs as a PWA on desktop and mobile. Native apps for Windows, macOS, Linux, Android and iOS do not exist yet; the plan is in [ROADMAP.md](ROADMAP.md).
+<p align="center"><b>English</b> · <a href="README.ru.md">Русский</a> · <a href="https://olerast.com">olerast.com</a></p>
 
-The code is written by Claude from Anthropic on my instructions. Every step is covered by unit tests and end-to-end tests in Chromium, and GitHub Actions runs them on each commit.
+---
+
+**Dela** (Russian *дела*, "things to do") is an open-source task manager that you install on your own server. Every device keeps a full copy of the tasks, so the app opens instantly and works without a network. Tasks are encrypted on the device with a key the server does not have: the server stores and syncs ciphertext only.
+
+I built Dela as a self-hosted alternative to Todoist: quick add in plain language, Today and Upcoming views, recurring tasks, filters in Todoist syntax and import from Todoist, with every feature free.
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/images/screens.png" alt="Today, Upcoming in dark theme, task details and the phone layout" width="100%">
+</p>
+
+Quick add recognizes the date, time, recurrence, project and priority while you type:
+
+<p align="center">
+  <img src="docs/images/quick-add.png" alt="Quick add with recognized parts highlighted" width="80%">
+</p>
 
 ## Features
 
-- Quick add parses English and Russian. The line "call mom tomorrow at 7pm #Home every week p1" becomes a task with a due date, project, recurrence and priority. Recognized parts are highlighted, and each of them can be kept as plain text in the title with one click.
-- Tasks live in projects, sections and subtasks. A task has labels, a priority, a due date with time and time zone, a start date, a deadline and a duration.
-- Recurrence follows a schedule or counts from the completion date, for example "every 2nd tuesday of the month" or "every! 3 days".
-- The Today and Upcoming views list tasks by day, and a project can be shown as a list or a board.
-- Filters use Todoist syntax (`(today | overdue) & p1`, `#Work & !@waiting`), with Russian keywords as well.
-- Reminders show up in the open app and through Web Push when the app is closed.
-- A project can be shared with other users of the same server by email address.
-- Import from Todoist works with an API token or an export file. Export writes JSON and Markdown.
-- `Ctrl+K` opens the command palette. Keyboard shortcuts are bound to physical keys, so they also work in the Russian layout. Tasks can be dragged with the mouse, and `Ctrl+Z` undoes the last 100 actions.
+| Area | What works |
+|---|---|
+| Quick add | English and Russian phrases: "call mom tomorrow at 7pm #Home every week p1". Recognized parts are highlighted; one click keeps a word as plain text. In the Russian layout `№` works as `#` and `!1` as `p1` |
+| Organizing | Projects with sub-projects, sections, subtasks, labels, priorities 1-4, due date with time and time zone, start date, deadline, duration |
+| Views | Today, Upcoming, project as a list or a board, labels, search, completed tasks, trash |
+| Recurrence | By schedule or from the completion date: "every 2nd tuesday of the month", "every 3 days after completion", "last day of the month" |
+| Filters | Todoist syntax `(today \| overdue) & p1`, `#Work & !@waiting`, `7 days`, `search: milk`, plus Russian keywords |
+| Reminders | In the open app, through Web Push when the browser is closed, through the Android alarm schedule without a network |
+| Sharing | Shared projects with members invited by email; the project key is sealed with each member's public key |
+| Keyboard | `Ctrl+K` command palette, `Q` quick add, `J`/`K`, `E` to complete, `T` for today, `Ctrl+Z` undoes the last 100 actions. Shortcuts use physical keys and work in any layout |
+| Apps | Web app (PWA), Windows app with a tray icon and the global shortcut `Ctrl+Shift+Space`, Android app with "Share to Dela" |
+| Your data | Import from Todoist by API token or export file, export to JSON and Markdown |
+| Security | Password never leaves the device, recovery key, two-factor login (TOTP), list of devices with revocation |
 
-## Installation
+## Download
+
+| Platform | File | Notes |
+|---|---|---|
+| Windows 10 and 11 | `Dela_<version>_x64-setup.exe` | Installs for the current user. The installer is not code-signed yet, so Windows SmartScreen asks for confirmation |
+| Android 7 and newer | `Dela-<version>-android.apk` | Updates through [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela) |
+| Any browser | your server address | Installs as a PWA on desktop and Android |
+
+All files are on the [releases page](https://github.com/olerast67/dela/releases/latest). The apps ask for your server address at the first sign-in.
+
+## Install the server
 
 You need a server with Docker and a domain name. Service workers and Web Push require HTTPS, so Dela runs behind a reverse proxy.
 
 ```bash
 curl -O https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
+# set DELA_ADMIN_EMAIL in the file to your address first
 docker compose up -d
 ```
 
-The container listens on port 8080 on `127.0.0.1`. A Caddy example that obtains the certificate itself:
+The container listens on port 8080 on `127.0.0.1`. A Caddy site that obtains the certificate itself:
 
 ```
 tasks.example.com {
@@ -39,49 +87,55 @@ tasks.example.com {
 }
 ```
 
-The first registered user becomes the administrator. After that, registration is closed: the administrator creates an invite in Settings → Invites and sends the link. Set `DELA_OPEN_REGISTRATION=true` to allow registration without an invite.
+The first account can be registered only with the address from `DELA_ADMIN_EMAIL`, and it becomes the administrator. After that, registration needs an invite: Settings → Invites creates a link for one person.
 
-## Configuration
+### Configuration
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `DELA_PORT` | `8080` | Server port |
-| `DELA_HOST` | `0.0.0.0` | Address the server listens on |
-| `DELA_DATA_DIR` | `/data` in the image | Folder for the database and backups |
+| `DELA_ADMIN_EMAIL` | empty | The only address allowed to register first |
 | `DELA_OPEN_REGISTRATION` | `false` | Registration without an invite |
-| `DELA_BACKUP_KEEP` | `7` | Number of daily database snapshots to keep, `0` disables them |
-| `DELA_SESSION_TTL_DAYS` | `180` | Device session lifetime in days |
-| `DELA_MAX_CLOCK_DRIFT_MS` | `60000` | How far ahead of the server a device clock may run, in milliseconds |
+| `DELA_TRUST_PROXY` | `false` | Take the client address from `X-Forwarded-For` for login rate limits. Enable only behind a proxy |
+| `DELA_PORT` | `8080` | Server port |
+| `DELA_DATA_DIR` | `/data` in the image | Database and backups |
+| `DELA_BACKUP_KEEP` | `7` | Daily database snapshots to keep, `0` disables them |
+| `DELA_SESSION_TTL_DAYS` | `180` | Device session lifetime |
+| `DELA_MAX_RECORDS_PER_SPACE` | `500000` | Limit of stored fields per project space |
 | `DELA_VAPID_SUBJECT` | repository URL | Contact for push services, `mailto:` or `https:` |
 
-## Updating
+### Updating and backups
 
 ```bash
-docker compose pull
-docker compose up -d
+docker compose pull && docker compose up -d
 ```
 
-Database migrations run at startup. Before a migration the server saves a copy of the database to `/data/dela.sqlite.before-vN-<time>.bak`.
-
-## Backups
-
-Once a day the server writes a database snapshot to `/data/backups/dela-YYYY-MM-DD.sqlite` and keeps the last seven. Tasks in a snapshot are encrypted and can be restored only with the owner's password or recovery key. A full plaintext export is available in the app under Settings → Export.
+Migrations run at startup, and the server copies the database to `/data/dela.sqlite.before-vN-<time>.bak` first. Once a day it writes a snapshot to `/data/backups`. A plaintext export is available in the app under Settings → Export.
 
 ## Security
 
-The password never leaves the device. Argon2id derives two keys from it on the device: one proves the login to the server, the other unlocks the account master key. Every change is encrypted with XChaCha20-Poly1305 using the space key (libsodium).
+Argon2id derives two keys from the password on the device: one proves the login to the server, the other unlocks the account master key. Every change is encrypted with XChaCha20-Poly1305 using the key of its space (libsodium).
 
-The server sees email addresses, the list of devices, members of shared projects, change times, the size of each change rounded to 64 bytes and the times when reminders are sent. Task text, dates, labels, project names, field names and record IDs are stored on the server only in encrypted form.
+The server sees email addresses, devices, members of shared projects, change times, sizes rounded to 64 bytes and reminder times. Task text, dates, labels, project names, field names and record IDs reach the server only encrypted. If both the password and the recovery key are lost, the data cannot be decrypted.
 
-At registration the app shows a recovery key. If both the password and the recovery key are lost, the data cannot be decrypted.
+Known limitations: in the browser the data is stored decrypted in IndexedDB (the account keys are wrapped by a non-extractable WebCrypto key); a member removed from a shared project keeps the project key received earlier; there is no PIN lock for the app yet. Details are in [docs/architecture.md](docs/architecture.md), the report process is in [SECURITY.md](SECURITY.md).
 
-Current limitations:
+## Support the project
 
-- In the browser, data is stored in IndexedDB in decrypted form. The account keys are encrypted with a WebCrypto key that cannot be extracted from the browser.
-- A member removed from a shared project loses access to the server but keeps the project key received earlier. Key rotation after removal is planned.
-- There is no two-factor login (TOTP) and no PIN lock for the app yet.
+Dela is free and has no paid features. Donations pay for the time spent on new platforms and on an external security audit.
 
-The protocol and key hierarchy are described in [docs/architecture.md](docs/architecture.md). Please report vulnerabilities through a private report on GitHub (Security → Report a vulnerability).
+- [One-off donation on Boosty](https://boosty.to/olerast/donate): cards from most countries, Mir and SBP in Russia.
+- [Monthly support on Boosty](https://boosty.to/olerast).
+- The address for USDT on TRON is in [DONATE.md](DONATE.md).
+
+A star on this repository also helps other people find it.
+
+## Made by olerast
+
+I make videos about the projects I build and test on myself: [YouTube](https://www.youtube.com/@olerast), [Telegram](https://t.me/olerast), [olerast.com](https://olerast.com). The code is written by Claude from Anthropic on my instructions and is covered by unit and end-to-end tests that run in GitHub Actions on every commit.
+
+## Roadmap
+
+Next on the [roadmap](ROADMAP.md): calendar view and time blocking, comments and assignees in shared projects, PIN lock, key rotation when a member is removed, iOS app, REST API and an MCP server for AI assistants.
 
 ## Development
 
@@ -90,9 +144,8 @@ Requires Node.js 22.18 or newer.
 ```bash
 npm install
 npm run check        # type check and unit tests
-npm run test:e2e     # build the web client and run Playwright scenarios in Chromium
-npm run build:web
-npm start            # server on http://localhost:8080 with the web client
+npm run test:e2e     # Playwright scenarios in Chromium
+npm run build:web && npm start   # server with the web client on http://localhost:8080
 ```
 
 | Folder | Contents |
@@ -100,7 +153,10 @@ npm start            # server on http://localhost:8080 with the web client
 | `packages/core` | Shared core: sync, encryption, task model, quick add parser, recurrence, filters |
 | `apps/server` | Server on Node.js, Hono and the built-in SQLite |
 | `apps/web` | Web client on React and Vite |
-| `e2e` | Playwright end-to-end tests |
+| `apps/desktop` | Windows app on Tauri 2 |
+| `apps/mobile` | Android app on Capacitor |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ## License
 

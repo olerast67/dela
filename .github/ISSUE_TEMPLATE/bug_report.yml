@@ -1,0 +1,48 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Можно писать по-русски.
+        Don't paste task contents, passwords or recovery keys here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what happened instead. For sync problems, what you did on each device and in what order.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where
+      multiple: true
+      options:
+        - Web app in a browser
+        - Windows app
+        - Android app
+        - Server
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device, system and browser
+      placeholder: Windows 11, Chrome 141 / Pixel 8, Android 15
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App and server version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Console or server log
+      description: Errors from the browser console (F12) or `docker compose logs dela`. Remove email addresses and anything private before posting.
+      render: text

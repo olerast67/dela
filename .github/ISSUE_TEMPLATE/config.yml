@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/olerast67/dela/security/advisories/new
+    about: Please report vulnerabilities privately (Security → Report a vulnerability), not as an issue.
+  - name: Questions and news
+    url: https://t.me/olerast
+    about: Telegram channel of the author.

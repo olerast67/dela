@@ -1,0 +1,4 @@
+# Adds the "Sponsor" button to the repository (see DONATE.md).
+custom:
+  - "https://boosty.to/olerast/donate"
+  - "https://github.com/olerast67/dela/blob/main/DONATE.md"

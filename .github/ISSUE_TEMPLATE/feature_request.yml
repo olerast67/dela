@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest an idea for Dela
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [roadmap](https://github.com/olerast67/dela/blob/main/ROADMAP.md) first: the idea may already be planned. Можно писать по-русски.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What do you want to do?
+      description: The task you are trying to get done and what gets in the way now.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: How you see it in the app. If Todoist or another app does it well, say how.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platforms
+      multiple: true
+      options:
+        - All
+        - Web app
+        - Windows app
+        - Android app
+        - Server

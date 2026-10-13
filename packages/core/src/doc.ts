@@ -93,6 +93,8 @@ export interface TaskPatch {
   readonly reminders?: readonly number[] | null;
 }
 
+const PROJECT_PALETTE = ['blue', 'green', 'orange', 'violet', 'teal', 'red', 'pink', 'yellow', 'brown'] as const;
+
 /** Таблицы с мягким удалением: отмена создания помечает запись удалённой. */
 const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter']);
 
@@ -467,7 +469,8 @@ export class Doc {
     const siblings = this.activeProjects().filter((p) => p.parentId === parentId && !p.isInbox);
     this.write([
       ['project', id, 'name', input.name.trim()],
-      ['project', id, 'color', input.color ?? 'gray'],
+      // Без явного цвета проекты получают цвета по кругу: в списке их легче различать.
+      ['project', id, 'color', input.color ?? PROJECT_PALETTE[this.activeProjects().filter((p) => !p.isInbox).length % PROJECT_PALETTE.length]!],
       ['project', id, 'parent', parentId],
       ['project', id, 'view', input.view ?? 'list'],
       ['project', id, 'order', this.orderBetween(siblings, id, input.position)],
