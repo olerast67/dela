@@ -56,7 +56,7 @@ function TodayHead({ open, today }: { open: number; today: string }) {
         <div className="ring" role="img" aria-label={`Выполнено ${done} из ${total}`} title={`Выполнено ${done} из ${total}`}>
           <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
             <circle cx="26" cy="26" r={r} className="ring-track" />
-            <circle cx="26" cy="26" r={r} className="ring-value" strokeDasharray={`${part} ${c}`} transform="rotate(-90 26 26)" />
+            {done > 0 && <circle cx="26" cy="26" r={r} className="ring-value" strokeDasharray={`${part} ${c}`} transform="rotate(-90 26 26)" />}
           </svg>
           <span>
             {done}/{total}
