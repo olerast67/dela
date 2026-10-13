@@ -1,0 +1,24 @@
+{
+  "name": "dela",
+  "private": true,
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "imports": {
+    "#core": "./packages/core/src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "fast-check": "^4.10.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.4"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  }
+}
