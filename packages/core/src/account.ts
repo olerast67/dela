@@ -101,6 +101,13 @@ export async function recoverAccount(
 }
 
 /** Смена пароля. Неверный текущий пароль обнаруживается на устройстве, до запроса к серверу. */
+/** Удалить аккаунт на сервере: нужен пароль (и код TOTP, если он включён). */
+export async function deleteAccountOnServer(api: ApiClient, input: { password: string; totp?: string }): Promise<void> {
+  const { bundle } = await api.account();
+  const { authSecret } = derivePasswordKeys(input.password, fromB64(bundle.salt), bundle.kdf);
+  await api.deleteAccount({ authSecret: toB64(authSecret), ...(input.totp ? { totp: input.totp } : {}) });
+}
+
 export async function changeAccountPassword(
   api: ApiClient,
   input: { currentPassword: string; newPassword: string; kdf?: KdfParams },

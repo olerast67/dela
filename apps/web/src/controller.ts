@@ -19,6 +19,7 @@ import {
   NetworkError,
   SyncEngine,
   changeAccountPassword,
+  deleteAccountOnServer,
   ensurePersonalSpace,
   fingerprint,
   fromB64,
@@ -218,6 +219,20 @@ export class Controller {
   async recover(email: string, recoveryKey: string, newPassword: string): Promise<void> {
     const session = await recoverAccount(this.api, { email, recoveryKey, newPassword, deviceName: deviceName() });
     await this.persistAndStart(session);
+  }
+
+  /** Удалить аккаунт: сервер стирает аккаунт и личные задачи, устройство выходит и стирает свои данные. */
+  async deleteAccount(password: string, totp?: string): Promise<void> {
+    // Перед удалением отправляем изменения общих проектов: они остаются у других участников.
+    for (const engine of this.engines.values()) {
+      try {
+        await engine.sync();
+      } catch {
+        // нет сети: удаление ниже тоже не пройдёт
+      }
+    }
+    await deleteAccountOnServer(this.api, { password, ...(totp ? { totp } : {}) });
+    await this.logout('Аккаунт удалён.');
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {

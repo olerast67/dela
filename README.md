@@ -57,7 +57,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 | Sharing | Shared projects with members invited by email; the project key is sealed with each member's public key |
 | Keyboard | `Ctrl+K` command palette, `Q` quick add, `J`/`K`, `E` to complete, `T` for today, `Ctrl+Z` undoes the last 100 actions. Shortcuts use physical keys and work in any layout |
 | Apps | Web app (PWA), Windows app with a tray icon and the global shortcut `Ctrl+Shift+Space`, Android app with "Share to Dela" |
-| Your data | Import from Todoist by API token or export file, export to JSON and Markdown |
+| Your data | Import from Todoist by API token or export file, export to JSON and Markdown, deleting tasks forever and deleting the account |
 | Security | Password never leaves the device, recovery key, two-factor login (TOTP), list of devices with revocation, app lock with a PIN and a fingerprint on Android |
 
 ## Download
@@ -136,7 +136,7 @@ I make videos about the projects I build and test on myself: [YouTube](https://w
 
 ## Roadmap
 
-Next on the [roadmap](ROADMAP.md): a Today widget for Android, voice input, account deletion, key rotation when a member is removed, comments and assignees in shared projects, automatic updates for the Windows app.
+Next on the [roadmap](ROADMAP.md): a Today widget for Android, voice input, key rotation when a member is removed, comments and assignees in shared projects, automatic updates for the Windows app.
 
 ## Development
 

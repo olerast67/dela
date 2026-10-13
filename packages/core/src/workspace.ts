@@ -264,6 +264,18 @@ export class Workspace {
     this.batch(() => this.docForTask(id).restoreTask(id));
   }
 
+  purgeTask(id: string): void {
+    this.batch(() => this.docForTask(id).purgeTask(id));
+  }
+
+  emptyTrash(): number {
+    let n = 0;
+    this.batch(() => {
+      for (const d of this.docs()) n += d.emptyTrash();
+    });
+    return n;
+  }
+
   moveTask(id: string, target: { projectId?: string; sectionId?: string | null; parentId?: string | null; position?: Position }): void {
     const src = this.docForTask(id);
     const dst = target.parentId ? this.docForTask(target.parentId) : this.docForProject(target.projectId ?? src.task(id)?.projectId);

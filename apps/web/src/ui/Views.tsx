@@ -322,11 +322,31 @@ export function TrashView() {
     <>
       <header className="view-head">
         <h1>Корзина</h1>
+        {tasks.length > 0 && (
+          <button
+            onClick={() => {
+              if (confirm(`Удалить навсегда ${plural(doc.trash().length, 'задачу', 'задачи', 'задач')}? Отменить это нельзя.`)) {
+                const n = doc.emptyTrash();
+                showToast(`Удалено навсегда: ${n}`);
+              }
+            }}
+          >
+            Очистить корзину
+          </button>
+        )}
       </header>
       {tasks.map((t) => (
         <div key={t.id} className="trash-row">
           <span>{t.title}</span>
           <button onClick={() => doc.restoreTask(t.id)}>Восстановить</button>
+          <button
+            className="danger"
+            onClick={() => {
+              if (confirm(`Удалить «${t.title}» навсегда? Отменить это нельзя.`)) doc.purgeTask(t.id);
+            }}
+          >
+            Удалить навсегда
+          </button>
         </div>
       ))}
       {tasks.length === 0 && <Empty>Корзина пуста.</Empty>}
@@ -418,6 +438,7 @@ export function SettingsView() {
       <ChangePassword />
       <TwoFactor />
       <LockSettings />
+      <DeleteAccount />
       <ImportExport />
       {isAdmin && (
         <section className="settings">
@@ -850,6 +871,70 @@ export function TwoFactor() {
         </form>
       )}
       {msg && <p className="notice">{msg}</p>}
+    </section>
+  );
+}
+
+export function DeleteAccount() {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <section className="settings">
+      <h2>Удаление аккаунта</h2>
+      <p className="muted">
+        Сервер удалит аккаунт, личные задачи и все устройства. Общие проекты, где есть другие участники, перейдут к ним. Отменить удаление нельзя:
+        перед ним можно выгрузить задачи в разделе «Экспорт».
+      </p>
+      {!open ? (
+        <button className="danger" onClick={() => setOpen(true)}>
+          Удалить аккаунт
+        </button>
+      ) : (
+        <form
+          className="row"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!confirm('Удалить аккаунт и все личные задачи навсегда?')) return;
+            setBusy(true);
+            setMsg(null);
+            try {
+              await controller.deleteAccount(password, code.replace(/\s/g, '') || undefined);
+            } catch (err) {
+              const c = err instanceof Error ? err.message : '';
+              setMsg(
+                c === 'invalid_credentials'
+                  ? 'Пароль неверный.'
+                  : c === 'totp_required'
+                    ? 'Введите код из приложения-аутентификатора.'
+                    : c === 'invalid_totp'
+                      ? 'Код не подошёл.'
+                      : c === 'rate_limited'
+                        ? 'Слишком много попыток. Подождите несколько минут.'
+                        : 'Не получилось. Нужна связь с сервером.',
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <input type="password" placeholder="Пароль" aria-label="Пароль для удаления" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input inputMode="numeric" placeholder="Код TOTP, если включён" aria-label="Код TOTP" value={code} onChange={(e) => setCode(e.target.value)} />
+          <button className="danger" disabled={busy}>
+            Удалить навсегда
+          </button>
+          <button type="button" onClick={() => setOpen(false)}>
+            Отмена
+          </button>
+        </form>
+      )}
+      {msg && (
+        <p className="error" role="alert">
+          {msg}
+        </p>
+      )}
     </section>
   );
 }

@@ -120,6 +120,7 @@ export {
   signIn,
   recoverAccount,
   changeAccountPassword,
+  deleteAccountOnServer,
   ensurePersonalSpace,
   spaceKeyOf,
   normalizeEmail,

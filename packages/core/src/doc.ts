@@ -723,6 +723,7 @@ export class Doc {
   }
 
   restoreTask(id: string): void {
+    if (this.purged(id)) return;
     const s = this.snapshot();
     const changes: Change[] = [];
     // Восстанавливая подзадачу, возвращаем и удалённых предков: иначе она останется невидимой.
@@ -1001,8 +1002,50 @@ export class Doc {
   /** Удалённые задачи для корзины. */
   trash(): TaskView[] {
     return [...this.snapshot().tasks.values()]
-      .filter((t) => t.deletedAt !== null)
+      .filter((t) => t.deletedAt !== null && !this.purged(t.id))
       .sort((a, b) => b.deletedAt! - a.deletedAt!);
+  }
+
+  private purged(id: string): boolean {
+    return this.replica.get('task', id)?.purged_at != null;
+  }
+
+  /**
+   * Удалить задачу из корзины навсегда вместе с подзадачами. Каждое поле затирается null,
+   * остаётся только отметка purged_at. Сервер хранит последнее значение каждого поля,
+   * поэтому прежний зашифрованный текст с него тоже уходит. Отменить нельзя.
+   */
+  purgeTask(id: string): void {
+    const root = this.snapshot().tasks.get(id);
+    if (!root || root.deletedAt === null || this.purged(id)) return;
+    const all = this.replica.all('task');
+    const ids = new Set([id]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const [tid, rec] of all) {
+        if (!ids.has(tid) && typeof rec.parent === 'string' && ids.has(rec.parent)) {
+          ids.add(tid);
+          grew = true;
+        }
+      }
+    }
+    const t = this.now();
+    const changes: Change[] = [];
+    for (const tid of ids) {
+      for (const [field, value] of Object.entries(all.get(tid) ?? {})) {
+        if (value !== null && field !== 'deleted_at' && field !== 'purged_at') changes.push(['task', tid, field, null]);
+      }
+      if (all.get(tid)?.deleted_at == null) changes.push(['task', tid, 'deleted_at', t]);
+      changes.push(['task', tid, 'purged_at', t]);
+    }
+    this.write(changes, { undoable: false });
+  }
+
+  /** Очистить корзину: все удалённые задачи навсегда. */
+  emptyTrash(): number {
+    const roots = this.trash();
+    for (const task of roots) this.purgeTask(task.id);
+    return roots.length;
   }
 }
 

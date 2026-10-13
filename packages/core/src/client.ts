@@ -154,6 +154,10 @@ export class ApiClient {
     return this.call('PUT', '/api/account/password', input);
   }
 
+  deleteAccount(input: { authSecret: string; totp?: string }): Promise<{ ok: true }> {
+    return this.call('POST', '/api/account/delete', input);
+  }
+
   devices(): Promise<{ devices: DeviceInfo[] }> {
     return this.call('GET', '/api/devices');
   }

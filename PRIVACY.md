@@ -24,4 +24,6 @@ Whoever runs the server you connect to is responsible for it. The release apps c
 
 ## Deleting data
 
-Deleted tasks go to the trash, where they can be restored; the server keeps their encrypted records. The app has no account deletion yet: the server operator can remove an account from the database.
+Deleted tasks go to the trash, where they can be restored. "Delete forever" and "Empty trash" overwrite every field of the task with an empty value; the server keeps only the latest value of each field, so the old encrypted text is gone from it too.
+
+Settings → Delete account removes the account, the personal tasks and all devices from the server. Shared projects with other members pass to one of them. The daily database snapshots on the server keep the old data until they rotate out (7 days by default).

@@ -426,3 +426,45 @@ describe('защита сервера за прокси', () => {
     expect((await s.call('POST', `/api/spaces/${spaceId}/push`, { envelopes: [env(3)] }, token))).toEqual({ status: 413, json: { error: 'space_full' } });
   });
 });
+
+describe('удаление аккаунта', () => {
+  it('нужен пароль; аккаунт, личное пространство и сессии исчезают, общий проект переходит участнику', async () => {
+    const s = makeServer({ openRegistration: true });
+    const a = await register(s, 'a@x.yz', 'пароль-а');
+    const b = await register(s, 'b@x.yz', 'пароль-б');
+    const ta = a.res.json.token as string;
+    const tb = b.res.json.token as string;
+    const keysA = openAccount(a.acc.bundle, derivePasswordKeys('пароль-а', fromB64(a.acc.bundle.salt), a.acc.bundle.kdf).kek);
+    const personal = uuidv7();
+    const shared = uuidv7();
+    const lonely = uuidv7();
+    await s.call('POST', '/api/spaces', { id: personal, key: wrapSpaceKey(newKey(), keysA.masterKey, personal) }, ta);
+    await s.call('POST', '/api/spaces', { id: shared, kind: 'shared', key: wrapSpaceKey(newKey(), keysA.masterKey, shared) }, ta);
+    await s.call('POST', '/api/spaces', { id: lonely, kind: 'shared', key: wrapSpaceKey(newKey(), keysA.masterKey, lonely) }, ta);
+    expect((await s.call('POST', `/api/spaces/${shared}/members`, { userId: b.res.json.userId, key: toB64(newKey()) }, ta)).status).toBe(201);
+
+    const wrong = derivePasswordKeys('не тот', fromB64(a.acc.bundle.salt), a.acc.bundle.kdf).authSecret;
+    expect((await s.call('POST', '/api/account/delete', { authSecret: toB64(wrong) }, ta)).status).toBe(401);
+    expect((await s.call('POST', '/api/account/delete', { authSecret: toB64(a.acc.authSecret) }, ta)).json).toEqual({ ok: true });
+
+    // Токен больше не действует, войти нельзя.
+    expect((await s.call('GET', '/api/account', undefined, ta)).status).toBe(401);
+    const login = await s.call('POST', '/api/auth/login', { email: 'a@x.yz', authSecret: toB64(a.acc.authSecret), deviceName: 'x' });
+    expect(login.status).toBe(401);
+    // Личное пространство и проект без участников удалены, общий проект у B, B теперь владелец и администратор.
+    expect(s.db.prepare('SELECT id FROM spaces ORDER BY id').all().map((r: any) => r.id)).toEqual([shared]);
+    const spacesB = (await s.call('GET', '/api/spaces', undefined, tb)).json.spaces;
+    expect(spacesB).toMatchObject([{ id: shared, role: 'owner' }]);
+    expect((await s.call('GET', '/api/account', undefined, tb)).json.isAdmin).toBe(true);
+  });
+
+  it('с включённым TOTP нужен код', async () => {
+    const s = makeServer();
+    const a = await register(s, 'a@x.yz', 'пароль');
+    const t = a.res.json.token as string;
+    s.db.prepare("UPDATE users SET totp_secret = 'JBSWY3DPEHPK3PXP', totp_enabled = 1").run();
+    const r = await s.call('POST', '/api/account/delete', { authSecret: toB64(a.acc.authSecret) }, t);
+    expect(r).toEqual({ status: 401, json: { error: 'totp_required' } });
+    expect((await s.call('POST', '/api/account/delete', { authSecret: toB64(a.acc.authSecret), totp: '000000' }, t)).json.error).toBe('invalid_totp');
+  });
+});

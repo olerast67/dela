@@ -455,6 +455,60 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     return c.json({ ok: true });
   });
 
+  // Удаление аккаунта: нужен пароль (authSecret) и код TOTP, если он включён.
+  // Личное пространство со всеми записями удаляется. Общий проект, где есть другие участники,
+  // переходит к одному из них; проект без других участников удаляется.
+  app.post('/api/account/delete', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const b = await body(c);
+    const secret = b64(b.authSecret, 'authSecret', { bytes: 32 });
+    if (!loginLimiter.hit(`delete:${userId}`)) fail(429, 'rate_limited');
+    const row = db.prepare('SELECT auth_salt, auth_hash, is_admin, totp_secret, totp_enabled, totp_last FROM users WHERE id = ?').get(userId) as {
+      auth_salt: Uint8Array;
+      auth_hash: Uint8Array;
+      is_admin: number;
+      totp_secret: string | null;
+      totp_enabled: number;
+      totp_last: number | null;
+    };
+    if (!safeEqual(await hashAuthSecret(secret, row.auth_salt), row.auth_hash)) fail(401, 'invalid_credentials');
+    if (row.totp_enabled === 1 && row.totp_secret) {
+      const code = typeof b.totp === 'string' ? b.totp.replace(/\s/g, '') : '';
+      if (!code) fail(401, 'totp_required');
+      if (verifyTotp(row.totp_secret, code, now(), row.totp_last === null ? null : Number(row.totp_last)) === null) fail(401, 'invalid_totp');
+    }
+    const shared = db
+      .prepare("SELECT id FROM spaces WHERE created_by = ? AND kind = 'shared'")
+      .all(userId) as Array<{ id: string }>;
+    const touched: Array<{ space: string; members: string[] }> = [];
+    const devices = (db.prepare('SELECT id FROM devices WHERE user_id = ?').all(userId) as Array<{ id: string }>).map((d) => d.id);
+    tx(db, () => {
+      for (const { id } of shared) {
+        const heir = db
+          .prepare("SELECT user_id FROM members WHERE space_id = ? AND user_id != ? ORDER BY CASE role WHEN 'owner' THEN 0 WHEN 'editor' THEN 1 ELSE 2 END, rowid LIMIT 1")
+          .get(id, userId) as { user_id: string } | undefined;
+        if (!heir) continue; // других участников нет: проект удалится вместе с аккаунтом
+        db.prepare('UPDATE spaces SET created_by = ? WHERE id = ?').run(heir.user_id, id);
+        db.prepare("UPDATE members SET role = 'owner' WHERE space_id = ? AND user_id = ?").run(id, heir.user_id);
+      }
+      // Остальные общие проекты, где пользователь был участником, теряют только его.
+      for (const m of db.prepare('SELECT space_id FROM members WHERE user_id = ?').all(userId) as Array<{ space_id: string }>) {
+        const others = (db.prepare('SELECT user_id FROM members WHERE space_id = ? AND user_id != ?').all(m.space_id, userId) as Array<{ user_id: string }>).map(
+          (r) => r.user_id,
+        );
+        if (others.length) touched.push({ space: m.space_id, members: others });
+      }
+      if (row.is_admin === 1) {
+        // Права администратора переходят к самому старому из оставшихся пользователей.
+        db.prepare('UPDATE users SET is_admin = 1 WHERE id = (SELECT id FROM users WHERE id != ? ORDER BY created_at LIMIT 1)').run(userId);
+      }
+      db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+    });
+    for (const d of devices) hub.closeDevice(d);
+    for (const t of touched) hub.notify(t.members, { type: 'spaces' });
+    return c.json({ ok: true });
+  });
+
   app.get('/api/devices', requireAuth, (c) => {
     const { userId, deviceId } = c.get('auth');
     const rows = db
