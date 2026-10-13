@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { ApiError, NetworkError } from '#core';
+import { ApiError, DecryptError, NetworkError } from '#core';
 import { controller } from '../controller.ts';
 import { useAppState } from '../hooks.ts';
 
@@ -14,12 +14,15 @@ const ERRORS: Record<string, string> = {
 function message(err: unknown): string {
   if (err instanceof NetworkError) return 'Нет связи с сервером.';
   if (err instanceof ApiError) return ERRORS[err.code] ?? `Ошибка сервера: ${err.code}`;
+  if (err instanceof SyntaxError) return 'Ключ восстановления введён с ошибкой: проверьте символы.';
+  if (err instanceof DecryptError) return 'Ключ не подходит к этому аккаунту.';
   return 'Что-то пошло не так. Попробуйте ещё раз.';
 }
 
 export function AuthScreen() {
   const { notice } = useAppState();
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'recover'>('login');
+  const [recoveryKey, setRecoveryKey] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [repeat, setRepeat] = useState('');
@@ -30,7 +33,7 @@ export function AuthScreen() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (mode === 'register') {
+    if (mode !== 'login') {
       if (password.length < 10) return setError('Пароль должен быть не короче 10 символов.');
       if (password !== repeat) return setError('Пароли не совпадают.');
     }
@@ -39,6 +42,7 @@ export function AuthScreen() {
     await new Promise((r) => setTimeout(r, 30));
     try {
       if (mode === 'login') await controller.login(email, password);
+      else if (mode === 'recover') await controller.recover(email, recoveryKey, password);
       else await controller.register(email, password, invite.trim() || undefined);
     } catch (err) {
       setError(message(err));
@@ -50,19 +54,27 @@ export function AuthScreen() {
     <main className="auth">
       <form className="auth-card" onSubmit={submit}>
         <img src="/icon.svg" alt="" width="48" height="48" />
-        <h1>{mode === 'login' ? 'Вход в Dela' : 'Новый аккаунт Dela'}</h1>
+        <h1>{mode === 'login' ? 'Вход в Dela' : mode === 'recover' ? 'Новый пароль по ключу' : 'Новый аккаунт Dela'}</h1>
         <p className="muted">
           {mode === 'login'
             ? 'Задачи шифруются на устройстве, сервер видит только шифротекст.'
-            : 'Пароль не уходит на сервер: из него на устройстве получаются ключи шифрования.'}
+            : mode === 'recover'
+              ? 'Ключ восстановления выдавался при регистрации. С ним можно задать новый пароль, задачи сохранятся. Остальные устройства придётся подключить заново.'
+              : 'Пароль не уходит на сервер: из него на устройстве получаются ключи шифрования.'}
         </p>
         {notice && <p className="notice">{notice}</p>}
         <label>
           Электронная почта
           <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </label>
+        {mode === 'recover' && (
+          <label>
+            Ключ восстановления
+            <input autoComplete="off" spellCheck={false} required value={recoveryKey} onChange={(e) => setRecoveryKey(e.target.value)} />
+          </label>
+        )}
         <label>
-          Пароль
+          {mode === 'recover' ? 'Новый пароль' : 'Пароль'}
           <input
             type="password"
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
@@ -71,12 +83,14 @@ export function AuthScreen() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
+        {mode !== 'login' && (
+          <label>
+            Пароль ещё раз
+            <input type="password" autoComplete="new-password" required value={repeat} onChange={(e) => setRepeat(e.target.value)} />
+          </label>
+        )}
         {mode === 'register' && (
           <>
-            <label>
-              Пароль ещё раз
-              <input type="password" autoComplete="new-password" required value={repeat} onChange={(e) => setRepeat(e.target.value)} />
-            </label>
             <label>
               Код приглашения <span className="muted">(если сервер его просит)</span>
               <input value={invite} onChange={(e) => setInvite(e.target.value)} />
@@ -89,8 +103,20 @@ export function AuthScreen() {
           </p>
         )}
         <button className="primary" disabled={busy}>
-          {busy ? 'Подождите…' : mode === 'login' ? 'Войти' : 'Создать аккаунт'}
+          {busy ? 'Подождите…' : mode === 'login' ? 'Войти' : mode === 'recover' ? 'Задать пароль и войти' : 'Создать аккаунт'}
         </button>
+        {mode === 'login' && (
+          <button
+            type="button"
+            className="link"
+            onClick={() => {
+              setMode('recover');
+              setError(null);
+            }}
+          >
+            Забыли пароль?
+          </button>
+        )}
         <button
           type="button"
           className="link"
@@ -99,7 +125,7 @@ export function AuthScreen() {
             setError(null);
           }}
         >
-          {mode === 'login' ? 'Создать аккаунт' : 'У меня уже есть аккаунт'}
+          {mode === 'login' ? 'Создать аккаунт' : 'Вернуться ко входу'}
         </button>
       </form>
     </main>

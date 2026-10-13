@@ -19,6 +19,11 @@ import {
   signUp,
   spaceKeys,
   type Fetcher,
+  recoverAccount,
+  changeAccountPassword,
+  formatRecoveryKey,
+  newKey,
+  DecryptError,
 } from '#core';
 import { createApp } from '../src/app.ts';
 import { testConfig } from '../src/config.ts';
@@ -160,5 +165,47 @@ describe('синхронизация через сервер', () => {
     await expect(signIn(new ApiClient('http://dela.test', s.fetcher), { email: 'a@b.cd', password: 'верный', deviceName: 'B' })).rejects.toBeInstanceOf(
       NetworkError,
     );
+  });
+});
+
+describe('восстановление и смена пароля', () => {
+  it('ключ восстановления даёт войти с новым паролем и закрывает прежние сессии', async () => {
+    const s = server();
+    const api = new ApiClient('http://dela.test', s.fetcher);
+    const { session, recoveryKey } = await signUp(api, { email: 'a@b.cd', password: 'забытый', deviceName: 'A', kdf: INSECURE_TEST_KDF });
+    const a = await device(s.fetcher, session);
+    a.doc.createTask({ title: 'Важное' });
+    await a.flush();
+    await a.engine.sync();
+
+    const fresh = new ApiClient('http://dela.test', s.fetcher);
+    await expect(
+      recoverAccount(fresh, { email: 'a@b.cd', recoveryKey: recoveryKey.replace(/^./, (c) => (c === '0' ? '1' : '0')), newPassword: 'x', deviceName: 'B', kdf: INSECURE_TEST_KDF }),
+    ).rejects.toThrow();
+    await expect(
+      recoverAccount(fresh, { email: 'a@b.cd', recoveryKey: formatRecoveryKey(newKey()), newPassword: 'x', deviceName: 'B', kdf: INSECURE_TEST_KDF }),
+    ).rejects.toMatchObject({ code: 'invalid_credentials' });
+
+    const restored = await recoverAccount(fresh, { email: 'a@b.cd', recoveryKey, newPassword: 'новый пароль', deviceName: 'B', kdf: INSECURE_TEST_KDF });
+    expect(restored.keys).toEqual(session.keys);
+    const b = await device(s.fetcher, restored);
+    await b.engine.sync();
+    expect(b.doc.allTasks().map((t) => t.title)).toEqual(['Важное']);
+
+    // Старая сессия устройства A закрыта, старый пароль не подходит, новый подходит.
+    await expect(a.api.account()).rejects.toMatchObject({ status: 401 });
+    await expect(signIn(new ApiClient('http://dela.test', s.fetcher), { email: 'a@b.cd', password: 'забытый', deviceName: 'C' })).rejects.toMatchObject({
+      code: 'invalid_credentials',
+    });
+    await signIn(new ApiClient('http://dela.test', s.fetcher), { email: 'a@b.cd', password: 'новый пароль', deviceName: 'C' });
+  });
+
+  it('смена пароля: неверный текущий пароль ловится на устройстве', async () => {
+    const s = server();
+    const api = new ApiClient('http://dela.test', s.fetcher);
+    await signUp(api, { email: 'a@b.cd', password: 'старый', deviceName: 'A', kdf: INSECURE_TEST_KDF });
+    await expect(changeAccountPassword(api, { currentPassword: 'не тот', newPassword: 'новый' })).rejects.toBeInstanceOf(DecryptError);
+    await changeAccountPassword(api, { currentPassword: 'старый', newPassword: 'новый' });
+    await signIn(new ApiClient('http://dela.test', s.fetcher), { email: 'a@b.cd', password: 'новый', deviceName: 'B' });
   });
 });

@@ -370,6 +370,7 @@ export function SettingsView() {
           </div>
         ))}
       </section>
+      <ChangePassword />
       <ImportExport />
       {isAdmin && (
         <section className="settings">
@@ -487,6 +488,48 @@ export function ImportExport() {
         <button onClick={() => download(`dela-${todayDate()}.json`, JSON.stringify(exportJson(doc), null, 2), 'application/json')}>JSON</button>
         <button onClick={() => download(`dela-${todayDate()}.md`, exportMarkdown(doc), 'text/markdown')}>Markdown</button>
       </div>
+    </section>
+  );
+}
+
+export function ChangePassword() {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [repeat, setRepeat] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <section className="settings">
+      <h2>Пароль</h2>
+      <p className="muted">При смене пароля данные не перешифровываются, меняется только обёртка ключа. Другие устройства войдут заново.</p>
+      <form
+        className="stack"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setMsg(null);
+          if (next.length < 10) return setMsg('Новый пароль должен быть не короче 10 символов.');
+          if (next !== repeat) return setMsg('Пароли не совпадают.');
+          setBusy(true);
+          await new Promise((r) => setTimeout(r, 30));
+          try {
+            await controller.changePassword(current, next);
+            setMsg('Пароль изменён.');
+            setCurrent('');
+            setNext('');
+            setRepeat('');
+          } catch (err) {
+            setMsg(err instanceof Error && err.name === 'DecryptError' ? 'Текущий пароль неверный.' : 'Не удалось изменить пароль.');
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <input type="password" autoComplete="current-password" placeholder="Текущий пароль" value={current} onChange={(e) => setCurrent(e.target.value)} required />
+        <input type="password" autoComplete="new-password" placeholder="Новый пароль" value={next} onChange={(e) => setNext(e.target.value)} required />
+        <input type="password" autoComplete="new-password" placeholder="Новый пароль ещё раз" value={repeat} onChange={(e) => setRepeat(e.target.value)} required />
+        <button disabled={busy}>{busy ? 'Подождите…' : 'Сменить пароль'}</button>
+      </form>
+      {msg && <p className="notice">{msg}</p>}
     </section>
   );
 }

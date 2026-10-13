@@ -74,3 +74,30 @@ test('два устройства сходятся после офлайн-пр�
   await a.close();
   await b.close();
 });
+
+test('забытый пароль: вход по ключу восстановления, задачи на месте', async ({ page }) => {
+  const email = `rec-${Date.now()}@dela.test`;
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Электронная почта').fill(email);
+  await page.getByLabel('Пароль', { exact: true }).fill('first-password-1');
+  await page.getByLabel('Пароль ещё раз').fill('first-password-1');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  const recoveryKey = (await page.locator('.recovery-key').textContent({ timeout: 20_000 }))!;
+  await page.getByLabel('Ключ сохранён в надёжном месте').check();
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await addTask(page, 'Не потерять сегодня');
+  await expect(page.getByText('Всё сохранено')).toBeVisible({ timeout: 10_000 });
+
+  await page.goto('/#/settings');
+  page.once('dialog', (d) => d.accept());
+  await page.getByRole('button', { name: 'Выйти' }).click();
+  await page.getByRole('button', { name: 'Забыли пароль?' }).click();
+  await page.getByLabel('Электронная почта').fill(email);
+  await page.getByLabel('Ключ восстановления').fill(recoveryKey.toLowerCase().replace(/-/g, ' '));
+  await page.getByLabel('Новый пароль').fill('second-password-2');
+  await page.getByLabel('Пароль ещё раз').fill('second-password-2');
+  await page.getByRole('button', { name: 'Задать пароль и войти' }).click();
+  await page.goto('/#/today');
+  await expect(page.getByText('Не потерять')).toBeVisible({ timeout: 20_000 });
+});

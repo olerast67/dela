@@ -51,6 +51,7 @@ async function register(s: ReturnType<typeof makeServer>, email: string, passwor
   const res = await s.call('POST', '/api/auth/register', {
     email,
     authSecret: toB64(acc.authSecret),
+    recoveryAuth: toB64(acc.recoveryAuth),
     bundle: acc.bundle,
     deviceName: 'Ноутбук',
     ...(invite ? { invite } : {}),
@@ -175,6 +176,7 @@ describe('вход', () => {
     const r2 = await s.call('POST', '/api/auth/register', {
       email: 'a@x.yz',
       authSecret: toB64(acc.authSecret),
+      recoveryAuth: toB64(acc.recoveryAuth),
       bundle: { ...acc.bundle, kdf: { alg: 'md5', ops: 1, mem: 1 } },
       deviceName: 'x',
     });
@@ -270,7 +272,7 @@ describe('WebSocket', () => {
         return (await res.json()) as any;
       };
       const acc = createAccount('p', INSECURE_TEST_KDF);
-      const reg = await post('/api/auth/register', { email: 'a@x.yz', authSecret: toB64(acc.authSecret), bundle: acc.bundle, deviceName: 'A' });
+      const reg = await post('/api/auth/register', { email: 'a@x.yz', authSecret: toB64(acc.authSecret), recoveryAuth: toB64(acc.recoveryAuth), bundle: acc.bundle, deviceName: 'A' });
       const spaceId = uuidv7();
       const spaceKey = newKey();
       await post('/api/spaces', { id: spaceId, key: wrapSpaceKey(spaceKey, acc.keys.masterKey, spaceId) }, reg.token);

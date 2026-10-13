@@ -96,6 +96,7 @@ export class ApiClient {
   register(input: {
     email: string;
     authSecret: string;
+    recoveryAuth: string;
     bundle: AccountBundle;
     deviceName: string;
     invite?: string;
@@ -105,6 +106,20 @@ export class ApiClient {
 
   login(input: { email: string; authSecret: string; deviceName: string }): Promise<SessionInfo & { bundle: AccountBundle }> {
     return this.call('POST', '/api/auth/login', input);
+  }
+
+  recoverStart(input: { email: string; recoveryAuth: string }): Promise<{ bundle: AccountBundle }> {
+    return this.call('POST', '/api/auth/recover/start', input);
+  }
+
+  recoverFinish(input: {
+    email: string;
+    recoveryAuth: string;
+    newAuthSecret: string;
+    bundle: AccountBundle;
+    deviceName: string;
+  }): Promise<SessionInfo & { bundle: AccountBundle }> {
+    return this.call('POST', '/api/auth/recover/finish', input);
   }
 
   logout(): Promise<{ ok: true }> {

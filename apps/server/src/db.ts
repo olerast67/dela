@@ -78,6 +78,10 @@ const MIGRATIONS: readonly string[] = [
   ) STRICT, WITHOUT ROWID;
   CREATE UNIQUE INDEX envelopes_seq ON envelopes(space_id, seq);
   `,
+  `
+  ALTER TABLE users ADD COLUMN recovery_salt BLOB;
+  ALTER TABLE users ADD COLUMN recovery_hash BLOB;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

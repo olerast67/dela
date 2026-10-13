@@ -11,11 +11,13 @@ import {
   HybridClock,
   NetworkError,
   SyncEngine,
+  changeAccountPassword,
   ensurePersonalSpace,
   fromB64,
   initCrypto,
   newNodeId,
   persistLocal,
+  recoverAccount,
   signIn,
   signUp,
   spaceKeys,
@@ -154,6 +156,16 @@ export class Controller {
     await this.persistAndStart(session);
   }
 
+  /** Забыт пароль: вход по ключу восстановления с новым паролем. */
+  async recover(email: string, recoveryKey: string, newPassword: string): Promise<void> {
+    const session = await recoverAccount(this.api, { email, recoveryKey, newPassword, deviceName: deviceName() });
+    await this.persistAndStart(session);
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await changeAccountPassword(this.api, { currentPassword, newPassword });
+  }
+
   /** Пользователь подтвердил, что сохранил ключ восстановления. */
   confirmRecovery(): void {
     this.set({ phase: 'ready', recoveryKey: null });
@@ -209,6 +221,8 @@ export class Controller {
     this.stopFns.push(
       persistLocal(doc, this.store, stored.spaceId, () => {
         void this.store.setMeta('hlc', this.clock!.current());
+        // Сразу показываем, что есть неотправленное: точное число придёт после синхронизации.
+        this.set({ status: { ...this.state.status, pending: this.state.status.pending + 1 } });
         this.requestSync();
       }),
       doc.subscribe((ops, origin) => {
@@ -329,6 +343,14 @@ export class Controller {
   // ---------- выход ----------
 
   async logout(notice: string | null = null): Promise<void> {
+    // Перед выходом пробуем отправить всё, что осталось: после выхода данные устройства стираются.
+    if (this.engine && notice === null) {
+      try {
+        await this.engine.sync();
+      } catch {
+        // нет сети: пользователь уже предупреждён в диалоге
+      }
+    }
     try {
       if (this.api.token) await this.api.logout();
     } catch {

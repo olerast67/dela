@@ -227,7 +227,17 @@ export interface NewAccount {
   readonly authSecret: Uint8Array;
   /** Показать пользователю один раз и попросить сохранить. */
   readonly recoveryKey: string;
+  /** Секрет входа по ключу восстановления: уходит на сервер при регистрации (сервер хранит его хеш). */
+  readonly recoveryAuth: Uint8Array;
   readonly keys: AccountKeys;
+}
+
+/**
+ * Секрет входа по ключу восстановления. Получается из ключа через KDF,
+ * поэтому сервер, зная его хеш, не может развернуть мастер-ключ.
+ */
+export function recoveryAuthSecret(recoveryKey: Uint8Array): Uint8Array {
+  return na().crypto_kdf_derive_from_key(KEY_BYTES, 3, 'dela_rec', recoveryKey);
 }
 
 export function createAccount(password: string, kdf: KdfParams = DEFAULT_KDF): NewAccount {
@@ -248,6 +258,7 @@ export function createAccount(password: string, kdf: KdfParams = DEFAULT_KDF): N
     },
     authSecret,
     recoveryKey: formatRecoveryKey(recovery),
+    recoveryAuth: recoveryAuthSecret(recovery),
     keys: { masterKey, publicKey: pair.publicKey, secretKey: pair.privateKey },
   };
 }

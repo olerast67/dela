@@ -2,7 +2,11 @@
 import type { ApiClient, SessionInfo, SpaceInfo } from './client.ts';
 import {
   DEFAULT_KDF,
+  changePassword,
   createAccount,
+  openAccountWithRecovery,
+  parseRecoveryKey,
+  recoveryAuthSecret,
   derivePasswordKeys,
   fromB64,
   newKey,
@@ -36,6 +40,7 @@ export async function signUp(
   const info = await api.register({
     email,
     authSecret: toB64(acc.authSecret),
+    recoveryAuth: toB64(acc.recoveryAuth),
     bundle: acc.bundle,
     deviceName: input.deviceName,
     ...(input.invite ? { invite: input.invite } : {}),
@@ -71,4 +76,38 @@ export async function ensurePersonalSpace(api: ApiClient, keys: AccountKeys): Pr
   const spaceKey = newKey();
   await api.createSpace(spaceId, wrapSpaceKey(spaceKey, keys.masterKey, spaceId));
   return { spaceId, spaceKey };
+}
+
+/** Вход по ключу восстановления с новым паролем. Все прежние сессии закрываются. */
+export async function recoverAccount(
+  api: ApiClient,
+  input: { email: string; recoveryKey: string; newPassword: string; deviceName: string; kdf?: KdfParams },
+): Promise<Session> {
+  const email = normalizeEmail(input.email);
+  const recoveryAuth = toB64(recoveryAuthSecret(parseRecoveryKey(input.recoveryKey)));
+  const { bundle } = await api.recoverStart({ email, recoveryAuth });
+  const keys = openAccountWithRecovery(bundle, input.recoveryKey);
+  const changed = changePassword(bundle, keys, input.newPassword, input.kdf ?? DEFAULT_KDF);
+  const res = await api.recoverFinish({
+    email,
+    recoveryAuth,
+    newAuthSecret: toB64(changed.authSecret),
+    bundle: changed.bundle,
+    deviceName: input.deviceName,
+  });
+  api.token = res.token;
+  const { bundle: _b, ...info } = res;
+  return { ...info, email, bundle: changed.bundle, keys };
+}
+
+/** Смена пароля. Неверный текущий пароль обнаруживается на устройстве, до запроса к серверу. */
+export async function changeAccountPassword(
+  api: ApiClient,
+  input: { currentPassword: string; newPassword: string; kdf?: KdfParams },
+): Promise<void> {
+  const { bundle } = await api.account();
+  const current = derivePasswordKeys(input.currentPassword, fromB64(bundle.salt), bundle.kdf);
+  const keys = openAccount(bundle, current.kek);
+  const changed = changePassword(bundle, keys, input.newPassword, input.kdf ?? bundle.kdf);
+  await api.changePassword({ authSecret: toB64(current.authSecret), newAuthSecret: toB64(changed.authSecret), bundle: changed.bundle });
 }

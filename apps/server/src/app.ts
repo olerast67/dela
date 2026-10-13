@@ -210,11 +210,14 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
     if (!ipLimiter.hit(`ip:${clientIp(c)}`)) fail(429, 'rate_limited');
     const email = normEmail(b.email);
     const authSecret = b64(b.authSecret, 'authSecret', { bytes: 32 });
+    const recoveryAuth = b64(b.recoveryAuth, 'recoveryAuth', { bytes: 32 });
     const bundle = parseBundle(b.bundle);
     const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
     const invite = optStr(b.invite, 'invite', { max: 100 });
     const authSalt = randomBytes(16);
     const authHash = await hashAuthSecret(authSecret, authSalt);
+    const recoverySalt = randomBytes(16);
+    const recoveryHash = await hashAuthSecret(recoveryAuth, recoverySalt);
 
     const result = tx(db, () => {
       const users = Number((db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n);
@@ -231,8 +234,8 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
       if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) fail(409, 'email_taken');
       const userId = uuidv7(now());
       db.prepare(
-        'INSERT INTO users (id, email, auth_salt, auth_hash, bundle, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      ).run(userId, email, authSalt, authHash, JSON.stringify(bundle), isFirst ? 1 : 0, now());
+        'INSERT INTO users (id, email, auth_salt, auth_hash, bundle, is_admin, created_at, recovery_salt, recovery_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      ).run(userId, email, authSalt, authHash, JSON.stringify(bundle), isFirst ? 1 : 0, now(), recoverySalt, recoveryHash);
       if (inviteHash) db.prepare('UPDATE invites SET used_by = ? WHERE code_hash = ?').run(userId, inviteHash);
       return { userId, isAdmin: isFirst, ...createSession(userId, deviceName) };
     });
@@ -255,6 +258,56 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
 
     const session = createSession(row.id, deviceName);
     return c.json({ userId: row.id, isAdmin: row.is_admin === 1, bundle: JSON.parse(row.bundle), ...session });
+  });
+
+  // ---------- восстановление по ключу ----------
+
+  /** Проверить секрет восстановления. Для несуществующего адреса время ответа то же. */
+  async function checkRecovery(c: Context, b: Record<string, unknown>) {
+    const email = normEmail(b.email);
+    const recoveryAuth = b64(b.recoveryAuth, 'recoveryAuth', { bytes: 32 });
+    if (!ipLimiter.hit(`ip:${clientIp(c)}`) || !loginLimiter.hit(`recover:${email}`)) fail(429, 'rate_limited');
+    const row = db.prepare('SELECT id, bundle, is_admin, recovery_salt, recovery_hash FROM users WHERE email = ?').get(email) as
+      | { id: string; bundle: string; is_admin: number; recovery_salt: Uint8Array | null; recovery_hash: Uint8Array | null }
+      | undefined;
+    const hash = await hashAuthSecret(recoveryAuth, row?.recovery_salt ?? serverSecret.subarray(0, 16));
+    if (!row || !row.recovery_hash || !safeEqual(hash, row.recovery_hash)) fail(401, 'invalid_credentials');
+    return { row, bundle: JSON.parse(row.bundle) as AccountBundle };
+  }
+
+  // Шаг 1: пакет ключей отдаётся только после проверки секрета восстановления,
+  // иначе его можно было бы скачать по адресу почты и перебирать пароль офлайн.
+  app.post('/api/auth/recover/start', async (c) => {
+    const { bundle } = await checkRecovery(c, await body(c));
+    return c.json({ bundle });
+  });
+
+  // Шаг 2: новый пароль. Все прежние сессии закрываются.
+  app.post('/api/auth/recover/finish', async (c) => {
+    const b = await body(c);
+    const { row, bundle: old } = await checkRecovery(c, b);
+    const next = b64(b.newAuthSecret, 'newAuthSecret', { bytes: 32 });
+    const bundle = parseBundle(b.bundle);
+    const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
+    if (
+      bundle.publicKey !== old.publicKey ||
+      bundle.masterByRecovery !== old.masterByRecovery ||
+      bundle.secretKeyByMaster !== old.secretKeyByMaster
+    ) {
+      bad('only the password wrapping may change');
+    }
+    const salt = randomBytes(16);
+    const hash = await hashAuthSecret(next, salt);
+    const session = tx(db, () => {
+      db.prepare('UPDATE users SET auth_salt = ?, auth_hash = ?, bundle = ? WHERE id = ?').run(salt, hash, JSON.stringify(bundle), row.id);
+      db.prepare('UPDATE devices SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), row.id);
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.id);
+      return createSession(row.id, deviceName);
+    });
+    for (const d of db.prepare('SELECT id FROM devices WHERE user_id = ?').all(row.id) as Array<{ id: string }>) {
+      if (d.id !== session.deviceId) hub.closeDevice(d.id);
+    }
+    return c.json({ userId: row.id, isAdmin: row.is_admin === 1, bundle, ...session });
   });
 
   app.post('/api/auth/logout', requireAuth, (c) => {
