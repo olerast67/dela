@@ -9,7 +9,15 @@ import { join } from 'node:path';
 const config = loadConfig();
 if (config.dbPath !== ':memory:') mkdirSync(config.dataDir, { recursive: true });
 const db = openDb(config.dbPath);
-const { app, injectWebSocket } = createApp(db, config);
+const { app, injectWebSocket, pushTick } = createApp(db, config);
+let pushing = false;
+setInterval(() => {
+  if (pushing) return;
+  pushing = true;
+  pushTick()
+    .catch((err) => console.error('push failed', err))
+    .finally(() => (pushing = false));
+}, 15_000).unref();
 if (config.dbPath !== ':memory:' && config.backupKeep > 0) scheduleBackups(db, join(config.dataDir, 'backups'), config.backupKeep);
 
 const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host }, (info) => {

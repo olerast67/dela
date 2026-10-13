@@ -305,3 +305,61 @@ describe('WebSocket', () => {
     }
   });
 });
+
+describe('Web Push', () => {
+  it('подписка, расписание и отправка наступивших напоминаний', async () => {
+    let time = NOW;
+    const sent: Array<{ url: string; headers: Record<string, string>; size: number }> = [];
+    const fakePush: typeof fetch = async (input, init) => {
+      sent.push({ url: String(input), headers: init!.headers as Record<string, string>, size: (init!.body as Uint8Array).length });
+      return new Response(null, { status: sent.length === 2 ? 410 : 201 });
+    };
+    const db = openDb(':memory:');
+    const server = createApp(db, testConfig(), () => time, fakePush);
+    const call = async (method: string, path: string, body?: unknown, token?: string) => {
+      const res = await server.app.request(path, {
+        method,
+        headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+      return { status: res.status, json: (await res.json()) as any };
+    };
+    const acc = createAccount('p', INSECURE_TEST_KDF);
+    const reg = await call('POST', '/api/auth/register', {
+      email: 'a@x.yz',
+      authSecret: toB64(acc.authSecret),
+      recoveryAuth: toB64(acc.recoveryAuth),
+      bundle: acc.bundle,
+      deviceName: 'A',
+    });
+    const token = reg.json.token;
+    expect((await call('GET', '/api/push/key')).json.publicKey).toMatch(/^[A-Za-z0-9_-]{87}$/);
+
+    const ecdh = (await import('node:crypto')).createECDH('prime256v1');
+    ecdh.generateKeys();
+    const keys = { p256dh: ecdh.getPublicKey().toString('base64url'), auth: Buffer.alloc(16, 1).toString('base64url') };
+    expect((await call('PUT', '/api/push/subscription', { endpoint: 'https://evil.example/x', keys }, token)).status).toBe(400);
+    expect((await call('PUT', '/api/push/subscription', { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys }, token)).status).toBe(200);
+
+    const entries = [
+      { id: 'r1', fireAt: NOW + 60_000, payload: toB64(new Uint8Array(40)) },
+      { id: 'r2', fireAt: NOW + 120_000, payload: toB64(new Uint8Array(40)) },
+      { id: 'r3', fireAt: NOW + 3_600_000, payload: toB64(new Uint8Array(40)) },
+    ];
+    expect((await call('PUT', '/api/push/schedule', { entries }, token)).json).toEqual({ ok: true, count: 3 });
+    expect((await call('PUT', '/api/push/schedule', { entries: [{ id: 'x', fireAt: NOW + 40 * 24 * 3600_000, payload: 'AAAA' }] }, token)).status).toBe(400);
+
+    expect(await server.pushTick()).toEqual({ sent: 0, gone: 0, failed: 0 });
+    time = NOW + 61_000;
+    expect(await server.pushTick()).toEqual({ sent: 1, gone: 0, failed: 0 });
+    expect(sent[0]).toMatchObject({ url: 'https://fcm.googleapis.com/fcm/send/abc', headers: { 'content-encoding': 'aes128gcm', ttl: '3600' } });
+    expect(sent[0]!.headers.authorization).toMatch(/^vapid t=.+, k=.+$/);
+
+    // Push-сервис ответил 410: подписка удалена вместе с расписанием.
+    time = NOW + 121_000;
+    expect(await server.pushTick()).toEqual({ sent: 0, gone: 1, failed: 0 });
+    time = NOW + 3_700_000;
+    expect(await server.pushTick()).toEqual({ sent: 0, gone: 0, failed: 0 });
+    expect(sent).toHaveLength(2);
+  });
+});

@@ -650,13 +650,39 @@ export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string 
 export function ReminderSettings() {
   const [permission, setPermission] = useState(() => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission));
   const [defaults, setDefaults] = useState(() => controller.reminderDefaults());
+  const [push, setPush] = useState(() => controller.pushEnabled());
+  const [pushMsg, setPushMsg] = useState<string | null>(null);
   return (
     <section className="settings">
       <h2>Напоминания</h2>
       <p className="muted">
         Задачам со временем Dela напоминает по умолчанию так, как выбрано ниже. У отдельной задачи это можно изменить в её карточке. Пока приложение
-        закрыто, напоминания не приходят: это появится вместе с push-уведомлениями.
+        закрыто, напоминания приходят через push: сервер знает только время отправки, текст зашифрован ключом этого устройства.
       </p>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={push}
+          onChange={async (e) => {
+            setPushMsg(null);
+            try {
+              if (e.target.checked) {
+                const r = await controller.enablePush();
+                if (r === 'ok') setPush(true);
+                else setPushMsg(r === 'denied' ? 'Уведомления запрещены в браузере.' : 'Этот браузер не поддерживает push-уведомления.');
+                setPermission(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
+              } else {
+                await controller.disablePush();
+                setPush(false);
+              }
+            } catch {
+              setPushMsg('Не удалось включить push. Проверьте, что сервер открыт по HTTPS.');
+            }
+          }}
+        />
+        Напоминать, когда приложение закрыто
+      </label>
+      {pushMsg && <p className="notice">{pushMsg}</p>}
       {permission === 'default' && (
         <button className="primary" onClick={async () => setPermission(await Notification.requestPermission())}>
           Разрешить уведомления

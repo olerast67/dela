@@ -82,6 +82,24 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE users ADD COLUMN recovery_salt BLOB;
   ALTER TABLE users ADD COLUMN recovery_hash BLOB;
   `,
+  `
+  CREATE TABLE push_subscriptions (
+    device_id  TEXT PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+    endpoint   TEXT NOT NULL,
+    p256dh     TEXT NOT NULL,
+    auth       TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  ) STRICT;
+
+  CREATE TABLE push_schedule (
+    device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    id        TEXT NOT NULL,
+    fire_at   INTEGER NOT NULL,
+    payload   TEXT NOT NULL,
+    PRIMARY KEY (device_id, id)
+  ) STRICT;
+  CREATE INDEX push_schedule_fire ON push_schedule(fire_at);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

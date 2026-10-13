@@ -35,3 +35,69 @@ self.addEventListener('notificationclick', (e) => {
     })(),
   );
 });
+
+// ---------- push-напоминания ----------
+
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open('dela');
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+async function deviceKey(): Promise<CryptoKey | undefined> {
+  const db = await openDb();
+  try {
+    return await new Promise<CryptoKey | undefined>((resolve, reject) => {
+      const r = db.transaction('meta').objectStore('meta').get('deviceKey');
+      r.onsuccess = () => resolve(r.result as CryptoKey | undefined);
+      r.onerror = () => reject(r.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+interface ReminderPayload {
+  t: string;
+  b: string;
+  k: string;
+  id: string;
+}
+
+async function decryptPayload(b64: string): Promise<ReminderPayload | null> {
+  const key = await deviceKey();
+  if (!key) return null;
+  const raw = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: raw.subarray(0, 12) }, key, raw.subarray(12));
+  return JSON.parse(new TextDecoder().decode(plain)) as ReminderPayload;
+}
+
+self.addEventListener('push', (e) => {
+  e.waitUntil(
+    (async () => {
+      let r: ReminderPayload | null = null;
+      try {
+        const { p } = (e.data?.json() ?? {}) as { p?: string };
+        if (p) r = await decryptPayload(p);
+      } catch {
+        r = null;
+      }
+      // Открытые окна приложения показывают напоминание у себя (если ещё не показали).
+      if (r) {
+        for (const w of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) w.postMessage({ type: 'push-reminder', key: r.k, title: r.t, taskId: r.id });
+      }
+      // Браузер требует показать уведомление на каждый push; если расшифровать не вышло, показываем общее.
+      try {
+        await self.registration.showNotification(r?.t ?? 'Напоминание Dela', {
+          body: r?.b ?? 'Откройте приложение',
+          icon: '/icon-192.png',
+          ...(r ? { tag: r.k, data: { taskId: r.id } } : {}),
+        });
+      } catch {
+        // уведомления запрещены: окно приложения уже получило сообщение
+      }
+    })(),
+  );
+});

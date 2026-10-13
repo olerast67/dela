@@ -135,8 +135,10 @@ function Shell() {
 
   useEffect(() => {
     controller.onReminder = (r) => showToast(`⏰ ${r.title}`, { label: 'Открыть', run: () => setSelected(r.taskId) }, 60_000);
-    const onMessage = (e: MessageEvent<{ type?: string; taskId?: string }>) => {
+    const onMessage = (e: MessageEvent<{ type?: string; taskId?: string; key?: string; title?: string }>) => {
       if (e.data?.type === 'open-task' && e.data.taskId) setSelected(e.data.taskId);
+      if (e.data?.type === 'push-reminder' && e.data.key && e.data.taskId)
+        controller.receivePushReminder({ key: e.data.key, title: e.data.title ?? '', taskId: e.data.taskId });
     };
     navigator.serviceWorker?.addEventListener('message', onMessage);
     const fromUrl = new URLSearchParams(location.hash.split('?')[1] ?? '').get('task');

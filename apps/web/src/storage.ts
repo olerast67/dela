@@ -132,3 +132,14 @@ export async function openLocal<T>(store: IdbStore, sealed: { iv: Uint8Array<Arr
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.iv }, key, sealed.data);
   return JSON.parse(new TextDecoder().decode(plain)) as T;
 }
+
+/** Зашифровать ключом устройства в одну строку base64 (iv ‖ шифротекст): для push-напоминаний. */
+export async function sealLocalB64(store: IdbStore, data: unknown): Promise<string> {
+  const { iv, data: ct } = await sealLocal(store, data);
+  const out = new Uint8Array(iv.length + ct.byteLength);
+  out.set(iv, 0);
+  out.set(new Uint8Array(ct), iv.length);
+  let s = '';
+  for (const b of out) s += String.fromCharCode(b);
+  return btoa(s);
+}

@@ -28,7 +28,7 @@ import {
   type Session,
   type SyncStatus,
 } from '#core';
-import { IdbStore, openLocal, sealLocal } from './storage.ts';
+import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
 
 function loadFired(): string[] {
@@ -272,6 +272,7 @@ export class Controller {
     const lead = () => {
       this.leader = true;
       this.scheduleReminders();
+      this.schedulePushSoon();
       this.connectWs();
       void this.syncNow();
       const interval = setInterval(() => void this.syncNow(), 60_000);
@@ -388,10 +389,75 @@ export class Controller {
   }
 
   private remindersDebounce: ReturnType<typeof setTimeout> | undefined;
+  private lastPushUpload = 0;
 
   private scheduleRemindersSoon(): void {
     clearTimeout(this.remindersDebounce);
     this.remindersDebounce = setTimeout(() => this.scheduleReminders(), 500);
+    this.schedulePushSoon();
+  }
+
+  // ---------- push: напоминания при закрытом приложении ----------
+
+  pushEnabled(): boolean {
+    try {
+      return localStorage.getItem('push') === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  async enablePush(): Promise<'ok' | 'denied' | 'unsupported'> {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') return 'unsupported';
+    if ((await Notification.requestPermission()) !== 'granted') return 'denied';
+    const reg = await navigator.serviceWorker.ready;
+    const { publicKey } = await this.api.pushKey();
+    const key = Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
+    await this.api.pushSubscribe({ endpoint: json.endpoint, keys: json.keys });
+    try {
+      localStorage.setItem('push', '1');
+    } catch {
+      // без localStorage расписание всё равно отправится в этот раз
+    }
+    await this.uploadPushSchedule();
+    return 'ok';
+  }
+
+  async disablePush(): Promise<void> {
+    try {
+      localStorage.removeItem('push');
+    } catch {
+      // ничего
+    }
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await (await reg?.pushManager.getSubscription())?.unsubscribe();
+    await this.api.pushUnsubscribe();
+  }
+
+  private pushDebounce: ReturnType<typeof setTimeout> | undefined;
+
+  private schedulePushSoon(): void {
+    if (!this.pushEnabled()) return;
+    clearTimeout(this.pushDebounce);
+    this.pushDebounce = setTimeout(() => void this.uploadPushSchedule().catch(() => undefined), 3000);
+  }
+
+  /** Расписание на неделю: время открыто, текст зашифрован ключом этого устройства. */
+  async uploadPushSchedule(): Promise<void> {
+    if (!this.doc || !this.leader || !this.pushEnabled()) return;
+    const now = Date.now();
+    const list = remindersBetween(this.doc, now, now + 7 * 24 * 3600_000, TZ, this.reminderDefaults()).slice(0, 300);
+    const entries = await Promise.all(
+      list.map(async (r) => {
+        const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(r.key)));
+        const id = [...digest.subarray(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
+        const body = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
+        return { id, fireAt: r.at, payload: await sealLocalB64(this.store, { t: r.title || 'Задача', b: body, k: r.key, id: r.taskId }) };
+      }),
+    );
+    await this.api.pushSchedule(entries);
   }
 
   /**
@@ -402,6 +468,11 @@ export class Controller {
     clearTimeout(this.reminderTimer);
     if (!this.doc || !this.leader) return;
     const now = Date.now();
+    // Раз в час расписание push обновляется: окно в неделю сдвигается.
+    if (now - this.lastPushUpload > 3600_000) {
+      this.lastPushUpload = now;
+      this.schedulePushSoon();
+    }
     // Пропущенные за последние 10 минут (вкладка спала) тоже показываем.
     const list = remindersBetween(this.doc, now - 10 * 60_000, now + 48 * 3600_000, TZ, this.reminderDefaults());
     for (const r of list) {
@@ -415,6 +486,14 @@ export class Controller {
     // Не дольше часа: таймеры браузера в фоне неточны, пересчитываем регулярно.
     const delay = next ? Math.min(next.at - now, 3600_000) : 3600_000;
     this.reminderTimer = setTimeout(() => this.scheduleReminders(), Math.max(1000, delay));
+  }
+
+  /** Напоминание пришло через push, пока приложение открыто. */
+  receivePushReminder(msg: { key: string; title: string; taskId: string }): void {
+    if (this.fired.has(msg.key)) return;
+    this.fired.add(msg.key);
+    saveFired(this.fired);
+    this.onReminder?.({ key: msg.key, taskId: msg.taskId, title: msg.title, at: Date.now(), dueAt: Date.now(), offset: 0 });
   }
 
   private async fire(r: Reminder): Promise<void> {

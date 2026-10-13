@@ -23,6 +23,8 @@ export interface Config {
   readonly corsOrigins: readonly string[];
   /** Сколько ежедневных снимков базы хранить; 0 — не делать. */
   readonly backupKeep: number;
+  /** Контакт для push-сервисов (VAPID sub): mailto: или https:. */
+  readonly vapidSubject: string;
 }
 
 function bool(v: string | undefined, fallback: boolean): boolean {
@@ -43,6 +45,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     webDir: env.DELA_WEB_DIR ?? (existsSync(join(BUNDLED_WEB, 'index.html')) ? BUNDLED_WEB : ''),
     corsOrigins: (env.DELA_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     backupKeep: Number(env.DELA_BACKUP_KEEP ?? 7),
+    vapidSubject: env.DELA_VAPID_SUBJECT ?? 'https://github.com/olerast67/dela',
   };
 }
 
@@ -58,6 +61,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     webDir: '',
     corsOrigins: [],
     backupKeep: 0,
+    vapidSubject: 'mailto:test@dela.test',
     ...overrides,
   };
 }

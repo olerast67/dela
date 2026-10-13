@@ -13,6 +13,7 @@ import type { Config } from './config.ts';
 import { tx, type Db } from './db.ts';
 import { Hub, type HubSocket } from './hub.ts';
 import { SqliteRelay } from './relay.ts';
+import { generateVapid, isAllowedEndpoint, loadVapid, sendPush } from './webpush.ts';
 import { EMAIL_RE, UUID_RE, b64, bad, int, obj, optStr, str } from './validate.ts';
 
 export const VERSION = '0.1.0';
@@ -66,7 +67,10 @@ function clientIp(c: Context): string {
   return incoming?.socket?.remoteAddress ?? 'local';
 }
 
-export function createApp(db: Db, config: Config, now: () => number = Date.now) {
+const MAX_SCHEDULE = 300;
+const SCHEDULE_HORIZON = 15 * 24 * 3600 * 1000;
+
+export function createApp(db: Db, config: Config, now: () => number = Date.now, pushFetcher: typeof fetch = (i, init) => fetch(i, init)) {
   const app = new Hono<AppEnv>();
   const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app });
   const relay = new SqliteRelay(db);
@@ -80,6 +84,14 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
     const secret = randomBytes(32);
     db.prepare("INSERT INTO meta (key, value) VALUES ('server_secret', ?)").run(secret);
     return secret;
+  })();
+
+  const vapid = (() => {
+    const row = db.prepare("SELECT value FROM meta WHERE key = 'vapid_private'").get() as { value: Uint8Array } | undefined;
+    if (row) return loadVapid(Buffer.from(row.value).toString());
+    const { privatePem } = generateVapid();
+    db.prepare("INSERT INTO meta (key, value) VALUES ('vapid_private', ?)").run(Buffer.from(privatePem));
+    return loadVapid(privatePem);
   })();
 
   // ---------- общие проверки ----------
@@ -469,6 +481,94 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
     return c.json({ ...relay.pull(spaceId, since, limit), serverTime: now() });
   });
 
+  // ---------- Web Push ----------
+  // Сервер хранит только время отправки и шифротекст: текст напоминания шифрует устройство своим ключом.
+
+  app.get('/api/push/key', (c) => c.json({ publicKey: vapid.publicKey }));
+
+  app.put('/api/push/subscription', requireAuth, async (c) => {
+    const { deviceId } = c.get('auth');
+    const b = await body(c);
+    const endpoint = str(b.endpoint, 'endpoint', { max: 2000 });
+    if (!isAllowedEndpoint(endpoint)) bad('unsupported push service');
+    const keys = obj(b.keys, 'keys');
+    const p256dh = str(keys.p256dh, 'keys.p256dh', { max: 200, re: /^[A-Za-z0-9_-]+$/ });
+    const auth = str(keys.auth, 'keys.auth', { max: 100, re: /^[A-Za-z0-9_-]+$/ });
+    if (Buffer.from(p256dh, 'base64url').length !== 65 || Buffer.from(auth, 'base64url').length !== 16) bad('invalid subscription keys');
+    db.prepare(
+      `INSERT INTO push_subscriptions (device_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (device_id) DO UPDATE SET endpoint = excluded.endpoint, p256dh = excluded.p256dh, auth = excluded.auth`,
+    ).run(deviceId, endpoint, p256dh, auth, now());
+    return c.json({ ok: true });
+  });
+
+  app.delete('/api/push/subscription', requireAuth, (c) => {
+    const { deviceId } = c.get('auth');
+    db.prepare('DELETE FROM push_subscriptions WHERE device_id = ?').run(deviceId);
+    db.prepare('DELETE FROM push_schedule WHERE device_id = ?').run(deviceId);
+    return c.json({ ok: true });
+  });
+
+  /** Заменить расписание напоминаний устройства целиком. */
+  app.put('/api/push/schedule', requireAuth, async (c) => {
+    const { deviceId } = c.get('auth');
+    const b = await body(c);
+    if (!Array.isArray(b.entries)) bad('entries must be an array');
+    if (b.entries.length > MAX_SCHEDULE) bad(`at most ${MAX_SCHEDULE} entries`);
+    const t = now();
+    const entries = b.entries.map((raw, i) => {
+      const e = obj(raw, `entries[${i}]`);
+      return {
+        id: str(e.id, 'id', { max: 64, re: /^[A-Za-z0-9_-]+$/ }),
+        fireAt: int(e.fireAt, 'fireAt', t - 3600_000, t + SCHEDULE_HORIZON),
+        payload: b64(e.payload, 'payload', { maxBytes: 1024 }).toString('base64'),
+      };
+    });
+    tx(db, () => {
+      db.prepare('DELETE FROM push_schedule WHERE device_id = ?').run(deviceId);
+      const ins = db.prepare('INSERT OR REPLACE INTO push_schedule (device_id, id, fire_at, payload) VALUES (?, ?, ?, ?)');
+      for (const e of entries) ins.run(deviceId, e.id, e.fireAt, e.payload);
+    });
+    return c.json({ ok: true, count: entries.length });
+  });
+
+  /** Отправить наступившие напоминания. Вызывается по таймеру из main и напрямую из тестов. */
+  async function pushTick(): Promise<{ sent: number; gone: number; failed: number }> {
+    const t = now();
+    const due = db
+      .prepare(
+        `SELECT s.device_id, s.id, s.payload, p.endpoint, p.p256dh, p.auth
+         FROM push_schedule s JOIN push_subscriptions p ON p.device_id = s.device_id
+         JOIN devices d ON d.id = s.device_id
+         WHERE s.fire_at <= ? AND d.revoked_at IS NULL LIMIT 200`,
+      )
+      .all(t) as Array<{ device_id: string; id: string; payload: string; endpoint: string; p256dh: string; auth: string }>;
+    let sent = 0;
+    let gone = 0;
+    let failed = 0;
+    for (const r of due) {
+      db.prepare('DELETE FROM push_schedule WHERE device_id = ? AND id = ?').run(r.device_id, r.id);
+      try {
+        const result = await sendPush(vapid, r, Buffer.from(JSON.stringify({ p: r.payload })), {
+          subject: config.vapidSubject,
+          ttl: 3600,
+          fetcher: pushFetcher,
+        });
+        if (result === 'ok') sent++;
+        else if (result === 'gone') {
+          gone++;
+          db.prepare('DELETE FROM push_subscriptions WHERE device_id = ?').run(r.device_id);
+          db.prepare('DELETE FROM push_schedule WHERE device_id = ?').run(r.device_id);
+        } else failed++;
+      } catch {
+        failed++;
+      }
+    }
+    // Записи без подписки и просроченные больше чем на час больше не нужны.
+    db.prepare('DELETE FROM push_schedule WHERE fire_at < ?').run(t - 3600_000);
+    return { sent, gone, failed };
+  }
+
   // ---------- WebSocket: сигнал «есть новое» ----------
 
   app.get(
@@ -541,5 +641,5 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now) 
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
 
-  return { app, injectWebSocket, hub };
+  return { app, injectWebSocket, hub, pushTick };
 }

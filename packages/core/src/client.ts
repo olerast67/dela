@@ -162,6 +162,22 @@ export class ApiClient {
     return this.call('GET', `/api/spaces/${spaceId}/pull?since=${since}&limit=${limit}`);
   }
 
+  pushKey(): Promise<{ publicKey: string }> {
+    return this.call('GET', '/api/push/key');
+  }
+
+  pushSubscribe(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }): Promise<{ ok: true }> {
+    return this.call('PUT', '/api/push/subscription', subscription);
+  }
+
+  pushUnsubscribe(): Promise<{ ok: true }> {
+    return this.call('DELETE', '/api/push/subscription');
+  }
+
+  pushSchedule(entries: ReadonlyArray<{ id: string; fireAt: number; payload: string }>): Promise<{ ok: true; count: number }> {
+    return this.call('PUT', '/api/push/schedule', { entries });
+  }
+
   /** Адрес WebSocket для сигналов «есть новое». */
   wsUrl(): string {
     const base = this.baseUrl || (typeof location !== 'undefined' ? location.origin : '');

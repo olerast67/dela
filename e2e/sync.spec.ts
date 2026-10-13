@@ -154,3 +154,50 @@ test('напоминание срабатывает в срок', async ({ page 
   await page.clock.fastForward('03:00');
   await expect(page.getByText('⏰ Выключить духовку')).toBeVisible({ timeout: 10_000 });
 });
+
+test('push: service worker расшифровывает напоминание ключом устройства', async ({ page, context, baseURL }) => {
+  await context.grantPermissions(['notifications']);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Электронная почта').fill(`push-${Date.now()}@dela.test`);
+  await page.getByLabel('Пароль', { exact: true }).fill('push-pass-1234');
+  await page.getByLabel('Пароль ещё раз').fill('push-pass-1234');
+  await page.getByRole('button', { name: 'Создать аккаунт' }).click();
+  await page.getByLabel('Ключ сохранён в надёжном месте').check({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Продолжить' }).click();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+
+  // Шифруем так же, как приложение: AES-GCM ключом устройства из IndexedDB.
+  const payload = await page.evaluate(async () => {
+    const db: IDBDatabase = await new Promise((res, rej) => {
+      const r = indexedDB.open('dela');
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    const key: CryptoKey = await new Promise((res) => {
+      const r = db.transaction('meta').objectStore('meta').get('deviceKey');
+      r.onsuccess = () => res(r.result);
+    });
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plain = new TextEncoder().encode(JSON.stringify({ t: 'Выключить духовку', b: 'Пора', k: 'k1', id: 't1' }));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain));
+    const all = new Uint8Array(12 + ct.length);
+    all.set(iv);
+    all.set(ct, 12);
+    return btoa(String.fromCharCode(...all));
+  });
+
+  const cdp = await context.newCDPSession(page);
+  const registrationId = await new Promise<string>((resolve) => {
+    cdp.on('ServiceWorker.workerRegistrationUpdated', (e) => {
+      const r = e.registrations.find((x) => !x.isDeleted);
+      if (r) resolve(r.registrationId);
+    });
+    void cdp.send('ServiceWorker.enable');
+  });
+  await cdp.send('ServiceWorker.deliverPushMessage', { origin: new URL(baseURL!).origin, registrationId, data: JSON.stringify({ p: payload }) });
+
+  // Headless Chromium не показывает системные уведомления, поэтому проверяем путь внутри приложения:
+  // service worker расшифровал текст ключом устройства и передал его окну.
+  await expect(page.getByText('⏰ Выключить духовку')).toBeVisible({ timeout: 10_000 });
+});
