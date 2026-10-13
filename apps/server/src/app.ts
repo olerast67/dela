@@ -1,0 +1,438 @@
+import { createNodeWebSocket } from '@hono/node-ws';
+import { Hono, type Context } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
+import { cors } from 'hono/cors';
+import { HTTPException } from 'hono/http-exception';
+import { secureHeaders } from 'hono/secure-headers';
+import { randomBytes } from 'node:crypto';
+import { exceedsDrift, isTimestamp, uuidv7, type AccountBundle, type Envelope } from '#core';
+import { RateLimiter, fakeSalt, hashAuthSecret, newToken, safeEqual, sha256 } from './auth.ts';
+import type { Config } from './config.ts';
+import { tx, type Db } from './db.ts';
+import { Hub, type HubSocket } from './hub.ts';
+import { SqliteRelay } from './relay.ts';
+import { EMAIL_RE, UUID_RE, b64, bad, int, obj, optStr, str } from './validate.ts';
+
+export const VERSION = '0.1.0';
+
+interface Auth {
+  readonly userId: string;
+  readonly deviceId: string;
+  readonly isAdmin: boolean;
+}
+
+type AppEnv = { Variables: { auth: Auth } };
+
+const MAX_ENVELOPES_PER_PUSH = 1000;
+const MAX_PAYLOAD_BYTES = 64 * 1024;
+const SLOT_RE = /^[0-9a-f]{32}$/;
+const DEFAULT_KDF = { alg: 'argon2id13', ops: 3, mem: 64 * 1024 * 1024 } as const;
+
+function fail(status: 401 | 403 | 404 | 409 | 429, message: string, extra?: Record<string, unknown>): never {
+  throw new HTTPException(status, {
+    res: new Response(JSON.stringify({ error: message, ...extra }), {
+      status,
+      headers: { 'content-type': 'application/json' },
+    }),
+  });
+}
+
+function parseBundle(v: unknown): AccountBundle {
+  const b = obj(v, 'bundle');
+  const kdf = obj(b.kdf, 'bundle.kdf');
+  if (kdf.alg !== 'argon2id13') bad('bundle.kdf.alg must be argon2id13');
+  return {
+    kdf: {
+      alg: 'argon2id13',
+      ops: int(kdf.ops, 'bundle.kdf.ops', 1, 20),
+      mem: int(kdf.mem, 'bundle.kdf.mem', 8192, 1024 * 1024 * 1024),
+    },
+    salt: b64(b.salt, 'bundle.salt', { bytes: 16 }).toString('base64'),
+    masterByPassword: b64(b.masterByPassword, 'bundle.masterByPassword', { maxBytes: 256 }).toString('base64'),
+    masterByRecovery: b64(b.masterByRecovery, 'bundle.masterByRecovery', { maxBytes: 256 }).toString('base64'),
+    publicKey: b64(b.publicKey, 'bundle.publicKey', { bytes: 32 }).toString('base64'),
+    secretKeyByMaster: b64(b.secretKeyByMaster, 'bundle.secretKeyByMaster', { maxBytes: 256 }).toString('base64'),
+  };
+}
+
+function normEmail(v: unknown): string {
+  return str(v, 'email', { max: 254, re: EMAIL_RE }).trim().toLowerCase();
+}
+
+function clientIp(c: Context): string {
+  const incoming = (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming;
+  return incoming?.socket?.remoteAddress ?? 'local';
+}
+
+export function createApp(db: Db, config: Config, now: () => number = Date.now) {
+  const app = new Hono<AppEnv>();
+  const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app });
+  const relay = new SqliteRelay(db);
+  const hub = new Hub();
+  const loginLimiter = new RateLimiter(10, 15 * 60_000, now);
+  const ipLimiter = new RateLimiter(60, 15 * 60_000, now);
+
+  const serverSecret = (() => {
+    const row = db.prepare("SELECT value FROM meta WHERE key = 'server_secret'").get() as { value: Uint8Array } | undefined;
+    if (row) return Buffer.from(row.value);
+    const secret = randomBytes(32);
+    db.prepare("INSERT INTO meta (key, value) VALUES ('server_secret', ?)").run(secret);
+    return secret;
+  })();
+
+  // ---------- общие проверки ----------
+
+  function createSession(userId: string, deviceName: string): { token: string; deviceId: string } {
+    const deviceId = uuidv7(now());
+    const token = newToken();
+    const t = now();
+    db.prepare('INSERT INTO devices (id, user_id, name, created_at, last_seen_at) VALUES (?, ?, ?, ?, ?)').run(
+      deviceId,
+      userId,
+      deviceName,
+      t,
+      t,
+    );
+    db.prepare('INSERT INTO sessions (token_hash, device_id, user_id, created_at, expires_at) VALUES (?, ?, ?, ?, ?)').run(
+      sha256(token),
+      deviceId,
+      userId,
+      t,
+      t + config.sessionTtl,
+    );
+    return { token, deviceId };
+  }
+
+  function authenticate(token: string): Auth | undefined {
+    const row = db
+      .prepare(
+        `SELECT s.user_id, s.device_id, s.expires_at, d.revoked_at, d.last_seen_at, u.is_admin
+         FROM sessions s JOIN devices d ON d.id = s.device_id JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = ?`,
+      )
+      .get(sha256(token)) as
+      | { user_id: string; device_id: string; expires_at: number; revoked_at: number | null; last_seen_at: number; is_admin: number }
+      | undefined;
+    const t = now();
+    if (!row || row.revoked_at !== null || Number(row.expires_at) <= t) return undefined;
+    if (t - Number(row.last_seen_at) > 60_000) {
+      db.prepare('UPDATE devices SET last_seen_at = ? WHERE id = ?').run(t, row.device_id);
+    }
+    return { userId: row.user_id, deviceId: row.device_id, isAdmin: row.is_admin === 1 };
+  }
+
+  function membership(spaceId: string, userId: string): { role: string } {
+    if (!UUID_RE.test(spaceId)) fail(404, 'not_found');
+    const row = db.prepare('SELECT role FROM members WHERE space_id = ? AND user_id = ?').get(spaceId, userId) as
+      | { role: string }
+      | undefined;
+    // Чужое пространство неотличимо от несуществующего.
+    if (!row) fail(404, 'not_found');
+    return row;
+  }
+
+  async function body(c: Context): Promise<Record<string, unknown>> {
+    try {
+      return obj(await c.req.json());
+    } catch (err) {
+      if (err instanceof HTTPException) throw err;
+      return bad('invalid JSON');
+    }
+  }
+
+  // ---------- промежуточные слои ----------
+
+  app.onError((err, c) => {
+    if (err instanceof HTTPException) {
+      if (err.res) return err.res;
+      return c.json({ error: err.message }, err.status);
+    }
+    console.error(err);
+    return c.json({ error: 'internal' }, 500);
+  });
+
+  app.use('*', secureHeaders());
+  if (config.corsOrigins.length > 0) {
+    app.use('/api/*', cors({ origin: [...config.corsOrigins], allowHeaders: ['content-type', 'authorization'] }));
+  }
+  app.use('/api/*', bodyLimit({ maxSize: 8 * 1024 * 1024, onError: (c) => c.json({ error: 'body_too_large' }, 413) }));
+
+  const requireAuth = async (c: Context<AppEnv>, next: () => Promise<void>) => {
+    const header = c.req.header('authorization') ?? '';
+    const m = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(header);
+    const auth = m ? authenticate(m[1]!) : undefined;
+    if (!auth) fail(401, 'unauthorized');
+    c.set('auth', auth);
+    await next();
+  };
+
+  // ---------- служебное ----------
+
+  app.get('/api/health', (c) => c.json({ ok: true, version: VERSION, serverTime: now() }));
+
+  // ---------- вход ----------
+
+  app.post('/api/auth/prelogin', async (c) => {
+    const email = normEmail((await body(c)).email);
+    const row = db.prepare('SELECT bundle FROM users WHERE email = ?').get(email) as { bundle: string } | undefined;
+    if (row) {
+      const bundle = JSON.parse(row.bundle) as AccountBundle;
+      return c.json({ kdf: bundle.kdf, salt: bundle.salt });
+    }
+    return c.json({ kdf: DEFAULT_KDF, salt: fakeSalt(serverSecret, email).toString('base64') });
+  });
+
+  app.post('/api/auth/register', async (c) => {
+    const b = await body(c);
+    if (!ipLimiter.hit(`ip:${clientIp(c)}`)) fail(429, 'rate_limited');
+    const email = normEmail(b.email);
+    const authSecret = b64(b.authSecret, 'authSecret', { bytes: 32 });
+    const bundle = parseBundle(b.bundle);
+    const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
+    const invite = optStr(b.invite, 'invite', { max: 100 });
+    const authSalt = randomBytes(16);
+    const authHash = await hashAuthSecret(authSecret, authSalt);
+
+    const result = tx(db, () => {
+      const users = Number((db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n);
+      const isFirst = users === 0;
+      let inviteHash: Buffer | undefined;
+      if (!isFirst && !config.openRegistration) {
+        if (!invite) fail(403, 'invite_required');
+        inviteHash = sha256(invite);
+        const inv = db
+          .prepare('SELECT expires_at, used_by FROM invites WHERE code_hash = ?')
+          .get(inviteHash) as { expires_at: number; used_by: string | null } | undefined;
+        if (!inv || inv.used_by !== null || Number(inv.expires_at) <= now()) fail(403, 'invalid_invite');
+      }
+      if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) fail(409, 'email_taken');
+      const userId = uuidv7(now());
+      db.prepare(
+        'INSERT INTO users (id, email, auth_salt, auth_hash, bundle, is_admin, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      ).run(userId, email, authSalt, authHash, JSON.stringify(bundle), isFirst ? 1 : 0, now());
+      if (inviteHash) db.prepare('UPDATE invites SET used_by = ? WHERE code_hash = ?').run(userId, inviteHash);
+      return { userId, isAdmin: isFirst, ...createSession(userId, deviceName) };
+    });
+    return c.json(result, 201);
+  });
+
+  app.post('/api/auth/login', async (c) => {
+    const b = await body(c);
+    const email = normEmail(b.email);
+    const authSecret = b64(b.authSecret, 'authSecret', { bytes: 32 });
+    const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
+    if (!ipLimiter.hit(`ip:${clientIp(c)}`) || !loginLimiter.hit(`login:${email}`)) fail(429, 'rate_limited');
+
+    const row = db.prepare('SELECT id, auth_salt, auth_hash, bundle, is_admin FROM users WHERE email = ?').get(email) as
+      | { id: string; auth_salt: Uint8Array; auth_hash: Uint8Array; bundle: string; is_admin: number }
+      | undefined;
+    // Для несуществующего адреса считаем хеш всё равно, чтобы время ответа не выдавало регистрацию.
+    const hash = await hashAuthSecret(authSecret, row ? row.auth_salt : serverSecret.subarray(0, 16));
+    if (!row || !safeEqual(hash, row.auth_hash)) fail(401, 'invalid_credentials');
+
+    const session = createSession(row.id, deviceName);
+    return c.json({ userId: row.id, isAdmin: row.is_admin === 1, bundle: JSON.parse(row.bundle), ...session });
+  });
+
+  app.post('/api/auth/logout', requireAuth, (c) => {
+    const { deviceId } = c.get('auth');
+    db.prepare('UPDATE devices SET revoked_at = ? WHERE id = ?').run(now(), deviceId);
+    db.prepare('DELETE FROM sessions WHERE device_id = ?').run(deviceId);
+    hub.closeDevice(deviceId);
+    return c.json({ ok: true });
+  });
+
+  // ---------- аккаунт и устройства ----------
+
+  app.get('/api/account', requireAuth, (c) => {
+    const { userId, deviceId } = c.get('auth');
+    const row = db.prepare('SELECT email, bundle, is_admin FROM users WHERE id = ?').get(userId) as {
+      email: string;
+      bundle: string;
+      is_admin: number;
+    };
+    return c.json({ userId, deviceId, email: row.email, isAdmin: row.is_admin === 1, bundle: JSON.parse(row.bundle) });
+  });
+
+  app.put('/api/account/password', requireAuth, async (c) => {
+    const { userId, deviceId } = c.get('auth');
+    const b = await body(c);
+    const current = b64(b.authSecret, 'authSecret', { bytes: 32 });
+    const next = b64(b.newAuthSecret, 'newAuthSecret', { bytes: 32 });
+    const bundle = parseBundle(b.bundle);
+    if (!loginLimiter.hit(`password:${userId}`)) fail(429, 'rate_limited');
+    const row = db.prepare('SELECT auth_salt, auth_hash, bundle FROM users WHERE id = ?').get(userId) as {
+      auth_salt: Uint8Array;
+      auth_hash: Uint8Array;
+      bundle: string;
+    };
+    if (!safeEqual(await hashAuthSecret(current, row.auth_salt), row.auth_hash)) fail(401, 'invalid_credentials');
+    if ((JSON.parse(row.bundle) as AccountBundle).publicKey !== bundle.publicKey) bad('public key cannot change');
+    const salt = randomBytes(16);
+    const hash = await hashAuthSecret(next, salt);
+    tx(db, () => {
+      db.prepare('UPDATE users SET auth_salt = ?, auth_hash = ?, bundle = ? WHERE id = ?').run(salt, hash, JSON.stringify(bundle), userId);
+      // Остальные устройства входят заново с новым паролем.
+      db.prepare('DELETE FROM sessions WHERE user_id = ? AND device_id != ?').run(userId, deviceId);
+    });
+    return c.json({ ok: true });
+  });
+
+  app.get('/api/devices', requireAuth, (c) => {
+    const { userId, deviceId } = c.get('auth');
+    const rows = db
+      .prepare(
+        'SELECT id, name, created_at, last_seen_at FROM devices WHERE user_id = ? AND revoked_at IS NULL ORDER BY created_at',
+      )
+      .all(userId) as Array<{ id: string; name: string; created_at: number; last_seen_at: number }>;
+    return c.json({
+      devices: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        createdAt: Number(r.created_at),
+        lastSeenAt: Number(r.last_seen_at),
+        current: r.id === deviceId,
+      })),
+    });
+  });
+
+  app.delete('/api/devices/:id', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const id = c.req.param('id') ?? '';
+    const res = db
+      .prepare('UPDATE devices SET revoked_at = ? WHERE id = ? AND user_id = ? AND revoked_at IS NULL')
+      .run(now(), id, userId);
+    if (Number(res.changes) === 0) fail(404, 'not_found');
+    db.prepare('DELETE FROM sessions WHERE device_id = ?').run(id);
+    hub.closeDevice(id);
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/invites', requireAuth, (c) => {
+    const { userId, isAdmin } = c.get('auth');
+    if (!isAdmin) fail(403, 'forbidden');
+    const code = randomBytes(16).toString('base64url');
+    const expiresAt = now() + 7 * 24 * 3600 * 1000;
+    db.prepare('INSERT INTO invites (code_hash, created_by, created_at, expires_at) VALUES (?, ?, ?, ?)').run(
+      sha256(code),
+      userId,
+      now(),
+      expiresAt,
+    );
+    return c.json({ code, expiresAt }, 201);
+  });
+
+  // ---------- пространства и синхронизация ----------
+
+  app.post('/api/spaces', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const b = await body(c);
+    const id = str(b.id, 'id', { re: UUID_RE });
+    const key = b64(b.key, 'key', { maxBytes: 256 }).toString('base64');
+    tx(db, () => {
+      if (db.prepare('SELECT 1 FROM spaces WHERE id = ?').get(id)) fail(409, 'space_exists');
+      db.prepare("INSERT INTO spaces (id, kind, created_by, created_at) VALUES (?, 'personal', ?, ?)").run(id, userId, now());
+      db.prepare("INSERT INTO members (space_id, user_id, role, key_kind, key) VALUES (?, ?, 'owner', 'wrapped', ?)").run(
+        id,
+        userId,
+        key,
+      );
+    });
+    return c.json({ id }, 201);
+  });
+
+  app.get('/api/spaces', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const rows = db
+      .prepare(
+        `SELECT s.id, s.kind, s.last_seq, m.role, m.key_kind, m.key
+         FROM members m JOIN spaces s ON s.id = m.space_id WHERE m.user_id = ? ORDER BY s.created_at`,
+      )
+      .all(userId) as Array<{ id: string; kind: string; last_seq: number; role: string; key_kind: string; key: string }>;
+    return c.json({
+      spaces: rows.map((r) => ({ id: r.id, kind: r.kind, role: r.role, keyKind: r.key_kind, key: r.key, lastSeq: Number(r.last_seq) })),
+    });
+  });
+
+  app.post('/api/spaces/:id/push', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const { role } = membership(spaceId, userId);
+    if (role === 'viewer') fail(403, 'forbidden');
+    const b = await body(c);
+    if (!Array.isArray(b.envelopes)) bad('envelopes must be an array');
+    if (b.envelopes.length > MAX_ENVELOPES_PER_PUSH) bad(`at most ${MAX_ENVELOPES_PER_PUSH} envelopes per push`);
+    const t = now();
+    const envelopes: Envelope<string>[] = b.envelopes.map((raw, i) => {
+      const e = obj(raw, `envelopes[${i}]`);
+      const slot = str(e.slot, 'slot', { re: SLOT_RE });
+      const hlc = str(e.hlc, 'hlc', { max: 64 });
+      if (!isTimestamp(hlc)) bad(`envelopes[${i}].hlc is invalid`);
+      const payload = b64(e.payload, 'payload', { maxBytes: MAX_PAYLOAD_BYTES }).toString('base64');
+      return { slot, hlc, payload };
+    });
+    if (envelopes.some((e) => exceedsDrift(e.hlc, t, config.maxClockDrift))) {
+      fail(409, 'clock_drift', { serverTime: t });
+    }
+    const { accepted, seq } = relay.push(spaceId, envelopes);
+    if (accepted > 0) {
+      const members = (db.prepare('SELECT user_id FROM members WHERE space_id = ?').all(spaceId) as Array<{ user_id: string }>).map(
+        (r) => r.user_id,
+      );
+      hub.notify(members, { type: 'changed', space: spaceId, seq });
+    }
+    return c.json({ accepted, seq, serverTime: t });
+  });
+
+  app.get('/api/spaces/:id/pull', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    membership(spaceId, userId);
+    const since = int(c.req.query('since') ?? '0', 'since', 0, Number.MAX_SAFE_INTEGER);
+    const limit = int(c.req.query('limit') ?? '500', 'limit', 1, 1000);
+    return c.json({ ...relay.pull(spaceId, since, limit), serverTime: now() });
+  });
+
+  // ---------- WebSocket: сигнал «есть новое» ----------
+
+  app.get(
+    '/api/ws',
+    upgradeWebSocket(() => {
+      let authed = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let socket: HubSocket | undefined;
+      return {
+        onOpen(_evt, ws) {
+          socket = ws;
+          // Токен приходит первым сообщением, а не в адресе: адреса попадают в логи прокси.
+          timer = setTimeout(() => ws.close(4000, 'auth timeout'), 10_000);
+        },
+        onMessage(evt, ws) {
+          if (authed) return;
+          let msg: { type?: unknown; token?: unknown };
+          try {
+            msg = JSON.parse(String(evt.data));
+          } catch {
+            ws.close(4000, 'bad message');
+            return;
+          }
+          const auth = msg.type === 'auth' && typeof msg.token === 'string' ? authenticate(msg.token) : undefined;
+          if (!auth) {
+            ws.close(4001, 'unauthorized');
+            return;
+          }
+          authed = true;
+          clearTimeout(timer);
+          hub.add(auth.userId, auth.deviceId, ws);
+          ws.send(JSON.stringify({ type: 'ready', serverTime: now() }));
+        },
+        onClose() {
+          clearTimeout(timer);
+          if (socket) hub.remove(socket);
+        },
+      };
+    }),
+  );
+
+  return { app, injectWebSocket, hub };
+}
