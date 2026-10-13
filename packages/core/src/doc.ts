@@ -5,7 +5,7 @@
  * и попадают в очередь исходящих. Запросы читают разобранный снимок, который
  * пересобирается лениво после изменений.
  */
-import { addDays, daysBetween, instant, localDate, type DateSpec } from './dates.ts';
+import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
 import { compareOrder, keyBetween } from './fractional.ts';
 import type { HybridClock } from './hlc.ts';
 import {
@@ -27,6 +27,7 @@ import {
   type Task,
 } from './model.ts';
 import type { Json, Op } from './op.ts';
+import { nextOccurrence, occurrencesBetween, parseRule } from './recurrence.ts';
 import { MemoryReplica } from './replica.ts';
 import { uuidv7 } from './uuid.ts';
 
@@ -38,6 +39,8 @@ export type Listener = (ops: readonly Op[], origin: Origin) => void;
 export interface TaskView extends Task {
   readonly depth: number;
   readonly childCount: number;
+  /** Будущий экземпляр повторяющейся задачи, показанный в «Предстоящих»; сам по себе не существует. */
+  readonly projected?: boolean;
 }
 
 export interface TaskNode {
@@ -165,11 +168,14 @@ export interface DocOptions {
   readonly clock: HybridClock;
   readonly replica?: MemoryReplica;
   readonly now?: () => number;
+  /** Пояс пользователя: от него считается «сегодня» при выполнении повторяющихся задач. */
+  readonly timeZone?: string;
 }
 
 export class Doc {
   readonly spaceId: string;
   readonly replica: MemoryReplica;
+  readonly timeZone: string;
   private readonly clock: HybridClock;
   private readonly now: () => number;
   private outbox: Op[] = [];
@@ -181,6 +187,7 @@ export class Doc {
     this.clock = options.clock;
     this.replica = options.replica ?? new MemoryReplica();
     this.now = options.now ?? Date.now;
+    this.timeZone = options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
   }
 
   // ---------- операции ----------
@@ -579,15 +586,70 @@ export class Doc {
     this.write(changes);
   }
 
-  /** Отметить выполненной вместе с невыполненными подзадачами. Повторяющиеся задачи обрабатывает completeOccurrence. */
+  /**
+   * Отметить выполненной вместе с невыполненными подзадачами.
+   * У повторяющейся задачи выполняется текущий экземпляр, а срок переходит на следующий.
+   */
   completeTask(id: string): void {
     const s = this.snapshot();
     const task = s.tasks.get(id);
     if (!task || task.completedAt !== null) return;
+    if (task.recurrence && task.due) {
+      this.advance(task, true);
+      return;
+    }
     const t = this.now();
     const changes: Change[] = [['task', id, 'completed_at', t]];
     for (const d of this.descendants(id)) {
       if (s.tasks.get(d)!.completedAt === null) changes.push(['task', d, 'completed_at', t]);
+    }
+    this.write(changes);
+  }
+
+  /** Пропустить текущий экземпляр повторяющейся задачи. */
+  skipOccurrence(id: string): void {
+    const task = this.snapshot().tasks.get(id);
+    if (task?.recurrence && task.due) this.advance(task, false);
+  }
+
+  /** Id записи о выполнении: одинаков на всех устройствах, поэтому двойная отметка офлайн не даёт дубля. */
+  static completionId(taskId: string, occurrence: string): string {
+    return `${taskId}:${occurrence}`;
+  }
+
+  private advance(task: TaskView, complete: boolean): void {
+    const s = this.snapshot();
+    const t = this.now();
+    const due = task.due!;
+    const occurrence = due.date;
+    const todayDate = todayIn(this.timeZone, t);
+    const rule = parseRule(task.recurrence!.rule);
+    const changes: Change[] = [];
+    if (complete) {
+      const cid = Doc.completionId(task.id, occurrence);
+      changes.push(['completion', cid, 'task', task.id], ['completion', cid, 'occurrence', occurrence], ['completion', cid, 'completed_at', t]);
+    }
+    let next: string | null = null;
+    if (rule) {
+      next =
+        task.recurrence!.mode === 'completion'
+          ? nextOccurrence(rule, todayDate, todayDate)
+          : nextOccurrence(rule, occurrence, occurrence > todayDate ? occurrence : todayDate);
+    }
+    if (next === null) {
+      // Серия закончилась.
+      if (complete) changes.push(['task', task.id, 'completed_at', t]);
+      else changes.push(['task', task.id, 'recurrence', null]);
+    } else {
+      changes.push(['task', task.id, 'due', { ...due, date: next } as unknown as Json]);
+      if (task.start) {
+        const shifted = addDays(task.start.date, daysBetween(occurrence, next));
+        changes.push(['task', task.id, 'start', { ...task.start, date: shifted } as unknown as Json]);
+      }
+      // Подзадачи повторяющейся задачи начинаются заново.
+      for (const d of this.descendants(task.id)) {
+        if (s.tasks.get(d)!.completedAt !== null) changes.push(['task', d, 'completed_at', null]);
+      }
     }
     this.write(changes);
   }
@@ -834,12 +896,21 @@ export class Doc {
   upcoming(from: string, days: number, tz: string): Array<{ date: string; tasks: TaskView[] }> {
     const groups = new Map<string, TaskView[]>();
     for (let i = 0; i < days; i++) groups.set(addDays(from, i), []);
+    const to = addDays(from, days);
+    const put = (t: TaskView) => {
+      const d = localDate(t.due!, tz);
+      const delta = daysBetween(from, d);
+      if (delta >= 0 && delta < days) groups.get(d)!.push(t);
+    };
     for (const t of this.openTasks()) {
       if (!t.due) continue;
-      const d = localDate(t.due, tz);
-      const delta = daysBetween(from, d);
-      if (delta < 0 || delta >= days) continue;
-      groups.get(d)!.push(t);
+      put(t);
+      const rule = t.recurrence?.mode === 'schedule' ? parseRule(t.recurrence.rule) : null;
+      if (!rule) continue;
+      const start = addDays(t.due.date, 1) > from ? addDays(t.due.date, 1) : from;
+      for (const occ of occurrencesBetween(rule, t.due.date, start, to, days)) {
+        put({ ...t, due: { ...t.due, date: occ }, projected: true });
+      }
     }
     const sort = byDue(tz);
     return [...groups.entries()].map(([date, tasks]) => ({ date, tasks: tasks.sort(sort) }));

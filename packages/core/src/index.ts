@@ -99,3 +99,13 @@ export {
   type TaskPatch,
   type TaskView,
 } from './doc.ts';
+export {
+  parseRule,
+  formatRule,
+  nextOccurrence,
+  firstOnOrAfter,
+  occurrencesBetween,
+  type Freq,
+  type Rule,
+  type WeekdayNum,
+} from './recurrence.ts';
