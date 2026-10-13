@@ -54,7 +54,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 | Calendar | Day, week and month. Drag a task to another day or into the hour grid, drag its bottom edge to change the duration, click an empty hour to add a task there |
 | Recurrence | By schedule or from the completion date: "every 2nd tuesday of the month", "every 3 days after completion", "last day of the month" |
 | Filters | Todoist syntax `(today \| overdue) & p1`, `#Work & !@waiting`, `7 days`, `search: milk`, plus Russian keywords |
-| Reminders | In the open app, through Web Push when the browser is closed, through the Android alarm schedule without a network |
+| Reminders | In the open app, through Web Push when the browser is closed, on Android through the alarm schedule without a network and through UnifiedPush (ntfy) without Google services |
 | Sharing | Shared projects with members invited by email, assignees, comments with files. The project key is sealed with each member's public key, files are encrypted on the device |
 | Keyboard | `Ctrl+K` command palette, `Q` quick add, `J`/`K`, `E` to complete, `T` for today, `Ctrl+Z` undoes the last 100 actions. Shortcuts use physical keys and work in any layout |
 | Apps | Web app (PWA), Windows app with a tray icon and the global shortcut `Ctrl+Shift+Space`, Android app with "Share to Dela", a home screen widget with a task list and a quick add tile |
@@ -105,6 +105,7 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 | `DELA_MAX_RECORDS_PER_SPACE` | `500000` | Limit of stored fields per project space |
 | `DELA_MAX_FILE_MB_PER_SPACE` | `1024` | Limit of encrypted files per project space, MB. One file is up to 7 MB |
 | `DELA_VAPID_SUBJECT` | repository URL | Contact for push services, `mailto:` or `https:` |
+| `DELA_PUSH_HOSTS` | empty | Your own UnifiedPush distributors (host names, comma-separated); ntfy.sh is allowed by default |
 
 ### Updating and backups
 

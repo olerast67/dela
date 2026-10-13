@@ -820,7 +820,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const { deviceId } = c.get('auth');
     const b = await body(c);
     const endpoint = str(b.endpoint, 'endpoint', { max: 2000 });
-    if (!isAllowedEndpoint(endpoint)) bad('unsupported push service');
+    if (!isAllowedEndpoint(endpoint, config.pushHosts)) bad('unsupported push service');
     const keys = obj(b.keys, 'keys');
     const p256dh = str(keys.p256dh, 'keys.p256dh', { max: 200, re: /^[A-Za-z0-9_-]+$/ });
     const auth = str(keys.auth, 'keys.auth', { max: 100, re: /^[A-Za-z0-9_-]+$/ });

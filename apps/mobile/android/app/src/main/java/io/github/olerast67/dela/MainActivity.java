@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(ShareIntentPlugin.class);
         registerPlugin(WidgetBridgePlugin.class);
         registerPlugin(VoiceInputPlugin.class);
+        registerPlugin(UnifiedPushPlugin.class);
         super.onCreate(savedInstanceState);
         ShareIntentPlugin.store(getIntent());
         WidgetBridgePlugin.store(getIntent());

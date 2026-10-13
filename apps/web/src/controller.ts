@@ -50,7 +50,7 @@ import {
 } from '#core';
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
-import { biometryUnlock, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
+import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
 
 function loadFired(): string[] {
   try {
@@ -734,7 +734,41 @@ export class Controller {
     }
   }
 
-  async enablePush(): Promise<'ok' | 'denied' | 'unsupported'> {
+  /** Ключ текста напоминаний для телефона: его знают веб-часть и нативная служба push, но не сервер. */
+  private async nativePushKey(): Promise<Uint8Array> {
+    let key = await this.store.getMeta<string>('nativePushKey');
+    if (!key) {
+      key = toB64(newKey());
+      await this.store.setMeta('nativePushKey', key);
+    }
+    return fromB64(key);
+  }
+
+  /** base64(iv ‖ AES-GCM) ключом телефона: так текст расшифровывает нативная служба UnifiedPush. */
+  private async sealForPhone(value: unknown): Promise<string> {
+    const key = await crypto.subtle.importKey('raw', (await this.nativePushKey()) as BufferSource, 'AES-GCM', false, ['encrypt']);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(value))));
+    const all = new Uint8Array(iv.length + ct.length);
+    all.set(iv);
+    all.set(ct, iv.length);
+    return toB64(all);
+  }
+
+  async enablePush(): Promise<'ok' | 'denied' | 'unsupported' | 'no_distributor'> {
+    if (platform() === 'capacitor') {
+      const { publicKey } = await this.api.pushKey();
+      const sub = await nativePushSubscribe(publicKey, toB64(await this.nativePushKey()));
+      if (!sub) return 'no_distributor';
+      await this.api.pushSubscribe(sub);
+      try {
+        localStorage.setItem('push', '1');
+      } catch {
+        // без localStorage расписание всё равно отправится в этот раз
+      }
+      await this.uploadPushSchedule();
+      return 'ok';
+    }
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') return 'unsupported';
     if ((await Notification.requestPermission()) !== 'granted') return 'denied';
     const reg = await navigator.serviceWorker.ready;
@@ -757,6 +791,11 @@ export class Controller {
       localStorage.removeItem('push');
     } catch {
       // ничего
+    }
+    if (platform() === 'capacitor') {
+      await nativePushUnsubscribe();
+      await this.api.pushUnsubscribe();
+      return;
     }
     const reg = await navigator.serviceWorker?.getRegistration();
     await (await reg?.pushManager.getSubscription())?.unsubscribe();
@@ -781,7 +820,8 @@ export class Controller {
         const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(r.key)));
         const id = [...digest.subarray(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
         const body = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
-        return { id, fireAt: r.at, payload: await sealLocalB64(this.store, { t: r.title || 'Задача', b: body, k: r.key, id: r.taskId }) };
+        const content = { t: r.title || 'Задача', b: body, k: r.key, id: r.taskId };
+        return { id, fireAt: r.at, payload: platform() === 'capacitor' ? await this.sealForPhone(content) : await sealLocalB64(this.store, content) };
       }),
     );
     await this.api.pushSchedule(entries);

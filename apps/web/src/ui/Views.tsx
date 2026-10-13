@@ -797,7 +797,14 @@ export function ReminderSettings() {
               if (e.target.checked) {
                 const r = await controller.enablePush();
                 if (r === 'ok') setPush(true);
-                else setPushMsg(r === 'denied' ? 'Уведомления запрещены в браузере.' : 'Этот браузер не поддерживает push-уведомления.');
+                else
+                  setPushMsg(
+                    r === 'no_distributor'
+                      ? 'Нужно приложение-распространитель UnifiedPush, например ntfy из F-Droid или Google Play. Поставьте его и включите снова.'
+                      : r === 'denied'
+                        ? 'Уведомления запрещены в браузере.'
+                        : 'Этот браузер не поддерживает push-уведомления.',
+                  );
                 setPermission(typeof Notification === 'undefined' ? 'unsupported' : Notification.permission);
               } else {
                 await controller.disablePush();

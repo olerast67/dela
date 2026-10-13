@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Android push without Google services: reminders arrive through a UnifiedPush distributor such as ntfy. The reminder text is encrypted with a key only the phone knows. `DELA_PUSH_HOSTS` allows your own distributor.
 - Try Dela without a server: tasks stay encrypted in the browser only. The demo at https://olerast67.github.io/dela/demo/ runs this way.
 - Project site: https://olerast67.github.io/dela/
 - The Android build no longer includes the Google Services Gradle plugin; F-Droid metadata in fastlane/.

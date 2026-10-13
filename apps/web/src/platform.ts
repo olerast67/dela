@@ -303,3 +303,41 @@ export async function listenVoice(): Promise<string | null> {
   const lang = navigator.language?.startsWith('en') ? 'en-US' : 'ru-RU';
   return (await Voice.listen({ lang })).text ?? null;
 }
+
+interface UnifiedPushPlugin {
+  register(o: { vapid: string }): Promise<{ ok: boolean }>;
+  unregister(): Promise<void>;
+  getEndpoint(): Promise<{ url?: string; p256dh?: string; auth?: string }>;
+  setKey(o: { key: string }): Promise<void>;
+  addListener(event: 'endpoint', cb: (e: { url?: string; p256dh?: string; auth?: string }) => void): Promise<{ remove(): Promise<void> }>;
+}
+
+async function unifiedPush(): Promise<UnifiedPushPlugin | null> {
+  if (platform() !== 'capacitor') return null;
+  const { registerPlugin } = await import('@capacitor/core');
+  return registerPlugin<UnifiedPushPlugin>('UnifiedPush');
+}
+
+/**
+ * Телефон: подписка на напоминания через UnifiedPush (ntfy и другие распространители).
+ * Возвращает адрес и ключи Web Push для сервера; null, если распространитель не установлен.
+ */
+export async function nativePushSubscribe(vapid: string, textKey: string): Promise<{ endpoint: string; keys: { p256dh: string; auth: string } } | null> {
+  const up = await unifiedPush();
+  if (!up) return null;
+  await up.setKey({ key: textKey });
+  const got = new Promise<{ url?: string; p256dh?: string; auth?: string }>((resolve) => {
+    void up.addListener('endpoint', resolve);
+    setTimeout(() => void up.getEndpoint().then(resolve), 15_000);
+  });
+  const { ok } = await up.register({ vapid });
+  if (!ok) return null;
+  const now = await up.getEndpoint();
+  const e = now.url ? now : await got;
+  if (!e.url || !e.p256dh || !e.auth) return null;
+  return { endpoint: e.url, keys: { p256dh: e.p256dh, auth: e.auth } };
+}
+
+export async function nativePushUnsubscribe(): Promise<void> {
+  await (await unifiedPush())?.unregister();
+}

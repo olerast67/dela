@@ -36,6 +36,8 @@ export interface Config {
   readonly maxRecordsPerSpace: number;
   /** Сколько байт файлов может лежать в одном пространстве. */
   readonly maxFileBytesPerSpace: number;
+  /** Свои распространители UnifiedPush: имена хостов через запятую в DELA_PUSH_HOSTS. */
+  readonly pushHosts: readonly string[];
 }
 
 function bool(v: string | undefined, fallback: boolean): boolean {
@@ -61,6 +63,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     adminEmail: (env.DELA_ADMIN_EMAIL ?? '').trim().toLowerCase(),
     maxRecordsPerSpace: Number(env.DELA_MAX_RECORDS_PER_SPACE ?? 500_000),
     maxFileBytesPerSpace: Number(env.DELA_MAX_FILE_MB_PER_SPACE ?? 1024) * 1024 * 1024,
+    pushHosts: (env.DELA_PUSH_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean),
   };
 }
 
@@ -81,6 +84,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     adminEmail: '',
     maxRecordsPerSpace: 500_000,
     maxFileBytesPerSpace: 1024 * 1024 * 1024,
+    pushHosts: [],
     ...overrides,
   };
 }

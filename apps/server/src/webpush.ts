@@ -73,12 +73,20 @@ export function encryptPayload(
 }
 
 /** Адрес подписки должен вести к известному push-сервису: сервер не будет стучаться куда попало. */
-const PUSH_HOSTS = [/(^|\.)googleapis\.com$/, /(^|\.)push\.services\.mozilla\.com$/, /(^|\.)push\.apple\.com$/, /(^|\.)notify\.windows\.com$/];
+const PUSH_HOSTS = [
+  /(^|\.)googleapis\.com$/,
+  /(^|\.)push\.services\.mozilla\.com$/,
+  /(^|\.)push\.apple\.com$/,
+  /(^|\.)notify\.windows\.com$/,
+  // UnifiedPush через ntfy (телефоны без сервисов Google).
+  /^ntfy\.sh$/,
+];
 
-export function isAllowedEndpoint(endpoint: string): boolean {
+/** extraHosts: свои распространители UnifiedPush (DELA_PUSH_HOSTS), точное имя хоста. */
+export function isAllowedEndpoint(endpoint: string, extraHosts: readonly string[] = []): boolean {
   try {
     const u = new URL(endpoint);
-    return u.protocol === 'https:' && u.port === '' && PUSH_HOSTS.some((re) => re.test(u.hostname));
+    return u.protocol === 'https:' && u.port === '' && (PUSH_HOSTS.some((re) => re.test(u.hostname)) || extraHosts.includes(u.hostname));
   } catch {
     return false;
   }

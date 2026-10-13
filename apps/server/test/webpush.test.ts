@@ -70,6 +70,12 @@ describe('Web Push', () => {
   it('только адреса известных push-сервисов', () => {
     expect(isAllowedEndpoint('https://fcm.googleapis.com/fcm/send/abc')).toBe(true);
     expect(isAllowedEndpoint('https://updates.push.services.mozilla.com/wpush/v2/x')).toBe(true);
+    // UnifiedPush: ntfy.sh из коробки, свой распространитель только по DELA_PUSH_HOSTS.
+    expect(isAllowedEndpoint('https://ntfy.sh/upAbC123?up=1')).toBe(true);
+    expect(isAllowedEndpoint('https://evil.ntfy.sh.example/x')).toBe(false);
+    expect(isAllowedEndpoint('https://push.example.org/up123')).toBe(false);
+    expect(isAllowedEndpoint('https://push.example.org/up123', ['push.example.org'])).toBe(true);
+    expect(isAllowedEndpoint('http://push.example.org/up123', ['push.example.org'])).toBe(false);
     expect(isAllowedEndpoint('https://web.push.apple.com/abc')).toBe(true);
     expect(isAllowedEndpoint('https://wns2-par02p.notify.windows.com/w/?token=x')).toBe(true);
     expect(isAllowedEndpoint('http://fcm.googleapis.com/x')).toBe(false);
