@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Calendar with day, week and month views. Tasks move between days by dragging; in the day and week views they are placed into the hour grid and their duration changes by dragging the bottom edge. Clicking an empty hour adds a task at that time. Shortcut: G, then C.
+- Quick add understands a time range after a preposition: "call at 9-10", "созвон в 10:00-11:30".
+
 ## 0.1.1
 
 - Fixed the "Key saved in a safe place" checkbox on the recovery key screen and two checkboxes in Settings: the label was squeezed into a narrow column.

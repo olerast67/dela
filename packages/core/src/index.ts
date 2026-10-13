@@ -147,3 +147,4 @@ export { remindersBetween, offsetsOf, isReminderList, MAX_REMINDERS, type Remind
 export { Workspace } from './workspace.ts';
 export type { FilterSource } from './filter.ts';
 export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';
+export { weekStart, weekDates, monthGrid, monthStart, slotOf, moveDue, snapMinute, layoutDay, type TimedItem, type PlacedItem } from './calendar.ts';

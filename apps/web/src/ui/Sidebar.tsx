@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useAppState, useDoc, href, navigate, type Route } from '../hooks.ts';
 import { TZ, todayDate } from '../format.ts';
 import { dropZone } from './dnd.ts';
-import { IconDone, IconFilter, IconUsers, IconInbox, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
+import { IconDone, IconFilter, IconUsers, IconInbox, IconCalendar, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
 
 function same(a: Route, b: Route): boolean {
+  // Календарь подсвечивается в любом виде и на любой дате.
+  if (a.view === 'calendar' || b.view === 'calendar') return a.view === b.view;
   return href(a) === href(b);
 }
 
@@ -92,6 +94,7 @@ export function Sidebar({ route, onNavigate }: { route: Route; onNavigate?: () =
       {item({ view: 'inbox' }, <IconInbox />, 'Входящие', counts.inbox)}
       {item({ view: 'today' }, <IconToday />, 'Сегодня', counts.today)}
       {item({ view: 'upcoming' }, <IconUpcoming />, 'Предстоящие')}
+      {item({ view: 'calendar', mode: null, date: null }, <IconCalendar />, 'Календарь')}
 
       <div className="nav-head">
         <span>Проекты</span>

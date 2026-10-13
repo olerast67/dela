@@ -468,8 +468,8 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
 
   // Интервал времени: «с 9 до 10:30», «9-10», «from 9 to 10».
   const T = '(\\d{1,2})(?:[:.](\\d{2}))?';
-  sc.find(`(?:с\\s+|from\\s+)?${T}\\s*(?:-|–|—|до|to)\\s*${T}(?:\\s*(am|pm))?`, 'time', (m) => {
-    if (m[0].includes('-') && !m[2] && !m[4] && !/^(с|from)\s/iu.test(m[0])) {
+  sc.find(`(?:(?:с|в|во|from|at)\\s+)?${T}\\s*(?:-|–|—|до|to)\\s*${T}(?:\\s*(am|pm))?`, 'time', (m) => {
+    if (m[0].includes('-') && !m[2] && !m[4] && !/^(с|в|во|from|at)\s/iu.test(m[0])) {
       // «9-10» без минут допустимо только как время в разумных пределах.
       if (+m[1]! > 23 || +m[3]! > 24) return false;
     }

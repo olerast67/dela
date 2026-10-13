@@ -34,6 +34,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
       { id: 'inbox', label: 'Входящие', group: 'Перейти', run: go({ view: 'inbox' }) },
       { id: 'today', label: 'Сегодня', group: 'Перейти', run: go({ view: 'today' }) },
       { id: 'upcoming', label: 'Предстоящие', group: 'Перейти', run: go({ view: 'upcoming' }) },
+      { id: 'calendar', label: 'Календарь', group: 'Перейти', run: go({ view: 'calendar', mode: null, date: null }) },
       { id: 'completed', label: 'Выполненные', group: 'Перейти', run: go({ view: 'completed' }) },
       { id: 'trash', label: 'Корзина', group: 'Перейти', run: go({ view: 'trash' }) },
       { id: 'settings', label: 'Настройки', group: 'Перейти', run: go({ view: 'settings' }) },
@@ -131,7 +132,7 @@ const SHORTCUTS: Array<[string, string]> = [
   ['T', 'Перенести на сегодня'],
   ['Delete', 'Удалить задачу'],
   ['Ctrl+Z', 'Отменить'],
-  ['G затем T / U / I', 'Сегодня, Предстоящие, Входящие'],
+  ['G затем T / U / C / I', 'Сегодня, Предстоящие, Календарь, Входящие'],
   ['Esc', 'Закрыть'],
   ['?', 'Эта справка'],
 ];

@@ -54,6 +54,8 @@ const cases: Array<[string, Expect]> = [
   ['созвон в 15:00 по Москве', { title: 'созвон', due: { date: '2026-10-13', time: '15:00', tz: 'Europe/Moscow' } }],
   // Интервал и длительность
   ['встреча с 9 до 10:30 завтра', { title: 'встреча', due: { date: '2026-10-14', time: '09:00' }, duration: 90 }],
+  ['созвон с командой сегодня в 10:00-11:30', { title: 'созвон с командой', due: { date: '2026-10-13', time: '10:00' }, duration: 90 }],
+  ['call at 9-10 tomorrow', { title: 'call', due: { date: '2026-10-14', time: '09:00' }, duration: 60 }],
   ['уборка на 30 минут', { title: 'уборка', due: null, duration: 30 }],
   ['уборка на полтора часа', { title: 'уборка', duration: 90 }],
   ['чтение на 1,5 ч', { title: 'чтение', duration: 90 }],

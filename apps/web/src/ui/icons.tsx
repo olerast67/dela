@@ -31,6 +31,12 @@ export const IconUpcoming = (p: P) => (
     <path d="M3.5 9h17M8 3v3M16 3v3M8 13h.01M12 13h.01M16 13h.01M8 16.5h.01M12 16.5h.01" />
   </Svg>
 );
+export const IconCalendar = (p: P) => (
+  <Svg {...p}>
+    <rect x="3.5" y="4.5" width="17" height="16" rx="2.5" />
+    <path d="M3.5 9h17M8 3v3M16 3v3M7.5 12.5h2M11 12.5h2M14.5 12.5h2M7.5 16h2M11 16h2" />
+  </Svg>
+);
 export const IconPlus = (p: P) => (
   <Svg {...p}>
     <path d="M12 5v14M5 12h14" />

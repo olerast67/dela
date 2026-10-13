@@ -72,3 +72,25 @@ export function plural(n: number, one: string, few: string, many: string): strin
   const rule = new Intl.PluralRules('ru').select(n);
   return `${n} ${rule === 'one' ? one : rule === 'few' ? few : many}`;
 }
+
+const MONTHS_NOMINATIVE = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+/** «Октябрь 2026». */
+export function monthTitle(date: string): string {
+  const [y, m] = date.split('-').map(Number) as [number, number];
+  return `${MONTHS_NOMINATIVE[m - 1]} ${y}`;
+}
+
+/** «12-18 октября», «28 сентября - 4 октября», «13 октября». */
+export function rangeTitle(from: string, to: string): string {
+  if (from === to) return dayMonth(from, true);
+  const [, m1, d1] = from.split('-').map(Number) as [number, number, number];
+  const [, m2] = to.split('-').map(Number) as [number, number, number];
+  if (m1 === m2) return `${d1}-${dayMonth(to, true)}`;
+  return `${dayMonth(from, true)} - ${dayMonth(to, true)}`;
+}
+
+/** «09:30» из минут от полуночи. */
+export function clock(minute: number): string {
+  return `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+}

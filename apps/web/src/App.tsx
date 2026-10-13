@@ -10,6 +10,8 @@ import { ToastHost, showToast } from './ui/toast.tsx';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
 import { onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText } from './platform.ts';
+import { CalendarView } from './ui/Calendar.tsx';
+import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 
 function typing(e: KeyboardEvent): boolean {
@@ -23,6 +25,7 @@ function Shell() {
   const narrow = useMedia('(max-width: 760px)');
   const [selected, setSelected] = useState<string | null>(null);
   const [quickAdd, setQuickAdd] = useState(false);
+  const [quickOverride, setQuickOverride] = useState<QuickAddDefaults | null>(null);
   const [menu, setMenu] = useState(false);
   const [palette, setPalette] = useState(false);
   const [sharedText, setSharedText] = useState('');
@@ -64,7 +67,7 @@ function Shell() {
       // «G, затем T» — переход, как в Todoist и Gmail.
       if (Date.now() - gPressed < 1000) {
         gPressed = 0;
-        const target = { KeyT: 'today', KeyU: 'upcoming', KeyI: 'inbox', KeyS: 'settings' }[e.code];
+        const target = { KeyT: 'today', KeyU: 'upcoming', KeyC: 'calendar', KeyI: 'inbox', KeyS: 'settings' }[e.code];
         if (target) {
           e.preventDefault();
           location.hash = `#/${target}`;
@@ -211,6 +214,19 @@ function Shell() {
     case 'upcoming':
       view = <UpcomingView {...props} />;
       break;
+    case 'calendar':
+      view = (
+        <CalendarView
+          mode={route.mode}
+          date={route.date}
+          {...props}
+          onQuickAdd={(d) => {
+            setQuickOverride(d);
+            setQuickAdd(true);
+          }}
+        />
+      );
+      break;
     case 'project':
       view = <ProjectView id={route.id} {...props} />;
       break;
@@ -236,8 +252,8 @@ function Shell() {
       view = <TodayView {...props} />;
   }
 
-  const quickDefaults =
-    route.view === 'project' ? { projectId: route.id } : route.view === 'today' ? { due: { date: new Intl.DateTimeFormat('en-CA').format(new Date()) } } : {};
+  const quickDefaults: QuickAddDefaults = quickOverride ??
+    (route.view === 'project' ? { projectId: route.id } : route.view === 'today' ? { due: { date: new Intl.DateTimeFormat('en-CA').format(new Date()) } } : {});
 
   return (
     <div className={`shell${selected ? ' with-panel' : ''}`}>
@@ -259,13 +275,21 @@ function Shell() {
       </main>
       {selected && <TaskPanel id={selected} onClose={close} onOpen={open} />}
       {quickAdd && (
-        <div className="modal-scrim" onMouseDown={(e) => e.target === e.currentTarget && setQuickAdd(false)}>
+        <div
+          className="modal-scrim"
+          onMouseDown={(e) => {
+            if (e.target !== e.currentTarget) return;
+            setQuickAdd(false);
+            setQuickOverride(null);
+          }}
+        >
           <div className="modal">
             <QuickAdd
               defaults={quickDefaults}
               initialText={sharedText}
               onClose={() => {
                 setQuickAdd(false);
+                setQuickOverride(null);
                 setSharedText('');
               }}
               compact={false}

@@ -50,6 +50,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 | Quick add | English and Russian phrases: "call mom tomorrow at 7pm #Home every week p1". Recognized parts are highlighted; one click keeps a word as plain text. In the Russian layout `№` works as `#` and `!1` as `p1` |
 | Organizing | Projects with sub-projects, sections, subtasks, labels, priorities 1-4, due date with time and time zone, start date, deadline, duration |
 | Views | Today, Upcoming, project as a list or a board, labels, search, completed tasks, trash |
+| Calendar | Day, week and month. Drag a task to another day or into the hour grid, drag its bottom edge to change the duration, click an empty hour to add a task there |
 | Recurrence | By schedule or from the completion date: "every 2nd tuesday of the month", "every 3 days after completion", "last day of the month" |
 | Filters | Todoist syntax `(today \| overdue) & p1`, `#Work & !@waiting`, `7 days`, `search: milk`, plus Russian keywords |
 | Reminders | In the open app, through Web Push when the browser is closed, through the Android alarm schedule without a network |
@@ -135,7 +136,7 @@ I make videos about the projects I build and test on myself: [YouTube](https://w
 
 ## Roadmap
 
-Next on the [roadmap](ROADMAP.md): calendar view and time blocking, comments and assignees in shared projects, PIN lock, key rotation when a member is removed, iOS app, REST API and an MCP server for AI assistants.
+Next on the [roadmap](ROADMAP.md): PIN and fingerprint lock, a Today widget for Android, voice input, account deletion, key rotation when a member is removed, comments and assignees in shared projects, automatic updates for the Windows app.
 
 ## Development
 
