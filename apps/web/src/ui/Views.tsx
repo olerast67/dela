@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { COLORS, FilterSyntaxError, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
+import { COLORS, FilterSyntaxError, type ProjectTasks, type TaskNode, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
 import { controller } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, useAppState, useDoc } from '../hooks.ts';
@@ -153,6 +153,14 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
         ) : (
           <h1 onDoubleClick={() => !isInbox && setRenaming(true)}>{isInbox ? 'Входящие' : project.name}</h1>
         )}
+        <div className="segmented" role="group" aria-label="Вид">
+          <button className={project.view !== 'board' ? 'active' : ''} onClick={() => doc.updateProject(id, { view: 'list' })}>
+            Список
+          </button>
+          <button className={project.view === 'board' ? 'active' : ''} onClick={() => doc.updateProject(id, { view: 'board' })}>
+            Доска
+          </button>
+        </div>
         {!isInbox && (
           <div className="head-actions">
             <select value={project.color} onChange={(e) => doc.updateProject(id, { color: e.target.value })} aria-label="Цвет проекта">
@@ -178,6 +186,10 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
           </div>
         )}
       </header>
+      {project.view === 'board' ? (
+        <Board projectId={id} view={view} onOpen={onOpen} selectedId={selectedId} onAddSection={() => setAddingSection(true)} />
+      ) : (
+        <>
       <section>
         <TaskTree nodes={view.unsectioned} onOpen={onOpen} selectedId={selectedId} />
         <AddTask defaults={{ projectId: id, sectionId: null }} />
@@ -207,6 +219,8 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
           <AddTask defaults={{ projectId: id, sectionId: section.id }} />
         </section>
       ))}
+        </>
+      )}
       {addingSection && (
         <input
           className="nav-input"
@@ -709,5 +723,39 @@ export function ReminderSettings() {
         })}
       </div>
     </section>
+  );
+}
+
+/** Доска: колонки — разделы проекта, карточки — задачи верхнего уровня. */
+function Board({
+  projectId,
+  view,
+  onOpen,
+  selectedId,
+  onAddSection,
+}: ViewProps & { projectId: string; view: ProjectTasks; onAddSection: () => void }) {
+  const doc = useDoc();
+  const columns: Array<{ id: string | null; name: string; tasks: readonly TaskNode[] }> = [
+    { id: null, name: 'Без раздела', tasks: view.unsectioned },
+    ...view.sections.map((s) => ({ id: s.section.id, name: s.section.name, tasks: s.tasks })),
+  ];
+  return (
+    <div className="board">
+      {columns.map((col) => (
+        <div key={col.id ?? 'none'} className="column" {...dropZone((t) => doc.moveTask(t, { projectId, sectionId: col.id }))}>
+          <div className="column-head">
+            <span>{col.name}</span>
+            <span className="muted">{col.tasks.length || ''}</span>
+          </div>
+          <div className="cards">
+            <TaskTree nodes={col.tasks.map((n) => ({ task: n.task, children: [] }))} onOpen={onOpen} selectedId={selectedId} />
+          </div>
+          <AddTask defaults={{ projectId, sectionId: col.id }} label="Добавить" />
+        </div>
+      ))}
+      <button className="column add-column" onClick={onAddSection}>
+        + Раздел
+      </button>
+    </div>
   );
 }
