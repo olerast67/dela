@@ -12,6 +12,9 @@ test('попробовать без сервера', async ({ page }) => {
   await page.getByLabel('Новая задача').fill('Локальная задача сегодня');
   await page.getByLabel('Новая задача').press('Enter');
   await page.getByLabel('Новая задача').press('Escape');
+  await expect(page.locator('.task', { hasText: 'Локальная задача' })).toBeVisible();
+  // Запись в IndexedDB асинхронная: перезагрузка сразу после ввода могла её опередить.
+  await page.waitForTimeout(1000);
   await page.reload();
   await expect(page.locator('.task', { hasText: 'Локальная задача' })).toBeVisible();
   await page.goto('/#/settings');

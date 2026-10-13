@@ -257,6 +257,9 @@ export class Controller {
   }
 
   /** Удалить аккаунт: сервер стирает аккаунт и личные задачи, устройство выходит и стирает свои данные. */
+  /** Аккаунт удаляется: отказ в доступе от закрытой сервером сессии не должен перехватить выход. */
+  private deletingAccount = false;
+
   async deleteAccount(password: string, totp?: string): Promise<void> {
     // Перед удалением отправляем изменения общих проектов: они остаются у других участников.
     for (const engine of this.engines.values()) {
@@ -266,8 +269,15 @@ export class Controller {
         // нет сети: удаление ниже тоже не пройдёт
       }
     }
-    await deleteAccountOnServer(this.api, { password, ...(totp ? { totp } : {}) });
+    this.deletingAccount = true;
+    try {
+      await deleteAccountOnServer(this.api, { password, ...(totp ? { totp } : {}) });
+    } catch (err) {
+      this.deletingAccount = false;
+      throw err;
+    }
     await this.logout('Аккаунт удалён.');
+    this.deletingAccount = false;
   }
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
@@ -389,7 +399,9 @@ export class Controller {
       },
       restamp: () => this.clock!.tick(),
       onStatus: () => this.updateStatus(),
-      onUnauthorized: () => void this.logout('Сессия на этом устройстве завершена. Войдите снова.'),
+      onUnauthorized: () => {
+        if (!this.deletingAccount) void this.logout('Сессия на этом устройстве завершена. Войдите снова.');
+      },
     });
     this.engines.set(spaceId, engine);
     const stopPersist = persistLocal(doc, this.store, spaceId, () => {
@@ -669,6 +681,17 @@ export class Controller {
    * но новых изменений прочитать не сможет. Если кто-то успел отправить правку, догружаем и пробуем снова.
    */
   async rotateKey(spaceId: string): Promise<void> {
+    // Одна смена ключа на пространство за раз: ручная и автоматическая не должны отменять друг друга.
+    const running = this.rotations.get(spaceId);
+    if (running) return running;
+    const p = this.rotateKeyNow(spaceId).finally(() => this.rotations.delete(spaceId));
+    this.rotations.set(spaceId, p);
+    return p;
+  }
+
+  private readonly rotations = new Map<string, Promise<void>>();
+
+  private async rotateKeyNow(spaceId: string): Promise<void> {
     const ws = this.doc;
     const doc = ws?.sharedDoc(spaceId);
     const engine = this.engines.get(spaceId);
@@ -693,7 +716,8 @@ export class Controller {
         this.requestSync();
         return;
       } catch (err) {
-        if (err instanceof ApiError && err.code === 'stale') continue;
+        // stale: пришли новые правки; not_found: смену перебила другая (другое устройство владельца). Пробуем заново.
+        if (err instanceof ApiError && (err.code === 'stale' || (err.code === 'not_found' && attempt < 4))) continue;
         throw err;
       }
     }
@@ -788,7 +812,7 @@ export class Controller {
       if (this.ws !== ws) return;
       this.ws = null;
       if (e.code === 4001) {
-        void this.logout('Сессия на этом устройстве завершена. Войдите снова.');
+        if (!this.deletingAccount) void this.logout('Сессия на этом устройстве завершена. Войдите снова.');
         return;
       }
       const delay = Math.min(30_000, 1000 * 2 ** this.wsRetry++);
