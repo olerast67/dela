@@ -1,3 +1,5 @@
+import { listenVoice, voiceAvailable } from '../platform.ts';
+import { IconMic } from './icons.tsx';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { parseTask, type DateSpec, type ParsedTask, type Priority, type Token, type Workspace } from '#core';
 import { controller } from '../controller.ts';
@@ -60,12 +62,15 @@ export function QuickAdd({
   placeholder = 'Например: позвонить маме завтра в 19 №Дом !1',
   compact = false,
   initialText = '',
+  autoVoice = false,
 }: {
   defaults?: QuickAddDefaults;
   onClose?: () => void;
   placeholder?: string;
   compact?: boolean;
   initialText?: string;
+  /** Сразу открыть голосовой ввод (кнопка микрофона на виджете). */
+  autoVoice?: boolean;
 }) {
   const doc = useDoc();
   const [text, setText] = useState(initialText);
@@ -74,6 +79,20 @@ export function QuickAdd({
   const mirror = useRef<HTMLDivElement>(null);
 
   useEffect(() => input.current?.focus(), []);
+
+  // Голосовой ввод на телефоне: фраза попадает в поле и разбирается так же, как набранная.
+  const [voice, setVoice] = useState(false);
+  useEffect(() => {
+    void voiceAvailable().then(setVoice);
+  }, []);
+  const dictate = async () => {
+    const said = await listenVoice().catch(() => null);
+    if (said) setText((prev) => (prev.trim() ? `${prev.trim()} ${said}` : said));
+    input.current?.focus();
+  };
+  useEffect(() => {
+    if (autoVoice) void dictate();
+  }, [autoVoice]);
 
   const ctx = useMemo(
     () => ({
@@ -188,6 +207,11 @@ export function QuickAdd({
             ))}
           </div>
           <div className="qa-actions">
+            {voice && (
+              <button type="button" className="icon qa-mic" onClick={() => void dictate()} aria-label="Сказать задачу голосом" title="Голосом">
+                <IconMic />
+              </button>
+            )}
             {onClose && (
               <button type="button" onClick={onClose}>
                 Отмена

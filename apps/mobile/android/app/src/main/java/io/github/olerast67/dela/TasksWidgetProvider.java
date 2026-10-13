@@ -111,6 +111,8 @@ public class TasksWidgetProvider extends AppWidgetProvider {
             PendingIntent.getActivity(c, widgetId, configure, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
         );
         v.setOnClickPendingIntent(R.id.widget_add, openApp(c, 100000 + widgetId, WidgetBridgePlugin.EXTRA_QUICK_ADD));
+        v.setOnClickPendingIntent(R.id.widget_voice, openApp(c, 300000 + widgetId, WidgetBridgePlugin.EXTRA_VOICE));
+        v.setInt(R.id.widget_voice, "setColorFilter", accent);
         v.setOnClickPendingIntent(R.id.widget_icon, openApp(c, 200000 + widgetId, null));
         v.setViewVisibility(R.id.widget_icon, View.VISIBLE);
 

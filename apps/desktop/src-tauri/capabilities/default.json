@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Права главного окна: события, уведомления, открытие ссылок http(s) в браузере",
+  "description": "Права главного окна: события, уведомления, ссылки http(s) в браузере, обновление программы",
   "windows": [
     "main"
   ],
@@ -19,6 +19,8 @@
           "url": "http://*"
         }
       ]
-    }
+    },
+    "updater:default",
+    "process:allow-restart"
   ]
 }

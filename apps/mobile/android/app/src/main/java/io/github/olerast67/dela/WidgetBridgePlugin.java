@@ -17,10 +17,12 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class WidgetBridgePlugin extends Plugin {
     static final String EXTRA_TASK_ID = "dela.taskId";
     static final String EXTRA_QUICK_ADD = "dela.quickAdd";
+    static final String EXTRA_VOICE = "dela.voice";
 
     private static WidgetBridgePlugin instance;
     private static String pendingTask;
     private static boolean pendingQuickAdd;
+    private static boolean pendingVoice;
 
     @Override
     public void load() {
@@ -32,14 +34,17 @@ public class WidgetBridgePlugin extends Plugin {
         String task = intent.getStringExtra(EXTRA_TASK_ID);
         if (task != null) pendingTask = task;
         if (intent.getBooleanExtra(EXTRA_QUICK_ADD, false)) pendingQuickAdd = true;
+        if (intent.getBooleanExtra(EXTRA_VOICE, false)) pendingVoice = true;
     }
 
     private JSObject drainLaunch() {
         JSObject data = new JSObject();
         if (pendingTask != null) data.put("taskId", pendingTask);
         if (pendingQuickAdd) data.put("quickAdd", true);
+        if (pendingVoice) data.put("voice", true);
         pendingTask = null;
         pendingQuickAdd = false;
+        pendingVoice = false;
         return data;
     }
 
@@ -47,7 +52,7 @@ public class WidgetBridgePlugin extends Plugin {
     protected void handleOnNewIntent(Intent intent) {
         super.handleOnNewIntent(intent);
         store(intent);
-        if (pendingTask == null && !pendingQuickAdd) return;
+        if (pendingTask == null && !pendingQuickAdd && !pendingVoice) return;
         notifyListeners("launch", drainLaunch(), true);
     }
 

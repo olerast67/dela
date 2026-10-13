@@ -7,6 +7,7 @@ import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
 import { LockSettings } from './Lock.tsx';
+import { checkDesktopUpdate, platform } from '../platform.ts';
 import { ShareDialog } from './Share.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
@@ -472,6 +473,7 @@ export function SettingsView() {
       <ChangePassword />
       <TwoFactor />
       <LockSettings />
+      <DesktopUpdates />
       <DeleteAccount />
       <ImportExport />
       {isAdmin && (
@@ -969,6 +971,46 @@ export function DeleteAccount() {
           {msg}
         </p>
       )}
+    </section>
+  );
+}
+
+/** Программа для Windows: версия и проверка обновлений. В браузере и на телефоне раздела нет. */
+export function DesktopUpdates() {
+  const [version, setVersion] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (platform() !== 'tauri') return;
+    void import('@tauri-apps/api/app').then(({ getVersion }) => getVersion().then(setVersion));
+  }, []);
+  if (platform() !== 'tauri') return null;
+  return (
+    <section className="settings">
+      <h2>Обновления</h2>
+      <p className="muted">Установлена версия {version ?? '...'}. Программа проверяет новую версию при запуске; обновление подписано ключом проекта.</p>
+      <button
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setMsg(null);
+          try {
+            const u = await checkDesktopUpdate();
+            if (!u) setMsg('Установлена последняя версия.');
+            else {
+              setMsg(`Скачиваю версию ${u.version}...`);
+              await u.install();
+            }
+          } catch {
+            setMsg('Не удалось проверить обновления. Нужна связь с GitHub.');
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Проверить обновления
+      </button>
+      {msg && <p className="muted">{msg}</p>}
     </section>
   );
 }

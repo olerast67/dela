@@ -229,8 +229,8 @@ export function haptic(kind: 'light' | 'medium' | 'success' = 'light'): void {
 interface DelaWidgetPlugin {
   update(o: { snapshot: string }): Promise<void>;
   takeCompleted(): Promise<{ ids: string[] }>;
-  takeLaunch(): Promise<{ taskId?: string; quickAdd?: boolean }>;
-  addListener(event: 'launch', cb: (e: { taskId?: string; quickAdd?: boolean }) => void): Promise<{ remove(): Promise<void> }>;
+  takeLaunch(): Promise<{ taskId?: string; quickAdd?: boolean; voice?: boolean }>;
+  addListener(event: 'launch', cb: (e: { taskId?: string; quickAdd?: boolean; voice?: boolean }) => void): Promise<{ remove(): Promise<void> }>;
   addListener(event: 'completed', cb: () => void): Promise<{ remove(): Promise<void> }>;
 }
 
@@ -258,11 +258,48 @@ export async function onWidgetCompleted(fn: () => void): Promise<void> {
 }
 
 /** Приложение открыто с виджета или плитки: показать задачу или быстрое добавление. */
-export async function onWidgetLaunch(fn: (e: { taskId?: string; quickAdd?: boolean }) => void): Promise<() => void> {
+export async function onWidgetLaunch(fn: (e: { taskId?: string; quickAdd?: boolean; voice?: boolean }) => void): Promise<() => void> {
   const w = await widgetPlugin();
   if (!w) return () => undefined;
   const handle = await w.addListener('launch', fn);
   const first = await w.takeLaunch();
-  if (first.taskId || first.quickAdd) fn(first);
+  if (first.taskId || first.quickAdd || first.voice) fn(first);
   return () => void handle.remove();
+}
+
+export interface DesktopUpdate {
+  readonly version: string;
+  install(): Promise<void>;
+}
+
+/** Программа для Windows: есть ли новая версия на GitHub. В браузере и на телефоне всегда null. */
+export async function checkDesktopUpdate(): Promise<DesktopUpdate | null> {
+  if (platform() !== 'tauri') return null;
+  const { check } = await import('@tauri-apps/plugin-updater');
+  const update = await check();
+  if (!update) return null;
+  return {
+    version: update.version,
+    async install() {
+      await update.downloadAndInstall();
+      const { relaunch } = await import('@tauri-apps/plugin-process');
+      await relaunch();
+    },
+  };
+}
+
+/** Голосовой ввод на телефоне: системное окно распознавания. null, если отменили или ничего не распознано. */
+export async function voiceAvailable(): Promise<boolean> {
+  if (platform() !== 'capacitor') return false;
+  const { registerPlugin } = await import('@capacitor/core');
+  const Voice = registerPlugin<{ available(): Promise<{ available: boolean }> }>('VoiceInput');
+  return (await Voice.available().catch(() => ({ available: false }))).available;
+}
+
+export async function listenVoice(): Promise<string | null> {
+  if (platform() !== 'capacitor') return null;
+  const { registerPlugin } = await import('@capacitor/core');
+  const Voice = registerPlugin<{ listen(o: { lang: string }): Promise<{ text?: string }> }>('VoiceInput');
+  const lang = navigator.language?.startsWith('en') ? 'en-US' : 'ru-RU';
+  return (await Voice.listen({ lang })).text ?? null;
 }

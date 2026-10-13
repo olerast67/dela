@@ -10,7 +10,7 @@ import { TaskPanel } from './ui/TaskPanel.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
-import { onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch } from './platform.ts';
+import { checkDesktopUpdate, onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch } from './platform.ts';
 import { CalendarView } from './ui/Calendar.tsx';
 import { LockScreen } from './ui/Lock.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
@@ -28,6 +28,7 @@ function Shell() {
   const [selected, setSelected] = useState<string | null>(null);
   const [quickAdd, setQuickAdd] = useState(false);
   const [quickOverride, setQuickOverride] = useState<QuickAddDefaults | null>(null);
+  const [quickVoice, setQuickVoice] = useState(false);
   const [menu, setMenu] = useState(false);
   const [palette, setPalette] = useState(false);
   const [sharedText, setSharedText] = useState('');
@@ -152,10 +153,18 @@ function Shell() {
         else offs.push(fn);
       });
     keep(onNotificationOpen((id) => setSelected(id)));
+    // Программа для Windows: через несколько секунд после запуска проверяем новую версию на GitHub.
+    const updateTimer = setTimeout(() => {
+      void checkDesktopUpdate()
+        .then((u) => u && showToast(`Вышла версия ${u.version}`, { label: 'Обновить', run: () => void u.install() }, 60_000))
+        .catch(() => undefined);
+    }, 4000);
+    keep(Promise.resolve(() => clearTimeout(updateTimer)));
     keep(
       onWidgetLaunch((e) => {
         if (e.taskId) setSelected(e.taskId);
-        if (e.quickAdd) setQuickAdd(true);
+        if (e.quickAdd || e.voice) setQuickAdd(true);
+        if (e.voice) setQuickVoice(true);
       }),
     );
     keep(
@@ -289,9 +298,11 @@ function Shell() {
             <QuickAdd
               defaults={quickDefaults}
               initialText={sharedText}
+              autoVoice={quickVoice}
               onClose={() => {
                 setQuickAdd(false);
                 setQuickOverride(null);
+                setQuickVoice(false);
                 setSharedText('');
               }}
               compact={false}

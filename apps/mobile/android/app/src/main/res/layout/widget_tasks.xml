@@ -48,6 +48,14 @@
                 android:text="Сегодня" />
 
             <ImageView
+                android:id="@+id/widget_voice"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:padding="9dp"
+                android:src="@drawable/widget_mic"
+                android:contentDescription="Задача голосом" />
+
+            <ImageView
                 android:id="@+id/widget_add"
                 android:layout_width="44dp"
                 android:layout_height="44dp"

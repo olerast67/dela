@@ -82,6 +82,13 @@
         </provider>
     </application>
 
+    <!-- Android 11+: увидеть системное окно распознавания речи для голосового ввода -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
