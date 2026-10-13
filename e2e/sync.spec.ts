@@ -42,7 +42,7 @@ test('два устройства сходятся после офлайн-пр�
   await pb.goto('/');
   await pb.getByLabel('Электронная почта').fill(EMAIL);
   await pb.getByLabel('Пароль', { exact: true }).fill(PASSWORD);
-  await pb.getByRole('button', { name: 'Войти' }).click();
+  await pb.getByRole('button', { name: 'Войти', exact: true }).click();
   await expect(pb.getByText('Купить хлеб')).toBeVisible({ timeout: 20_000 });
 
   // Онлайн: правка на A появляется на B без перезагрузки (сигнал по WebSocket).

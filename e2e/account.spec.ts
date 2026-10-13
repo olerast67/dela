@@ -48,6 +48,6 @@ test('корзина и удаление аккаунта', async ({ page }) => 
 
   await page.getByLabel('Электронная почта').fill(email);
   await page.getByLabel('Пароль', { exact: true }).fill('delete-pass-1');
-  await page.getByRole('button', { name: 'Войти' }).click();
+  await page.getByRole('button', { name: 'Войти', exact: true }).click();
   await expect(page.getByText('Неверный адрес или пароль.')).toBeVisible({ timeout: 20_000 });
 });

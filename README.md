@@ -59,7 +59,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 | Keyboard | `Ctrl+K` command palette, `Q` quick add, `J`/`K`, `E` to complete, `T` for today, `Ctrl+Z` undoes the last 100 actions. Shortcuts use physical keys and work in any layout |
 | Apps | Web app (PWA), Windows app with a tray icon and the global shortcut `Ctrl+Shift+Space`, Android app with "Share to Dela", a home screen widget with a task list and a quick add tile |
 | Your data | Import from Todoist by API token or export file, export to JSON and Markdown, deleting tasks forever and deleting the account |
-| Security | Password never leaves the device, recovery key, two-factor login (TOTP), list of devices with revocation, app lock with a PIN and a fingerprint on Android |
+| Security | Password never leaves the device, passkeys with PRF, recovery key, two-factor login (TOTP), list of devices with revocation, app lock with a PIN and a fingerprint on Android |
 
 ## Download
 
@@ -105,6 +105,7 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 | `DELA_MAX_RECORDS_PER_SPACE` | `500000` | Limit of stored fields per project space |
 | `DELA_MAX_FILE_MB_PER_SPACE` | `1024` | Limit of encrypted files per project space, MB. One file is up to 7 MB |
 | `DELA_VAPID_SUBJECT` | repository URL | Contact for push services, `mailto:` or `https:` |
+| `DELA_PUBLIC_URL` | empty | Address the web app is opened at, for example `https://tasks.example.com`. Needed for passkeys |
 | `DELA_PUSH_HOSTS` | empty | Your own UnifiedPush distributors (host names, comma-separated); ntfy.sh is allowed by default |
 
 ### Updating and backups
@@ -117,7 +118,7 @@ Migrations run at startup, and the server copies the database to `/data/dela.sql
 
 ## Security
 
-Argon2id derives two keys from the password on the device: one proves the login to the server, the other unlocks the account master key. Every change is encrypted with XChaCha20-Poly1305 using the key of its space (libsodium).
+Argon2id derives two keys from the password on the device: one proves the login to the server, the other unlocks the account master key. Every change is encrypted with XChaCha20-Poly1305 using the key of its space (libsodium). A passkey with the PRF extension can replace the password: the account key is wrapped with a secret that the passkey produces on the device and the server never sees.
 
 The server sees email addresses, devices, members of shared projects, change times, sizes rounded to 64 bytes and reminder times. Task text, dates, labels, project names, field names and record IDs reach the server only encrypted. If both the password and the recovery key are lost, the data cannot be decrypted.
 

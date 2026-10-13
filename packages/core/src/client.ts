@@ -125,6 +125,30 @@ export class ApiClient {
     return this.call('DELETE', `/api/spaces/${spaceId}/files/${fileId}`);
   }
 
+  passkeyRegisterOptions(): Promise<{ options: Record<string, unknown> }> {
+    return this.call('POST', '/api/passkeys/register/options', {});
+  }
+
+  passkeyRegister(input: { response: unknown; name: string; wrappedMaster: string }): Promise<{ ok: true }> {
+    return this.call('POST', '/api/passkeys/register', input);
+  }
+
+  passkeyLoginOptions(): Promise<{ challengeId: string; options: Record<string, unknown> }> {
+    return this.call('POST', '/api/passkeys/login/options', {});
+  }
+
+  passkeyLogin(input: { challengeId: string; response: unknown; deviceName: string }): Promise<SessionInfo & { email: string; bundle: AccountBundle; wrappedMaster: string }> {
+    return this.call('POST', '/api/passkeys/login', input);
+  }
+
+  passkeys(): Promise<{ passkeys: Array<{ id: string; name: string; createdAt: number; lastUsedAt: number | null }> }> {
+    return this.call('GET', '/api/passkeys');
+  }
+
+  deletePasskey(id: string): Promise<{ ok: true }> {
+    return this.call('DELETE', `/api/passkeys/${encodeURIComponent(id)}`);
+  }
+
   health(): Promise<{ ok: boolean; version: string; serverTime: number }> {
     return this.call('GET', '/api/health');
   }

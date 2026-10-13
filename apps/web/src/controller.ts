@@ -6,6 +6,8 @@
  */
 import {
   applyPinAttempt,
+  openAccountWithPasskey,
+  wrapMasterForPasskey,
   widgetSnapshot,
   hashPin,
   isValidPin,
@@ -50,6 +52,7 @@ import {
 } from '#core';
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
+import { createPasskey, getPasskey } from './passkey.ts';
 import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
 
 function loadFired(): string[] {
@@ -224,6 +227,23 @@ export class Controller {
   async login(email: string, password: string, totp?: string): Promise<void> {
     const session = await signIn(this.api, { email, password, deviceName: deviceName(), ...(totp ? { totp } : {}) });
     await this.persistAndStart(session);
+  }
+
+  /** Вход по passkey: подпись проверяет сервер, ключ аккаунта открывает секрет PRF на устройстве. */
+  async loginWithPasskey(): Promise<void> {
+    const { challengeId, options } = await this.api.passkeyLoginOptions();
+    const { response, prf } = await getPasskey(options);
+    const res = await this.api.passkeyLogin({ challengeId, response, deviceName: deviceName() });
+    const keys = openAccountWithPasskey(res.bundle, res.wrappedMaster, prf);
+    this.api.token = res.token;
+    await this.persistAndStart({ token: res.token, userId: res.userId, deviceId: res.deviceId, isAdmin: res.isAdmin, email: res.email, bundle: res.bundle, keys });
+  }
+
+  /** Добавить passkey к аккаунту: мастер-ключ оборачивается секретом PRF и хранится на сервере в таком виде. */
+  async addPasskey(name: string): Promise<void> {
+    const { options } = await this.api.passkeyRegisterOptions();
+    const { response, prf } = await createPasskey(options);
+    await this.api.passkeyRegister({ response, name, wrappedMaster: wrapMasterForPasskey(this.accountKeys().masterKey, prf) });
   }
 
   /** Забыт пароль: вход по ключу восстановления с новым паролем. */

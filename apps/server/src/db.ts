@@ -121,6 +121,21 @@ const MIGRATIONS: readonly string[] = [
     PRIMARY KEY (space_id, id)
   ) STRICT;
   `,
+  `
+  -- Passkey: открытый ключ WebAuthn для входа и мастер-ключ, обёрнутый секретом PRF (сервер его открыть не может).
+  CREATE TABLE passkeys (
+    id             TEXT PRIMARY KEY,
+    user_id        TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,
+    public_key     BLOB NOT NULL,
+    counter        INTEGER NOT NULL,
+    transports     TEXT NOT NULL,
+    wrapped_master TEXT NOT NULL,
+    created_at     INTEGER NOT NULL,
+    last_used_at   INTEGER
+  ) STRICT;
+  CREATE INDEX passkeys_user ON passkeys(user_id);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

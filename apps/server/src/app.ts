@@ -1,3 +1,11 @@
+import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
+  verifyAuthenticationResponse,
+  verifyRegistrationResponse,
+  type AuthenticationResponseJSON,
+  type RegistrationResponseJSON,
+} from '@simplewebauthn/server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { createNodeWebSocket } from '@hono/node-ws';
 import { Hono, type Context } from 'hono';
@@ -32,7 +40,7 @@ const MAX_PAYLOAD_BYTES = 64 * 1024;
 const SLOT_RE = /^[0-9a-f]{32}$/;
 const DEFAULT_KDF = { alg: 'argon2id13', ops: 3, mem: 64 * 1024 * 1024 } as const;
 
-function fail(status: 401 | 403 | 404 | 409 | 413 | 429, message: string, extra?: Record<string, unknown>): never {
+function fail(status: 400 | 401 | 403 | 404 | 409 | 413 | 429, message: string, extra?: Record<string, unknown>): never {
   throw new HTTPException(status, {
     res: new Response(JSON.stringify({ error: message, ...extra }), {
       status,
@@ -310,6 +318,137 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
     const session = createSession(row.id, deviceName);
     return c.json({ userId: row.id, isAdmin: row.is_admin === 1, bundle: JSON.parse(row.bundle), ...session });
+  });
+
+  // ---------- passkey (WebAuthn с PRF) ----------
+
+  /** Вызовы WebAuthn живут 5 минут и одноразовые. */
+  const challenges = new Map<string, { challenge: string; userId: string | null; expires: number }>();
+  const takeChallenge = (key: string): { challenge: string; userId: string | null } => {
+    const ch = challenges.get(key);
+    challenges.delete(key);
+    if (!ch || ch.expires < now()) fail(400, 'challenge_expired');
+    return ch!;
+  };
+  const passkeyOrigin = () => {
+    if (!config.publicUrl) fail(404, 'passkeys_disabled');
+    return { origin: config.publicUrl, rpID: new URL(config.publicUrl).hostname };
+  };
+
+  app.post('/api/passkeys/register/options', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const { rpID } = passkeyOrigin();
+    const row = db.prepare('SELECT email FROM users WHERE id = ?').get(userId) as { email: string };
+    const existing = db.prepare('SELECT id, transports FROM passkeys WHERE user_id = ?').all(userId) as Array<{ id: string; transports: string }>;
+    const options = await generateRegistrationOptions({
+      rpName: 'Dela',
+      rpID,
+      userName: row.email,
+      userID: new TextEncoder().encode(userId),
+      attestationType: 'none',
+      authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
+      excludeCredentials: existing.map((p) => ({ id: p.id, transports: JSON.parse(p.transports) })),
+    });
+    challenges.set(`reg:${userId}`, { challenge: options.challenge, userId, expires: now() + 5 * 60_000 });
+    return c.json({ options });
+  });
+
+  app.post('/api/passkeys/register', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const { origin, rpID } = passkeyOrigin();
+    const b = await body(c);
+    const name = str(b.name, 'name', { max: 100 });
+    const wrappedMaster = str(b.wrappedMaster, 'wrappedMaster', { max: 400 });
+    const { challenge } = takeChallenge(`reg:${userId}`);
+    let verification;
+    try {
+      verification = await verifyRegistrationResponse({
+        response: b.response as RegistrationResponseJSON,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        requireUserVerification: true,
+      });
+    } catch {
+      fail(400, 'passkey_invalid');
+    }
+    if (!verification!.verified || !verification!.registrationInfo) fail(400, 'passkey_invalid');
+    const cred = verification!.registrationInfo!.credential;
+    db.prepare(
+      'INSERT INTO passkeys (id, user_id, name, public_key, counter, transports, wrapped_master, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    ).run(cred.id, userId, name, Buffer.from(cred.publicKey), cred.counter, JSON.stringify(cred.transports ?? []), wrappedMaster, now());
+    return c.json({ ok: true }, 201);
+  });
+
+  app.post('/api/passkeys/login/options', async (c) => {
+    const { rpID } = passkeyOrigin();
+    if (!ipLimiter.hit(`ip:${clientIp(c, config.trustProxy)}`)) fail(429, 'rate_limited');
+    const options = await generateAuthenticationOptions({ rpID, userVerification: 'required', allowCredentials: [] });
+    const challengeId = newToken();
+    challenges.set(`login:${challengeId}`, { challenge: options.challenge, userId: null, expires: now() + 5 * 60_000 });
+    // Старые вызовы не копятся.
+    if (challenges.size > 10_000) for (const [k, v] of challenges) if (v.expires < now()) challenges.delete(k);
+    return c.json({ challengeId, options });
+  });
+
+  app.post('/api/passkeys/login', async (c) => {
+    const { origin, rpID } = passkeyOrigin();
+    const b = await body(c);
+    const challengeId = str(b.challengeId, 'challengeId', { max: 100 });
+    const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
+    const response = obj(b.response, 'response') as unknown as AuthenticationResponseJSON;
+    const credId = str((response as { id?: unknown }).id, 'response.id', { max: 1400 });
+    if (!loginLimiter.hit(`passkey:${credId}`)) fail(429, 'rate_limited');
+    const { challenge } = takeChallenge(`login:${challengeId}`);
+    const row = db
+      .prepare('SELECT p.id, p.user_id, p.public_key, p.counter, p.transports, p.wrapped_master, u.email, u.bundle, u.is_admin FROM passkeys p JOIN users u ON u.id = p.user_id WHERE p.id = ?')
+      .get(credId) as
+      | { id: string; user_id: string; public_key: Uint8Array; counter: number; transports: string; wrapped_master: string; email: string; bundle: string; is_admin: number }
+      | undefined;
+    if (!row) fail(401, 'invalid_credentials');
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge: challenge,
+        expectedOrigin: origin,
+        expectedRPID: rpID,
+        credential: { id: row!.id, publicKey: new Uint8Array(row!.public_key), counter: Number(row!.counter), transports: JSON.parse(row!.transports) },
+        requireUserVerification: true,
+      });
+    } catch {
+      fail(401, 'invalid_credentials');
+    }
+    if (!verification!.verified) fail(401, 'invalid_credentials');
+    db.prepare('UPDATE passkeys SET counter = ?, last_used_at = ? WHERE id = ?').run(verification!.authenticationInfo.newCounter, now(), row!.id);
+    const session = createSession(row!.user_id, deviceName);
+    return c.json({
+      userId: row!.user_id,
+      email: row!.email,
+      isAdmin: row!.is_admin === 1,
+      bundle: JSON.parse(row!.bundle),
+      wrappedMaster: row!.wrapped_master,
+      ...session,
+    });
+  });
+
+  app.get('/api/passkeys', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const rows = db.prepare('SELECT id, name, created_at, last_used_at FROM passkeys WHERE user_id = ? ORDER BY created_at').all(userId) as Array<{
+      id: string;
+      name: string;
+      created_at: number;
+      last_used_at: number | null;
+    }>;
+    return c.json({
+      passkeys: rows.map((r) => ({ id: r.id, name: r.name, createdAt: Number(r.created_at), lastUsedAt: r.last_used_at === null ? null : Number(r.last_used_at) })),
+    });
+  });
+
+  app.delete('/api/passkeys/:id', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    db.prepare('DELETE FROM passkeys WHERE id = ? AND user_id = ?').run(c.req.param('id') ?? '', userId);
+    return c.json({ ok: true });
   });
 
   // ---------- восстановление по ключу ----------

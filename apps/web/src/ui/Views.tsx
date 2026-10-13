@@ -7,6 +7,7 @@ import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
 import { LockSettings } from './Lock.tsx';
+import { passkeysSupported } from '../passkey.ts';
 import { saveProjectAsTemplate } from './History.tsx';
 import { checkDesktopUpdate, platform } from '../platform.ts';
 import { ShareDialog } from './Share.tsx';
@@ -520,6 +521,7 @@ export function SettingsView() {
       <ReminderSettings />
       <ChangePassword />
       <TwoFactor />
+      <Passkeys />
       <LockSettings />
       <DesktopUpdates />
       <DeleteAccount />
@@ -1064,6 +1066,80 @@ export function DesktopUpdates() {
         }}
       >
         Проверить обновления
+      </button>
+      {msg && <p className="muted">{msg}</p>}
+    </section>
+  );
+}
+
+/** Passkey: вход без пароля в браузере на домене сервера. */
+export function Passkeys() {
+  const [list, setList] = useState<Array<{ id: string; name: string; createdAt: number; lastUsedAt: number | null }> | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = () =>
+    controller.api
+      .passkeys()
+      .then((r) => setList(r.passkeys))
+      .catch(() => setList([]));
+  useEffect(() => {
+    void load();
+  }, []);
+  if (!passkeysSupported()) return null;
+  return (
+    <section className="settings">
+      <h2>Вход по passkey</h2>
+      <p className="muted">
+        Вход отпечатком, лицом или Windows Hello без пароля. Ключ шифрования открывает секрет PRF самого passkey, сервер его не видит. Работает в браузере на
+        адресе этого сервера.
+      </p>
+      {list?.map((p) => (
+        <div key={p.id} className="trash-row">
+          <span>
+            {p.name}
+            <br />
+            <span className="muted">
+              Добавлен {new Date(p.createdAt).toLocaleDateString('ru')}
+              {p.lastUsedAt ? `, вход ${new Date(p.lastUsedAt).toLocaleDateString('ru')}` : ''}
+            </span>
+          </span>
+          <button
+            onClick={async () => {
+              if (!confirm(`Удалить passkey «${p.name}»?`)) return;
+              await controller.api.deletePasskey(p.id);
+              void load();
+            }}
+          >
+            Удалить
+          </button>
+        </div>
+      ))}
+      <button
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          setMsg(null);
+          try {
+            await controller.addPasskey(navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Android') ? 'Android' : 'Passkey');
+            setMsg('Passkey добавлен. Теперь на экране входа можно нажать «Войти по passkey».');
+            void load();
+          } catch (err) {
+            const code = err instanceof Error ? err.message : '';
+            setMsg(
+              code === 'prf_unsupported'
+                ? 'Этот passkey не умеет PRF. Подойдут Google Password Manager, iCloud Keychain, Windows Hello на Windows 11 и ключи FIDO2.'
+                : code === 'passkeys_disabled'
+                  ? 'На сервере не задан DELA_PUBLIC_URL, поэтому passkey выключены.'
+                  : err instanceof Error && err.name === 'NotAllowedError'
+                    ? 'Добавление отменено.'
+                    : 'Не получилось добавить passkey.',
+            );
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Добавить passkey
       </button>
       {msg && <p className="muted">{msg}</p>}
     </section>

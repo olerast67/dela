@@ -422,3 +422,26 @@ export function sealFile(data: Uint8Array, spaceId: string, fileId: string): { k
 export function openFile(blob: Uint8Array, key: string, spaceId: string, fileId: string): Uint8Array {
   return open(blob, fromB64(key), `dela/file/v1\n${spaceId}\n${fileId}`);
 }
+
+// ---------- passkey с PRF ----------
+
+/**
+ * Соль PRF одна на всё приложение: секрет PRF и так свой у каждого passkey.
+ * Этот секрет не покидает устройство, из него выводится ключ, которым обёрнут мастер-ключ аккаунта.
+ */
+export function passkeyPrfSalt(): Uint8Array {
+  return na().crypto_generichash(32, encoder.encode('dela/passkey/prf/v1'), null);
+}
+
+function passkeyWrappingKey(prfOutput: Uint8Array): Uint8Array {
+  const s = na();
+  return s.crypto_kdf_derive_from_key(KEY_BYTES, 1, 'dela_psk', s.crypto_generichash(KEY_BYTES, prfOutput, null));
+}
+
+export function wrapMasterForPasskey(masterKey: Uint8Array, prfOutput: Uint8Array): string {
+  return wrapKey(masterKey, passkeyWrappingKey(prfOutput), 'master-passkey');
+}
+
+export function openAccountWithPasskey(bundle: AccountBundle, wrappedMaster: string, prfOutput: Uint8Array): AccountKeys {
+  return openWithMaster(bundle, unwrapKey(wrappedMaster, passkeyWrappingKey(prfOutput), 'master-passkey'));
+}

@@ -3,6 +3,7 @@ import { ApiError, DecryptError, NetworkError } from '#core';
 import { controller } from '../controller.ts';
 import { isNative, normalizeServerUrl, serverUrl, setServerUrl } from '../platform.ts';
 import { useAppState } from '../hooks.ts';
+import { passkeysSupported } from '../passkey.ts';
 
 const ERRORS: Record<string, string> = {
   invalid_credentials: 'Неверный адрес или пароль.',
@@ -13,6 +14,8 @@ const ERRORS: Record<string, string> = {
   registration_closed: 'Регистрация на этом сервере закрыта.',
   invalid_invite: 'Приглашение неверное, использовано или истекло.',
   email_taken: 'Этот адрес уже зарегистрирован. Войдите.',
+  passkeys_disabled: 'На этом сервере вход по passkey выключен: администратору нужно задать DELA_PUBLIC_URL.',
+  challenge_expired: 'Время на вход вышло. Попробуйте ещё раз.',
 };
 
 function message(err: unknown): string {
@@ -20,6 +23,9 @@ function message(err: unknown): string {
   if (err instanceof ApiError) return ERRORS[err.code] ?? `Ошибка сервера: ${err.code}`;
   if (err instanceof SyntaxError) return 'Ключ восстановления введён с ошибкой: проверьте символы.';
   if (err instanceof DecryptError) return 'Ключ не подходит к этому аккаунту.';
+  if (err instanceof Error && err.message === 'prf_unsupported')
+    return 'Этот passkey не умеет PRF, без него ключи шифрования не открыть. Подойдут Google Password Manager, iCloud Keychain, Windows Hello на Windows 11 и ключи FIDO2.';
+  if (err instanceof Error && (err.name === 'NotAllowedError' || err.message === 'cancelled')) return 'Вход по passkey отменён.';
   return 'Что-то пошло не так. Попробуйте ещё раз.';
 }
 
@@ -139,6 +145,25 @@ export function AuthScreen() {
         <button className="primary" disabled={busy}>
           {busy ? 'Подождите…' : mode === 'login' ? 'Войти' : mode === 'recover' ? 'Задать пароль и войти' : 'Создать аккаунт'}
         </button>
+        {mode === 'login' && passkeysSupported() && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              try {
+                await controller.loginWithPasskey();
+              } catch (err) {
+                setError(message(err));
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Войти по passkey
+          </button>
+        )}
         {mode === 'login' && (
           <button
             type="button"
