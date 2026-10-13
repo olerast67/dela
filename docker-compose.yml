@@ -1,0 +1,25 @@
+# Пример установки. Запуск: docker compose up -d
+# Сервер слушает 8080; снаружи его нужно закрыть HTTPS (Caddy, nginx, Traefik).
+services:
+  dela:
+    image: ghcr.io/olerast67/dela:latest
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:8080:8080'
+    volumes:
+      - dela-data:/data
+    environment:
+      # Регистрация после первого пользователя только по приглашениям; true — открыть всем.
+      DELA_OPEN_REGISTRATION: 'false'
+      # Сколько ежедневных снимков базы хранить в /data/backups.
+      DELA_BACKUP_KEEP: '7'
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  dela-data:

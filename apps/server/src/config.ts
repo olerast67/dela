@@ -21,6 +21,8 @@ export interface Config {
   readonly webDir: string;
   /** Разрешённые источники для CORS при разработке веб-клиента отдельно от сервера. */
   readonly corsOrigins: readonly string[];
+  /** Сколько ежедневных снимков базы хранить; 0 — не делать. */
+  readonly backupKeep: number;
 }
 
 function bool(v: string | undefined, fallback: boolean): boolean {
@@ -40,6 +42,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     sessionTtl: Number(env.DELA_SESSION_TTL_DAYS ?? 180) * 24 * 3600 * 1000,
     webDir: env.DELA_WEB_DIR ?? (existsSync(join(BUNDLED_WEB, 'index.html')) ? BUNDLED_WEB : ''),
     corsOrigins: (env.DELA_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    backupKeep: Number(env.DELA_BACKUP_KEEP ?? 7),
   };
 }
 
@@ -54,6 +57,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     sessionTtl: 24 * 3600 * 1000,
     webDir: '',
     corsOrigins: [],
+    backupKeep: 0,
     ...overrides,
   };
 }
