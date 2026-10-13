@@ -1407,3 +1407,18 @@ kbd {
 .share-msg {
   margin: 0 16px 16px;
 }
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 6px 0 0 26px;
+  font-size: 14px;
+}
+
+.links a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}

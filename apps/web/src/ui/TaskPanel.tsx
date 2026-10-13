@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { parseTask, type DateSpec, type Priority } from '#core';
+import { extractLinks, parseTask, type DateSpec, type Priority } from '#core';
+import { openExternal } from '../platform.ts';
 import { TZ, dateLabel, durationLabel } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
@@ -136,6 +137,24 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
           />
         </div>
         <textarea className="panel-desc" placeholder="Описание" rows={3} {...description} aria-label="Описание" />
+        {extractLinks(`${task.title} ${task.description}`).length > 0 && (
+          <div className="links">
+            {extractLinks(`${task.title} ${task.description}`).map((url) => (
+              <a
+                key={url}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void openExternal(url);
+                }}
+              >
+                {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+              </a>
+            ))}
+          </div>
+        )}
 
         <dl className="fields">
           <dt>Срок</dt>

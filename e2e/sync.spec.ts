@@ -46,8 +46,8 @@ test('два устройства сходятся после офлайн-пр�
   await expect(pb.getByText('Купить хлеб')).toBeVisible({ timeout: 20_000 });
 
   // Онлайн: правка на A появляется на B без перезагрузки (сигнал по WebSocket).
-  await addTask(pa, 'Позвонить маме сегодня в 19');
-  await expect(pb.getByText('Позвонить маме')).toBeVisible({ timeout: 10_000 });
+  await addTask(pa, 'Позвонить бабушке сегодня в 19');
+  await expect(pb.getByText('Позвонить бабушке')).toBeVisible({ timeout: 10_000 });
 
   // Офлайн на B: правки сохраняются локально и уходят после восстановления сети.
   await b.setOffline(true);
@@ -62,7 +62,7 @@ test('два устройства сходятся после офлайн-пр�
   await b.setOffline(false);
   await pb.evaluate(() => window.dispatchEvent(new Event('online')));
   for (const page of [pa, pb]) {
-    for (const title of ['Купить хлеб', 'Позвонить маме', 'Офлайн задача', 'Онлайн задача']) {
+    for (const title of ['Купить хлеб', 'Позвонить бабушке', 'Офлайн задача', 'Онлайн задача']) {
       await expect(page.getByText(title)).toBeVisible({ timeout: 20_000 });
     }
   }
@@ -113,7 +113,9 @@ test('клавиатура, палитра команд и перетаскив�
   await page.getByRole('button', { name: 'Продолжить' }).click();
   await page.goto('/#/inbox');
   for (const t of ['Первая', 'Вторая', 'Третья']) await addTask(page, t);
-  const titles = () => page.locator('.content .task-title').allTextContents();
+  // Во «Входящих» нового аккаунта есть приветственные задачи: смотрим только на свои.
+  const mine = ['Первая', 'Вторая', 'Третья'];
+  const titles = async () => (await page.locator('.content .task-title').allTextContents()).filter((t) => mine.includes(t));
   await expect.poll(titles).toEqual(['Первая', 'Вторая', 'Третья']);
 
   // Перетаскивание: «Третья» в верхнюю часть «Первой» — встаёт первой.
@@ -123,8 +125,7 @@ test('клавиатура, палитра команд и перетаскив�
   await expect.poll(titles).toEqual(['Третья', 'Первая', 'Вторая']);
 
   // Клавиатура: вниз, выполнить.
-  await page.locator('body').click({ position: { x: 5, y: 5 } });
-  await page.keyboard.press('ArrowDown');
+  await page.locator('.task', { hasText: 'Третья' }).focus();
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('e');
   await expect.poll(titles).toEqual(['Третья', 'Вторая']);

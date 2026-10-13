@@ -146,3 +146,4 @@ export { parseFilter, runFilter, FilterSyntaxError, type FilterResult } from './
 export { remindersBetween, offsetsOf, isReminderList, MAX_REMINDERS, type Reminder } from './reminders.ts';
 export { Workspace } from './workspace.ts';
 export type { FilterSource } from './filter.ts';
+export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';

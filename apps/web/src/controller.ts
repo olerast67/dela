@@ -27,6 +27,7 @@ import {
   newNodeId,
   persistLocal,
   recoverAccount,
+  welcomeTasks,
   remindersBetween,
   type Reminder,
   signIn,
@@ -188,6 +189,8 @@ export class Controller {
       ...(invite ? { invite } : {}),
     });
     await this.persistAndStart(session);
+    // Новый аккаунт начинается с нескольких задач: первая — подписаться на автора проекта.
+    for (const t of welcomeTasks(new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()))) this.doc?.createTask(t);
     this.set({ phase: 'recovery', recoveryKey });
   }
 

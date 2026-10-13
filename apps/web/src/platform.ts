@@ -169,3 +169,13 @@ export async function onSharedText(fn: (text: string) => void): Promise<() => vo
   if (first.text) fn(first.text);
   return () => void handle.remove();
 }
+
+/** Открыть ссылку в системном браузере. */
+export async function openExternal(url: string): Promise<void> {
+  if (platform() === 'tauri') {
+    const { openUrl } = await import('@tauri-apps/plugin-opener');
+    await openUrl(url);
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}

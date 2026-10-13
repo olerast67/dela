@@ -1,7 +1,24 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Права главного окна: события и уведомления",
-  "windows": ["main"],
-  "permissions": ["core:default", "core:event:default", "notification:default"]
+  "description": "Права главного окна: события, уведомления, открытие ссылок http(s) в браузере",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "notification:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://*"
+        },
+        {
+          "url": "http://*"
+        }
+      ]
+    }
+  ]
 }
