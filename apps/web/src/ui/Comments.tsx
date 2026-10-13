@@ -11,6 +11,8 @@ import { IconX } from './icons.tsx';
 
 /** Шифротекст файла не больше 7 МиБ: столько принимает сервер. */
 const MAX_FILE = 7 * 1024 * 1024 - 1024;
+/** SVG не показывается: в нём бывают скрипты и внешние ссылки. */
+const RASTER = /^image\/(png|jpeg|gif|webp|avif)$/;
 
 function sizeLabel(n: number): string {
   if (n < 1024) return `${n} Б`;
@@ -20,13 +22,14 @@ function sizeLabel(n: number): string {
 
 async function decrypt(spaceId: string, file: Attachment): Promise<Blob> {
   const blob = await controller.api.downloadFile(spaceId, file.id);
-  return new Blob([openFile(blob, file.key, spaceId, file.id) as BlobPart], { type: file.type || 'application/octet-stream' });
+  // Тип файла задаёт автор комментария: показываем только растровые картинки, остальное как двоичный файл.
+  return new Blob([openFile(blob, file.key, spaceId, file.id) as BlobPart], { type: RASTER.test(file.type) ? file.type : 'application/octet-stream' });
 }
 
 function FileView({ spaceId, file }: { spaceId: string; file: Attachment }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
-  const image = file.type.startsWith('image/');
+  const image = RASTER.test(file.type);
   useEffect(() => {
     if (!image) return;
     let alive = true;

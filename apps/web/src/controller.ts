@@ -542,6 +542,7 @@ export class Controller {
     const { members } = await this.api.spaceMembers(spaceId);
     const list = members.map((m) => ({ userId: m.userId, email: m.email }));
     this.memberCache.set(spaceId, list);
+    if (this.roles.get(spaceId) === 'owner') void this.rotateIfMemberLeft(spaceId, new Set(list.map((m) => m.userId)));
     this.docVersion++;
     for (const fn of this.docListeners) fn();
     return list;
@@ -610,6 +611,34 @@ export class Controller {
     this.keyWarnings.delete(spaceId);
     await this.refreshSpaces();
   }
+
+  /**
+   * Участник вышел сам, удалил аккаунт или прошлая смена ключа не удалась: у него остался ключ проекта.
+   * Закреплённый ключ ушедшего участника остаётся, пока ключ проекта не сменён, поэтому смена повторяется.
+   */
+  private async rotateIfMemberLeft(spaceId: string, present: ReadonlySet<string>): Promise<void> {
+    const ws = this.doc;
+    if (!ws || this.rotating.has(spaceId)) return;
+    const prefix = `${spaceId}:`;
+    const departed = [...ws.personal.replica.all('pin').entries()]
+      .filter(([id, rec]) => id.startsWith(prefix) && !id.endsWith(':owner') && typeof rec.public_key === 'string' && !present.has(id.slice(prefix.length)))
+      .map(([id]) => id);
+    if (departed.length === 0) return;
+    this.rotating.add(spaceId);
+    try {
+      await this.rotateKey(spaceId);
+      ws.personal.write(
+        departed.map((id) => ['pin', id, 'public_key', null] as const),
+        { undoable: false },
+      );
+    } catch {
+      // нет сети или нужны подтверждения участников: повторим при следующем обновлении
+    } finally {
+      this.rotating.delete(spaceId);
+    }
+  }
+
+  private readonly rotating = new Set<string>();
 
   /** Владелец подтверждает участников, чьи ключи ещё не закреплены (или сменились), сверив отпечатки. */
   pinMembers(spaceId: string, members: ReadonlyArray<{ userId: string; publicKey: string }>): void {

@@ -68,9 +68,10 @@ jobs:
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
         shell: bash
         run: |
           dir=apps/desktop/src-tauri/target/release/bundle/nsis
           node scripts/latest-json.mjs > latest.json
           (cd "$dir" && sha256sum *.exe) > SHA256SUMS-windows.txt
-          gh release upload "${{ inputs.tag }}" "$dir"/*.exe latest.json SHA256SUMS-windows.txt --clobber
+          gh release upload "$TAG" "$dir"/*.exe latest.json SHA256SUMS-windows.txt --clobber

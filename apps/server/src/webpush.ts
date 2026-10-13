@@ -74,7 +74,7 @@ export function encryptPayload(
 
 /** Адрес подписки должен вести к известному push-сервису: сервер не будет стучаться куда попало. */
 const PUSH_HOSTS = [
-  /(^|\.)googleapis\.com$/,
+  /^fcm\.googleapis\.com$/,
   /(^|\.)push\.services\.mozilla\.com$/,
   /(^|\.)push\.apple\.com$/,
   /(^|\.)notify\.windows\.com$/,
@@ -111,6 +111,9 @@ export async function sendPush(
       urgency: 'high',
     },
     body: new Uint8Array(encryptPayload(sub, payload)),
+    // Перенаправление увело бы запрос с разрешённого адреса; медленный сервис не держит остальные напоминания.
+    redirect: 'manual',
+    signal: AbortSignal.timeout(10_000),
   });
   if (res.status === 404 || res.status === 410) return 'gone';
   return res.ok ? 'ok' : 'error';

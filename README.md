@@ -106,6 +106,7 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 | `DELA_MAX_FILE_MB_PER_SPACE` | `1024` | Limit of encrypted files per project space, MB. One file is up to 7 MB |
 | `DELA_VAPID_SUBJECT` | repository URL | Contact for push services, `mailto:` or `https:` |
 | `DELA_PUBLIC_URL` | empty | Address the web app is opened at, for example `https://tasks.example.com`. Needed for passkeys |
+| `DELA_MAX_SHARED_SPACES` | `200` | Shared projects one user can create |
 | `DELA_PUSH_HOSTS` | empty | Your own UnifiedPush distributors (host names, comma-separated); ntfy.sh is allowed by default |
 
 ### Updating and backups
@@ -122,7 +123,7 @@ Argon2id derives two keys from the password on the device: one proves the login 
 
 The server sees email addresses, devices, members of shared projects, change times, sizes rounded to 64 bytes and reminder times. Task text, dates, labels, project names, field names and record IDs reach the server only encrypted. If both the password and the recovery key are lost, the data cannot be decrypted.
 
-Known limitations: in the browser the data is stored decrypted in IndexedDB (the account keys are wrapped by a non-extractable WebCrypto key); a member removed from a shared project keeps what they already saw, and the project gets a new key, so they cannot read later changes; the PIN lock closes the app screen and does not add another layer of encryption to the data on the device. Details are in [docs/architecture.md](docs/architecture.md), the report process is in [SECURITY.md](SECURITY.md).
+Known limitations: in the browser the data is stored decrypted in IndexedDB (the account keys are wrapped by a non-extractable WebCrypto key); a member removed from a shared project keeps what they already saw, and the project gets a new key, so they cannot read later changes; the PIN lock closes the app screen and does not add another layer of encryption to the data on the device; the author of a comment in a shared project is not signed, so members trust each other for it; the recovery key opens the account without the TOTP code. Details are in [docs/architecture.md](docs/architecture.md), the report process is in [SECURITY.md](SECURITY.md).
 
 ## Support the project
 

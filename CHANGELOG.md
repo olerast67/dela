@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+Security fixes after an audit:
+
+- Project keys are confirmed by the owner, and members pin the owner's key; owners pin members' keys and confirm fingerprints before a key change. A server can no longer hand out its own project key.
+- A member could make the owner's app delete another member through a crafted file id in a comment.
+- Adding a passkey and turning TOTP on need the password; recovery removes passkeys; a password change disconnects other devices.
+- Key rotation no longer loses edits that arrive during it, works for projects of any size, and members whose app saw new data before the new key no longer miss it. The owner rotates the key again when a member leaves on their own.
+- Push: only the push services themselves are allowed, no redirects, 10 s timeout; long titles no longer block the schedule.
+- Android: the widget's command receiver is private, app backup is off, reminders hide the task title on the lock screen.
+- Limits: shared projects per user (`DELA_MAX_SHARED_SPACES`), used invites stay used after an account is deleted, failed logins from other addresses do not lock the owner out as fast.
+- Images in comments now show in the Windows app; SVG files are not previewed.
+
 ## 0.4.0
 
 - Sign in with a passkey (Windows Hello, fingerprint, Google Password Manager, iCloud Keychain, FIDO2 keys) in the browser. The PRF extension opens the account key on the device, so end-to-end encryption stays without a password. The server needs `DELA_PUBLIC_URL`.

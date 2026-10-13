@@ -152,6 +152,11 @@ const MIGRATIONS: readonly string[] = [
     PRIMARY KEY (rotation_id, slot)
   ) STRICT, WITHOUT ROWID;
   `,
+  `
+  -- Отметка использования приглашения: used_by обнуляется при удалении аккаунта, used_at остаётся.
+  ALTER TABLE invites ADD COLUMN used_at INTEGER;
+  UPDATE invites SET used_at = created_at WHERE used_by IS NOT NULL;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -92,6 +92,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   const hub = new Hub();
   const loginLimiter = new RateLimiter(10, 15 * 60_000, now);
   const ipLimiter = new RateLimiter(60, 15 * 60_000, now);
+  const emailLimiter = new RateLimiter(50, 15 * 60_000, now);
 
   const serverSecret = (() => {
     const row = db.prepare("SELECT value FROM meta WHERE key = 'server_secret'").get() as { value: Uint8Array } | undefined;
@@ -269,16 +270,16 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
         if (!invite) fail(403, 'invite_required');
         inviteHash = sha256(invite);
         const inv = db
-          .prepare('SELECT expires_at, used_by FROM invites WHERE code_hash = ?')
-          .get(inviteHash) as { expires_at: number; used_by: string | null } | undefined;
-        if (!inv || inv.used_by !== null || Number(inv.expires_at) <= now()) fail(403, 'invalid_invite');
+          .prepare('SELECT expires_at, used_by, used_at FROM invites WHERE code_hash = ?')
+          .get(inviteHash) as { expires_at: number; used_by: string | null; used_at: number | null } | undefined;
+        if (!inv || inv.used_by !== null || inv.used_at !== null || Number(inv.expires_at) <= now()) fail(403, 'invalid_invite');
       }
       if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) fail(409, 'email_taken');
       const userId = uuidv7(now());
       db.prepare(
         'INSERT INTO users (id, email, auth_salt, auth_hash, bundle, is_admin, created_at, recovery_salt, recovery_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       ).run(userId, email, authSalt, authHash, JSON.stringify(bundle), isFirst ? 1 : 0, now(), recoverySalt, recoveryHash);
-      if (inviteHash) db.prepare('UPDATE invites SET used_by = ? WHERE code_hash = ?').run(userId, inviteHash);
+      if (inviteHash) db.prepare('UPDATE invites SET used_by = ?, used_at = ? WHERE code_hash = ?').run(userId, now(), inviteHash);
       return { userId, isAdmin: isFirst, ...createSession(userId, deviceName) };
     });
     return c.json(result, 201);
@@ -289,7 +290,9 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const email = normEmail(b.email);
     const authSecret = b64(b.authSecret, 'authSecret', { bytes: 32 });
     const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
-    if (!ipLimiter.hit(`ip:${clientIp(c, config.trustProxy)}`) || !loginLimiter.hit(`login:${email}`)) fail(429, 'rate_limited');
+    const ip = clientIp(c, config.trustProxy);
+    // Перебор с одного адреса упирается в 10 попыток, а чужие попытки с других адресов не запирают владельца сразу.
+    if (!ipLimiter.hit(`ip:${ip}`) || !loginLimiter.hit(`login:${email}:${ip}`) || !emailLimiter.hit(`login:${email}`)) fail(429, 'rate_limited');
 
     const row = db
       .prepare('SELECT id, auth_salt, auth_hash, bundle, is_admin, totp_secret, totp_enabled, totp_last FROM users WHERE email = ?')
@@ -735,6 +738,10 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
       if (db.prepare('SELECT 1 FROM spaces WHERE id = ?').get(id)) fail(409, 'space_exists');
       if (kind === 'personal' && db.prepare("SELECT 1 FROM spaces WHERE created_by = ? AND kind = 'personal'").get(userId)) {
         fail(409, 'personal_space_exists');
+      }
+      if (kind === 'shared') {
+        const n = Number((db.prepare("SELECT count(*) AS n FROM spaces WHERE created_by = ? AND kind = 'shared'").get(userId) as { n: number }).n);
+        if (n >= config.maxSharedSpaces) fail(413, 'too_many_spaces');
       }
       db.prepare('INSERT INTO spaces (id, kind, created_by, created_at) VALUES (?, ?, ?, ?)').run(id, kind, userId, now());
       db.prepare("INSERT INTO members (space_id, user_id, role, key_kind, key) VALUES (?, ?, 'owner', 'wrapped', ?)").run(

@@ -93,7 +93,12 @@ public class DelaPushService extends PushService {
             .setContentText(body)
             .setAutoCancel(true)
             .setContentIntent(pi)
-            .setPriority(NotificationCompat.PRIORITY_HIGH);
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            // На экране блокировки без названия задачи: оно видно после разблокировки телефона.
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(
+                new NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_tile_add).setContentTitle("Напоминание Dela").build()
+            );
         try {
             nm.notify(key.hashCode(), n.build());
         } catch (SecurityException ignored) {

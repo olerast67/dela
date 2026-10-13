@@ -72,6 +72,8 @@ describe('Web Push', () => {
     expect(isAllowedEndpoint('https://updates.push.services.mozilla.com/wpush/v2/x')).toBe(true);
     // UnifiedPush: ntfy.sh из коробки, свой распространитель только по DELA_PUSH_HOSTS.
     expect(isAllowedEndpoint('https://ntfy.sh/upAbC123?up=1')).toBe(true);
+    // Только сервис push Google, а не любой его API.
+    expect(isAllowedEndpoint('https://storage.googleapis.com/bucket/x')).toBe(false);
     expect(isAllowedEndpoint('https://evil.ntfy.sh.example/x')).toBe(false);
     expect(isAllowedEndpoint('https://push.example.org/up123')).toBe(false);
     expect(isAllowedEndpoint('https://push.example.org/up123', ['push.example.org'])).toBe(true);

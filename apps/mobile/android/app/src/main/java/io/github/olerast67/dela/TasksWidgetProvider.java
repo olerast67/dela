@@ -33,24 +33,6 @@ public class TasksWidgetProvider extends AppWidgetProvider {
         for (int id : ids) WidgetStore.deleteConfig(context, id);
     }
 
-    @Override
-    public void onReceive(Context context, Intent intent) {
-        super.onReceive(context, intent);
-        if (!ACTION_ITEM.equals(intent.getAction())) return;
-        String task = intent.getStringExtra(EXTRA_TASK);
-        if (task == null) return;
-        if ("complete".equals(intent.getStringExtra(EXTRA_OP))) {
-            WidgetStore.addCompleted(context, task);
-            WidgetStore.refreshAll(context);
-            WidgetBridgePlugin.onWidgetCompleted();
-        } else {
-            Intent open = new Intent(context, MainActivity.class);
-            open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            open.putExtra(WidgetBridgePlugin.EXTRA_TASK_ID, task);
-            context.startActivity(open);
-        }
-    }
-
     private static int mutable() {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0;
     }
@@ -94,7 +76,7 @@ public class TasksWidgetProvider extends AppWidgetProvider {
         v.setRemoteAdapter(R.id.widget_list, service);
         v.setEmptyView(R.id.widget_list, R.id.widget_empty);
 
-        Intent item = new Intent(c, TasksWidgetProvider.class);
+        Intent item = new Intent(c, WidgetActionReceiver.class);
         item.setAction(ACTION_ITEM);
         item.setData(Uri.parse("dela://widget-item/" + widgetId));
         v.setPendingIntentTemplate(
