@@ -1,0 +1,1 @@
+Security fixes after an audit: owner-confirmed project keys, safer key rotation, password confirmation for passkeys, private widget receiver, no app backup.
