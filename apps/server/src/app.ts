@@ -180,7 +180,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
         // libsodium работает через WebAssembly.
         scriptSrc: ["'self'", "'wasm-unsafe-eval'"],
         styleSrc: ["'self'"],
-        imgSrc: ["'self'", 'data:'],
+        imgSrc: ["'self'", 'data:', 'blob:'],
         fontSrc: ["'self'"],
         // Импорт из Todoist идёт из браузера напрямую, минуя сервер.
         connectSrc: ["'self'", 'https://api.todoist.com'],
@@ -730,6 +730,47 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     hub.notify(members, { type: 'spaces' });
     hub.notify(members, { type: 'changed', space: spaceId, seq });
     return c.json({ ok: true, keyVersion: Number(space.key_version) + 1, seq });
+  });
+
+  // ---------- файлы ----------
+
+  /** Один файл до 7 МиБ шифротекста: общий предел тела запроса 8 МиБ. */
+  const MAX_FILE_BYTES = 7 * 1024 * 1024;
+  const FILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+  app.put('/api/spaces/:id/files/:fileId', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const fileId = c.req.param('fileId') ?? '';
+    const { role } = membership(spaceId, userId);
+    if (role === 'viewer') fail(403, 'forbidden');
+    if (!FILE_ID_RE.test(fileId)) bad('invalid file id');
+    const data = new Uint8Array(await c.req.arrayBuffer());
+    if (data.length === 0) bad('empty file');
+    if (data.length > MAX_FILE_BYTES) fail(413, 'file_too_large');
+    const used = Number((db.prepare('SELECT coalesce(sum(size), 0) AS n FROM files WHERE space_id = ?').get(spaceId) as { n: number }).n);
+    if (used + data.length > config.maxFileBytesPerSpace) fail(413, 'space_full');
+    if (db.prepare('SELECT 1 FROM files WHERE space_id = ? AND id = ?').get(spaceId, fileId)) fail(409, 'file_exists');
+    db.prepare('INSERT INTO files (space_id, id, size, created_by, created_at, data) VALUES (?, ?, ?, ?, ?, ?)').run(spaceId, fileId, data.length, userId, now(), data);
+    return c.json({ ok: true }, 201);
+  });
+
+  app.get('/api/spaces/:id/files/:fileId', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    membership(spaceId, userId);
+    const row = db.prepare('SELECT data FROM files WHERE space_id = ? AND id = ?').get(spaceId, c.req.param('fileId') ?? '') as { data: Uint8Array } | undefined;
+    if (!row) fail(404, 'not_found');
+    return c.body(Buffer.from(row!.data), 200, { 'content-type': 'application/octet-stream' });
+  });
+
+  app.delete('/api/spaces/:id/files/:fileId', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const { role } = membership(spaceId, userId);
+    if (role === 'viewer') fail(403, 'forbidden');
+    db.prepare('DELETE FROM files WHERE space_id = ? AND id = ?').run(spaceId, c.req.param('fileId') ?? '');
+    return c.json({ ok: true });
   });
 
   app.post('/api/spaces/:id/push', requireAuth, async (c) => {

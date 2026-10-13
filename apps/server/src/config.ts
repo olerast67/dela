@@ -34,6 +34,8 @@ export interface Config {
   readonly adminEmail: string;
   /** Предел числа записей (ячеек) в одном пространстве. */
   readonly maxRecordsPerSpace: number;
+  /** Сколько байт файлов может лежать в одном пространстве. */
+  readonly maxFileBytesPerSpace: number;
 }
 
 function bool(v: string | undefined, fallback: boolean): boolean {
@@ -58,6 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     trustProxy: bool(env.DELA_TRUST_PROXY, false),
     adminEmail: (env.DELA_ADMIN_EMAIL ?? '').trim().toLowerCase(),
     maxRecordsPerSpace: Number(env.DELA_MAX_RECORDS_PER_SPACE ?? 500_000),
+    maxFileBytesPerSpace: Number(env.DELA_MAX_FILE_MB_PER_SPACE ?? 1024) * 1024 * 1024,
   };
 }
 
@@ -77,6 +80,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     trustProxy: false,
     adminEmail: '',
     maxRecordsPerSpace: 500_000,
+    maxFileBytesPerSpace: 1024 * 1024 * 1024,
     ...overrides,
   };
 }

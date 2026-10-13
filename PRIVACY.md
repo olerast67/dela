@@ -9,7 +9,8 @@ The server of your Dela instance stores:
 - the list of your devices and their sessions;
 - encrypted changes of your tasks and projects, with their time and size rounded to 64 bytes;
 - members of shared projects;
-- reminder times and push subscriptions, if you turned on reminders through Web Push.
+- reminder times and push subscriptions, if you turned on reminders through Web Push;
+- files attached to comments, encrypted on the device; the server knows their size and the project they belong to.
 
 Task text, dates, labels, project names, field names and record IDs reach the server only encrypted, and the server does not have the key.
 

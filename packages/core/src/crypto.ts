@@ -406,3 +406,19 @@ export function verifyPin(hash: string, pin: string): boolean {
 
 /** 2 прохода, 32 МиБ: проверка PIN занимает доли секунды и на телефоне. */
 export const PIN_KDF: KdfParams = { alg: 'argon2id13', ops: 2, mem: 32 * 1024 * 1024 };
+
+// ---------- файлы в комментариях ----------
+
+/**
+ * Зашифровать файл новым случайным ключом. AAD связывает шифротекст с пространством и id файла:
+ * сервер не может подсунуть один файл вместо другого. Ключ кладётся в запись комментария,
+ * которая сама зашифрована ключом пространства.
+ */
+export function sealFile(data: Uint8Array, spaceId: string, fileId: string): { key: string; blob: Uint8Array } {
+  const key = newKey();
+  return { key: toB64(key), blob: seal(data, key, `dela/file/v1\n${spaceId}\n${fileId}`) };
+}
+
+export function openFile(blob: Uint8Array, key: string, spaceId: string, fileId: string): Uint8Array {
+  return open(blob, fromB64(key), `dela/file/v1\n${spaceId}\n${fileId}`);
+}

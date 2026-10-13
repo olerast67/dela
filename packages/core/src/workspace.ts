@@ -9,7 +9,7 @@
 import { localDate, instant } from './dates.ts';
 import type { Change, Doc, Listener, Position, ProjectNode, ProjectTasks, TaskInput, TaskNode, TaskPatch, TaskView } from './doc.ts';
 import { compareOrder } from './fractional.ts';
-import type { Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
+import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
 
 function byDue(tz: string): (a: TaskView, b: TaskView) => number {
   return (a, b) => {
@@ -262,6 +262,30 @@ export class Workspace {
 
   restoreTask(id: string): void {
     this.batch(() => this.docForTask(id).restoreTask(id));
+  }
+
+  addComment(taskId: string, input: { text: string; author: string | null; file?: Attachment | null }): string {
+    let id = '';
+    this.batch(() => {
+      id = this.docForTask(taskId).addComment(taskId, input);
+    });
+    return id;
+  }
+
+  deleteComment(id: string): Attachment | null {
+    const doc = this.docs().find((d) => d.hasComment(id));
+    let file: Attachment | null = null;
+    if (doc) this.batch(() => (file = doc.deleteComment(id)));
+    return file;
+  }
+
+  comments(taskId: string): Comment[] {
+    return this.docForTask(taskId).comments(taskId);
+  }
+
+  /** Пространство задачи: для общих проектов нужен список участников. */
+  spaceOfTask(taskId: string): string {
+    return this.docForTask(taskId).spaceId;
   }
 
   purgeTask(id: string): void {

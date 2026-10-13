@@ -25,6 +25,9 @@ import {
   type SavedFilter,
   type Section,
   type Task,
+  toComment,
+  type Attachment,
+  type Comment,
 } from './model.ts';
 import type { Json, Op } from './op.ts';
 import { nextOccurrence, occurrencesBetween, parseRule } from './recurrence.ts';
@@ -40,6 +43,8 @@ export type Listener = (ops: readonly Op[], origin: Origin, undoable?: boolean) 
 export interface TaskView extends Task {
   readonly depth: number;
   readonly childCount: number;
+  /** Сколько комментариев у задачи. */
+  readonly commentCount?: number;
   /** Будущий экземпляр повторяющейся задачи, показанный в «Предстоящих»; сам по себе не существует. */
   readonly projected?: boolean;
 }
@@ -91,12 +96,13 @@ export interface TaskPatch {
   readonly duration?: number | null;
   readonly recurrence?: Recurrence | null;
   readonly reminders?: readonly number[] | null;
+  readonly assignee?: string | null;
 }
 
 const PROJECT_PALETTE = ['blue', 'green', 'orange', 'violet', 'teal', 'red', 'pink', 'yellow', 'brown'] as const;
 
 /** Таблицы с мягким удалением: отмена создания помечает запись удалённой. */
-const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter']);
+const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment']);
 
 const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   title: 'title',
@@ -108,6 +114,7 @@ const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   duration: 'duration',
   recurrence: 'recurrence',
   reminders: 'reminders',
+  assignee: 'assignee',
 };
 
 interface Snapshot {
@@ -312,6 +319,10 @@ export class Doc {
     for (const [id, rec] of r.all('section')) sections.set(id, toSection(id, rec));
     const rawTasks = new Map<string, Task>();
     for (const [id, rec] of r.all('task')) rawTasks.set(id, toTask(id, rec));
+    const commentCount = new Map<string, number>();
+    for (const [, rec] of r.all('comment')) {
+      if (rec.deleted_at == null && typeof rec.task === 'string') commentCount.set(rec.task, (commentCount.get(rec.task) ?? 0) + 1);
+    }
     const labels = new Map<string, Label>();
     for (const [id, rec] of r.all('label')) labels.set(id, toLabel(id, rec));
     const filters = new Map<string, SavedFilter>();
@@ -383,6 +394,7 @@ export class Doc {
         parentId,
         depth: depthOf(id),
         childCount: (taskChildren.get(id) ?? []).filter((c) => rawTasks.get(c)!.deletedAt === null).length,
+        commentCount: commentCount.get(id) ?? 0,
       });
     }
     for (const [id, t] of tasks) {
@@ -764,6 +776,49 @@ export class Doc {
     return out;
   }
 
+  // ---------- комментарии ----------
+
+  addComment(taskId: string, input: { text: string; author: string | null; file?: Attachment | null }): string {
+    const id = uuidv7(this.now());
+    const changes: Change[] = [
+      ['comment', id, 'task', taskId],
+      ['comment', id, 'text', input.text.trim()],
+      ['comment', id, 'author', input.author],
+      ['comment', id, 'created_at', this.now()],
+    ];
+    if (input.file) changes.push(['comment', id, 'file', { ...input.file }]);
+    this.write(changes);
+    return id;
+  }
+
+  /** Удалить комментарий: текст и файл затираются, отменить нельзя. */
+  deleteComment(id: string): Attachment | null {
+    const rec = this.replica.get('comment', id);
+    if (!rec || rec.deleted_at != null) return null;
+    const file = toComment(id, rec).file;
+    this.write(
+      [
+        ['comment', id, 'text', null],
+        ['comment', id, 'file', null],
+        ['comment', id, 'deleted_at', this.now()],
+      ],
+      { undoable: false },
+    );
+    return file;
+  }
+
+  hasComment(id: string): boolean {
+    return this.replica.get('comment', id) !== undefined;
+  }
+
+  comments(taskId: string): Comment[] {
+    const out: Comment[] = [];
+    for (const [id, rec] of this.replica.all('comment')) {
+      if (rec.task === taskId && rec.deleted_at == null) out.push(toComment(id, rec));
+    }
+    return out.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+  }
+
   // ---------- метки и фильтры ----------
 
   createLabel(name: string, color = 'gray'): string {
@@ -1037,6 +1092,13 @@ export class Doc {
       }
       if (all.get(tid)?.deleted_at == null) changes.push(['task', tid, 'deleted_at', t]);
       changes.push(['task', tid, 'purged_at', t]);
+    }
+    for (const [cid, rec] of this.replica.all('comment')) {
+      if (typeof rec.task !== 'string' || !ids.has(rec.task)) continue;
+      for (const [field, value] of Object.entries(rec)) {
+        if (value !== null && field !== 'deleted_at' && field !== 'task') changes.push(['comment', cid, field, null]);
+      }
+      if (rec.deleted_at == null) changes.push(['comment', cid, 'deleted_at', t]);
     }
     this.write(changes, { undoable: false });
   }

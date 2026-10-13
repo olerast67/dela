@@ -54,7 +54,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 | Recurrence | By schedule or from the completion date: "every 2nd tuesday of the month", "every 3 days after completion", "last day of the month" |
 | Filters | Todoist syntax `(today \| overdue) & p1`, `#Work & !@waiting`, `7 days`, `search: milk`, plus Russian keywords |
 | Reminders | In the open app, through Web Push when the browser is closed, through the Android alarm schedule without a network |
-| Sharing | Shared projects with members invited by email; the project key is sealed with each member's public key |
+| Sharing | Shared projects with members invited by email, assignees, comments with files. The project key is sealed with each member's public key, files are encrypted on the device |
 | Keyboard | `Ctrl+K` command palette, `Q` quick add, `J`/`K`, `E` to complete, `T` for today, `Ctrl+Z` undoes the last 100 actions. Shortcuts use physical keys and work in any layout |
 | Apps | Web app (PWA), Windows app with a tray icon and the global shortcut `Ctrl+Shift+Space`, Android app with "Share to Dela", a home screen widget with a task list and a quick add tile |
 | Your data | Import from Todoist by API token or export file, export to JSON and Markdown, deleting tasks forever and deleting the account |
@@ -64,7 +64,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 
 | Platform | File | Notes |
 |---|---|---|
-| Windows 10 and 11 | `Dela_<version>_x64-setup.exe` | Installs for the current user. The installer is not code-signed yet, so Windows SmartScreen asks for confirmation |
+| Windows 10 and 11 | `Dela_<version>_x64-setup.exe` | Installs for the current user. The installer is not code-signed yet, so Windows SmartScreen asks for confirmation. Later versions install themselves from the app |
 | Android 7 and newer | `Dela-<version>-android.apk` | Updates through [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela) |
 | Any browser | your server address | Installs as a PWA on desktop and Android |
 
@@ -102,6 +102,7 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 | `DELA_BACKUP_KEEP` | `7` | Daily database snapshots to keep, `0` disables them |
 | `DELA_SESSION_TTL_DAYS` | `180` | Device session lifetime |
 | `DELA_MAX_RECORDS_PER_SPACE` | `500000` | Limit of stored fields per project space |
+| `DELA_MAX_FILE_MB_PER_SPACE` | `1024` | Limit of encrypted files per project space, MB. One file is up to 7 MB |
 | `DELA_VAPID_SUBJECT` | repository URL | Contact for push services, `mailto:` or `https:` |
 
 ### Updating and backups
@@ -136,7 +137,7 @@ I make videos about the projects I build and test on myself: [YouTube](https://w
 
 ## Roadmap
 
-Next on the [roadmap](ROADMAP.md): voice input, comments and assignees in shared projects, automatic updates for the Windows app.
+Next on the [roadmap](ROADMAP.md): passkeys, activity history and templates, code signing for the Windows installer, iOS app, REST API and an MCP server for AI assistants.
 
 ## Development
 

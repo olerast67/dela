@@ -512,3 +512,27 @@ describe('новый ключ общего проекта', () => {
     expect(listB.find((x: any) => x.id === spaceId)).toMatchObject({ keyVersion: 2, key: keys[1]!.key, keyKind: 'sealed' });
   });
 });
+
+describe('файлы', () => {
+  it('участник загружает и скачивает шифротекст, чужой не видит, пределы размера', async () => {
+    const s = makeServer({ openRegistration: true });
+    const a = await register(s, 'a@x.yz', 'пароль-а');
+    const b = await register(s, 'b@x.yz', 'пароль-б');
+    const ta = a.res.json.token as string;
+    const spaceId = uuidv7(NOW);
+    await s.call('POST', '/api/spaces', { id: spaceId, key: wrapSpaceKey(newKey(), a.acc.keys.masterKey, spaceId) }, ta);
+    const fileId = uuidv7(NOW);
+    const blob = new Uint8Array([1, 2, 3, 4, 5]);
+    const put = (token: string, body: Uint8Array, id = fileId) =>
+      s.app.request(`/api/spaces/${spaceId}/files/${id}`, { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' }, body: body as BodyInit });
+    expect((await put(ta, blob)).status).toBe(201);
+    expect((await put(ta, blob)).status).toBe(409);
+    const got = await s.app.request(`/api/spaces/${spaceId}/files/${fileId}`, { headers: { authorization: `Bearer ${ta}` } });
+    expect(new Uint8Array(await got.arrayBuffer())).toEqual(blob);
+    const stranger = await s.app.request(`/api/spaces/${spaceId}/files/${fileId}`, { headers: { authorization: `Bearer ${b.res.json.token}` } });
+    expect(stranger.status).toBe(404);
+    expect((await put(ta, new Uint8Array(7 * 1024 * 1024 + 1), uuidv7(NOW + 1))).status).toBe(413);
+    expect((await s.call('DELETE', `/api/spaces/${spaceId}/files/${fileId}`, undefined, ta)).status).toBe(200);
+    expect((await s.app.request(`/api/spaces/${spaceId}/files/${fileId}`, { headers: { authorization: `Bearer ${ta}` } })).status).toBe(404);
+  });
+});

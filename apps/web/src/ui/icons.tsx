@@ -81,6 +81,11 @@ export const IconSearch = (p: P) => (
     <path d="M20 20l-4-4" />
   </Svg>
 );
+export const IconComment = (p: P) => (
+  <Svg width="13" height="13" {...p}>
+    <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4h-1A.5.5 0 0 1 4 15.5z" />
+  </Svg>
+);
 export const IconMic = (p: P) => (
   <Svg {...p}>
     <rect x="9" y="3" width="6" height="11" rx="3" />

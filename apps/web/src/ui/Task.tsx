@@ -4,7 +4,8 @@ import { RescheduleSheet } from './Reschedule.tsx';
 import { type TaskNode, type TaskView, type Workspace } from '#core';
 import { dueLabel, dueTone, dateLabel, durationLabel } from '../format.ts';
 import { useDoc } from '../hooks.ts';
-import { IconChevron, IconDeadline, IconRepeat, IconSubtasks, IconTag } from './icons.tsx';
+import { IconChevron, IconComment, IconDeadline, IconRepeat, IconSubtasks, IconTag } from './icons.tsx';
+import { controller } from '../controller.ts';
 import { DRAG_TYPE, draggedId, setDragged, useDropOnTask, type DropWhere } from './dnd.ts';
 import { showToast } from './toast.tsx';
 
@@ -234,6 +235,11 @@ export function TaskRow({
               <IconDeadline /> {dateLabel(task.deadline)}
             </span>
           )}
+          {(task.commentCount ?? 0) > 0 && (
+            <span title="Комментарии">
+              <IconComment /> {task.commentCount}
+            </span>
+          )}
           {task.childCount > 0 && (
             <span>
               <IconSubtasks /> {task.childCount}
@@ -244,6 +250,11 @@ export function TaskRow({
               <IconTag /> {l!.name}
             </span>
           ))}
+          {task.assignee && (
+            <span className="assignee" title={`Исполнитель: ${controller.memberEmail(doc.spaceOfTask(task.id), task.assignee) ?? 'участник'}`}>
+              {(controller.memberEmail(doc.spaceOfTask(task.id), task.assignee) ?? '?')[0]!.toUpperCase()}
+            </span>
+          )}
           {project && (
             <span className={`project-ref c-${project.color}`}>
               <i className="dot" aria-hidden="true" />

@@ -95,6 +95,36 @@ export class ApiClient {
     return json as T;
   }
 
+  /** Загрузить зашифрованный файл в пространство. id задаёт клиент: он входит в AAD шифротекста. */
+  async uploadFile(spaceId: string, fileId: string, blob: Uint8Array): Promise<void> {
+    const headers: Record<string, string> = { 'content-type': 'application/octet-stream' };
+    if (this.token) headers.authorization = `Bearer ${this.token}`;
+    let res: Response;
+    try {
+      res = await this.fetcher(`${this.baseUrl}/api/spaces/${spaceId}/files/${fileId}`, { method: 'PUT', headers, body: blob as BodyInit });
+    } catch (err) {
+      throw new NetworkError(err);
+    }
+    if (!res.ok) throw new ApiError(res.status, ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>);
+  }
+
+  async downloadFile(spaceId: string, fileId: string): Promise<Uint8Array> {
+    const headers: Record<string, string> = {};
+    if (this.token) headers.authorization = `Bearer ${this.token}`;
+    let res: Response;
+    try {
+      res = await this.fetcher(`${this.baseUrl}/api/spaces/${spaceId}/files/${fileId}`, { headers });
+    } catch (err) {
+      throw new NetworkError(err);
+    }
+    if (!res.ok) throw new ApiError(res.status, ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+
+  deleteFile(spaceId: string, fileId: string): Promise<{ ok: true }> {
+    return this.call('DELETE', `/api/spaces/${spaceId}/files/${fileId}`);
+  }
+
   health(): Promise<{ ok: boolean; version: string; serverTime: number }> {
     return this.call('GET', '/api/health');
   }

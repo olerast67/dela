@@ -61,6 +61,8 @@ export interface Task {
   readonly recurrence: Recurrence | null;
   /** Минуты до срока для напоминаний; null — по умолчанию пользователя, [] — без напоминаний. */
   readonly reminders: readonly number[] | null;
+  /** Исполнитель в общем проекте (id пользователя). */
+  readonly assignee: string | null;
   readonly order: string;
   readonly completedAt: number | null;
   readonly deletedAt: number | null;
@@ -167,6 +169,46 @@ export function toSection(id: string, r: Rec): Section {
   };
 }
 
+/** Файл в комментарии: зашифрован на устройстве своим ключом, на сервере лежит только шифротекст. */
+export interface Attachment {
+  readonly id: string;
+  readonly name: string;
+  readonly size: number;
+  readonly type: string;
+  /** Ключ файла (base64). Лежит в зашифрованной записи комментария. */
+  readonly key: string;
+}
+
+export interface Comment {
+  readonly id: string;
+  readonly taskId: string;
+  readonly text: string;
+  /** Автор (id пользователя); null в старых записях. */
+  readonly author: string | null;
+  readonly file: Attachment | null;
+  readonly createdAt: number;
+  readonly deletedAt: number | null;
+}
+
+function attachment(v: Json | undefined): Attachment | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, Json>;
+  if (typeof o.id !== 'string' || typeof o.key !== 'string' || typeof o.name !== 'string') return null;
+  return { id: o.id.slice(0, 64), name: o.name.slice(0, 300), size: typeof o.size === 'number' ? o.size : 0, type: typeof o.type === 'string' ? o.type.slice(0, 100) : '', key: o.key };
+}
+
+export function toComment(id: string, r: Rec): Comment {
+  return {
+    id,
+    taskId: idOrNull(r.task) ?? '',
+    text: s(r.text, '', 20_000),
+    author: idOrNull(r.author),
+    file: attachment(r.file),
+    createdAt: num(r.created_at) ?? 0,
+    deletedAt: num(r.deleted_at),
+  };
+}
+
 export function toTask(id: string, r: Rec): Task {
   const labels: string[] = [];
   for (const [k, v] of Object.entries(r)) {
@@ -189,6 +231,7 @@ export function toTask(id: string, r: Rec): Task {
     duration: duration !== null && duration > 0 && duration <= 24 * 60 * 31 ? Math.round(duration) : null,
     recurrence: recurrence(r.recurrence),
     reminders: isReminderList(r.reminders) ? [...new Set(r.reminders as number[])].sort((a, b) => a - b) : null,
+    assignee: idOrNull(r.assignee),
     order: order(r.order),
     completedAt: num(r.completed_at),
     deletedAt: num(r.deleted_at),

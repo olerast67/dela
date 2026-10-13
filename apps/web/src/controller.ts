@@ -419,6 +419,7 @@ export class Controller {
     this.docVersion++;
     for (const fn of this.docListeners) fn();
     if (this.leader) void this.syncNow();
+    for (const id of current) void this.loadMembers(id).catch(() => undefined);
   }
 
   private accountKeys(): AccountKeys {
@@ -466,6 +467,26 @@ export class Controller {
 
   members(spaceId: string) {
     return this.api.spaceMembers(spaceId);
+  }
+
+  /** Участники общих проектов: адреса для подписи комментариев и исполнителей. */
+  private readonly memberCache = new Map<string, ReadonlyArray<{ userId: string; email: string }>>();
+
+  async loadMembers(spaceId: string): Promise<ReadonlyArray<{ userId: string; email: string }>> {
+    const { members } = await this.api.spaceMembers(spaceId);
+    const list = members.map((m) => ({ userId: m.userId, email: m.email }));
+    this.memberCache.set(spaceId, list);
+    this.docVersion++;
+    for (const fn of this.docListeners) fn();
+    return list;
+  }
+
+  cachedMembers(spaceId: string): ReadonlyArray<{ userId: string; email: string }> {
+    return this.memberCache.get(spaceId) ?? [];
+  }
+
+  memberEmail(spaceId: string, userId: string): string | null {
+    return this.memberCache.get(spaceId)?.find((m) => m.userId === userId)?.email ?? null;
   }
 
   /** Пригласить по адресу: ключ пространства запечатывается открытым ключом участника. Возвращает отпечаток его ключа. */

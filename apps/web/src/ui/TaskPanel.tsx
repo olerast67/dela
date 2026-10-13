@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { extractLinks, parseTask, type DateSpec, type Priority } from '#core';
 import { openExternal } from '../platform.ts';
+import { Comments } from './Comments.tsx';
 import { TZ, dateLabel, durationLabel } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
@@ -281,6 +282,25 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
             ))}
           </dd>
 
+          {doc.isShared(task.projectId) && (
+            <>
+              <dt>Исполнитель</dt>
+              <dd>
+                <select
+                  value={task.assignee ?? ''}
+                  onChange={(e) => doc.updateTask(id, { assignee: e.target.value || null })}
+                  aria-label="Исполнитель"
+                >
+                  <option value="">Никто</option>
+                  {controller.cachedMembers(doc.spaceOfTask(id)).map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.userId === controller.userId ? `${m.email} (вы)` : m.email}
+                    </option>
+                  ))}
+                </select>
+              </dd>
+            </>
+          )}
           {!doc.isShared(task.projectId) && <dt>Метки</dt>}
           {!doc.isShared(task.projectId) && (
           <dd className="row wrap">
@@ -355,6 +375,8 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
             </button>
           )}
         </section>
+
+        <Comments taskId={id} />
       </div>
 
       <div className="panel-foot">

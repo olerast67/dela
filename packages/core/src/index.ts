@@ -52,6 +52,8 @@ export {
   type NewAccount,
   type SpaceKeys,
   hashPin,
+  sealFile,
+  openFile,
   verifyPin,
   PIN_KDF,
 } from './crypto.ts';
@@ -87,6 +89,8 @@ export {
   type SavedFilter,
   type Section,
   type Task,
+  type Attachment,
+  type Comment,
 } from './model.ts';
 export {
   Doc,

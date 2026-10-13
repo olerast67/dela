@@ -2323,3 +2323,99 @@ kbd {
 .empty-art .fill-accent {
   fill: var(--accent);
 }
+
+/* ---------- комментарии и исполнитель ---------- */
+
+.comments {
+  margin-top: 18px;
+}
+
+.comment {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.comment-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.comment-del {
+  margin-left: auto;
+}
+
+.avatar,
+.assignee {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  flex: none;
+}
+
+.assignee {
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+}
+
+.comment-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 4px 0 0 30px;
+}
+
+.comment .links,
+.comment-file {
+  margin-left: 30px;
+}
+
+.comment-file {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.comment-file img {
+  max-width: 100%;
+  max-height: 240px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.file-chip {
+  font-size: 13px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comment-new {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-new textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  background: var(--bg);
+}
+
+.comment-new .row {
+  justify-content: space-between;
+}

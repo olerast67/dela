@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Comments on tasks with files. A file is encrypted on the device with its own key; the server keeps only ciphertext. Images show inline.
+- Assignees in shared projects.
+- Voice input on Android: a mic button in quick add and on the widget, the system recognizer prefers offline recognition.
+- The Windows app updates itself from GitHub releases; updates are signed.
 - Android home screen widget: Today, Week or any project; theme, background opacity, font size, compact rows, hiding tasks while the app is locked. Tap the circle to complete a task, tap a row to open it, + adds a task. Quick settings tile for quick add.
 - A shared project gets a new key when the owner removes a member: everything is encrypted again, the removed member cannot read later changes. Devices with the old key pick up the new one automatically.
 

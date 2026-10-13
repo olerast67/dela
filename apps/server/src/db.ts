@@ -109,6 +109,18 @@ const MIGRATIONS: readonly string[] = [
   -- Версия ключа общего пространства: растёт при смене ключа после удаления участника.
   ALTER TABLE spaces ADD COLUMN key_version INTEGER NOT NULL DEFAULT 1;
   `,
+  `
+  -- Файлы в комментариях: только шифротекст, ключ файла лежит в зашифрованной записи комментария.
+  CREATE TABLE files (
+    space_id   TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+    id         TEXT NOT NULL,
+    size       INTEGER NOT NULL,
+    created_by TEXT,
+    created_at INTEGER NOT NULL,
+    data       BLOB NOT NULL,
+    PRIMARY KEY (space_id, id)
+  ) STRICT;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

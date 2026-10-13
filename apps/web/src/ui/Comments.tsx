@@ -1,0 +1,192 @@
+/**
+ * Комментарии к задаче и файлы. Файл шифруется на устройстве своим ключом и уходит на сервер
+ * шифротекстом; ключ файла лежит в записи комментария, которая зашифрована ключом пространства.
+ */
+import { useEffect, useRef, useState } from 'react';
+import { extractLinks, openFile, sealFile, uuidv7, type Attachment, type Comment } from '#core';
+import { controller } from '../controller.ts';
+import { useDoc } from '../hooks.ts';
+import { openExternal } from '../platform.ts';
+import { IconX } from './icons.tsx';
+
+/** Шифротекст файла не больше 7 МиБ: столько принимает сервер. */
+const MAX_FILE = 7 * 1024 * 1024 - 1024;
+
+function sizeLabel(n: number): string {
+  if (n < 1024) return `${n} Б`;
+  if (n < 1024 * 1024) return `${Math.round(n / 1024)} КБ`;
+  return `${(n / 1024 / 1024).toFixed(1)} МБ`;
+}
+
+async function decrypt(spaceId: string, file: Attachment): Promise<Blob> {
+  const blob = await controller.api.downloadFile(spaceId, file.id);
+  return new Blob([openFile(blob, file.key, spaceId, file.id) as BlobPart], { type: file.type || 'application/octet-stream' });
+}
+
+function FileView({ spaceId, file }: { spaceId: string; file: Attachment }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const image = file.type.startsWith('image/');
+  useEffect(() => {
+    if (!image) return;
+    let alive = true;
+    let made: string | null = null;
+    decrypt(spaceId, file)
+      .then((b) => {
+        made = URL.createObjectURL(b);
+        if (alive) setUrl(made);
+      })
+      .catch(() => alive && setError(true));
+    return () => {
+      alive = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [spaceId, file.id]);
+  const download = async () => {
+    try {
+      const b = await decrypt(spaceId, file);
+      const href = URL.createObjectURL(b);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = file.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(href), 10_000);
+    } catch {
+      setError(true);
+    }
+  };
+  return (
+    <div className="comment-file">
+      {image && url && <img src={url} alt={file.name} onClick={() => void download()} />}
+      <button className="file-chip" onClick={() => void download()} title="Скачать">
+        {file.name} <span className="muted">· {sizeLabel(file.size)}</span>
+      </button>
+      {error && <span className="error">Не удалось открыть файл</span>}
+    </div>
+  );
+}
+
+function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
+  const doc = useDoc();
+  const mine = c.author !== null && c.author === controller.userId;
+  const who = mine ? 'Вы' : c.author ? (controller.memberEmail(spaceId, c.author) ?? 'Участник') : 'Участник';
+  const links = extractLinks(c.text);
+  return (
+    <div className="comment">
+      <div className="comment-head">
+        <span className="avatar" aria-hidden="true">
+          {who[0]!.toUpperCase()}
+        </span>
+        <b>{who}</b>
+        <span className="muted">{new Date(c.createdAt).toLocaleString('ru', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+        {mine && (
+          <button
+            className="icon small comment-del"
+            aria-label="Удалить комментарий"
+            onClick={() => {
+              if (!confirm('Удалить комментарий? Отменить это нельзя.')) return;
+              const file = doc.deleteComment(c.id);
+              if (file) void controller.api.deleteFile(spaceId, file.id).catch(() => undefined);
+            }}
+          >
+            <IconX width={14} height={14} />
+          </button>
+        )}
+      </div>
+      {c.text && <div className="comment-text">{c.text}</div>}
+      {links.length > 0 && (
+        <div className="links">
+          {links.map((url) => (
+            <a
+              key={url}
+              href={url}
+              onClick={(e) => {
+                e.preventDefault();
+                void openExternal(url);
+              }}
+            >
+              {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+            </a>
+          ))}
+        </div>
+      )}
+      {c.file && <FileView spaceId={spaceId} file={c.file} />}
+    </div>
+  );
+}
+
+export function Comments({ taskId }: { taskId: string }) {
+  const doc = useDoc();
+  const spaceId = doc.spaceOfTask(taskId);
+  const list = doc.comments(taskId);
+  const [text, setText] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
+
+  const submit = async () => {
+    if (!text.trim() && !file) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      let attachment: Attachment | null = null;
+      if (file) {
+        if (file.size > MAX_FILE) {
+          setMsg('Файл больше 7 МБ. Такие файлы пока не помещаются.');
+          return;
+        }
+        const id = uuidv7();
+        const sealed = sealFile(new Uint8Array(await file.arrayBuffer()), spaceId, id);
+        await controller.api.uploadFile(spaceId, id, sealed.blob);
+        attachment = { id, name: file.name, size: file.size, type: file.type, key: sealed.key };
+      }
+      doc.addComment(taskId, { text, author: controller.userId, file: attachment });
+      setText('');
+      setFile(null);
+      if (picker.current) picker.current.value = '';
+    } catch {
+      setMsg('Файл не загрузился. Нужна связь с сервером.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="comments">
+      <h3>Комментарии{list.length ? ` · ${list.length}` : ''}</h3>
+      {list.map((c) => (
+        <CommentItem key={c.id} c={c} spaceId={spaceId} />
+      ))}
+      <div className="comment-new">
+        <textarea
+          rows={2}
+          placeholder="Комментарий"
+          aria-label="Новый комментарий"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+        />
+        <div className="row">
+          <input ref={picker} type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label="Файл" />
+          <button type="button" onClick={() => picker.current?.click()}>
+            {file ? `${file.name} · ${sizeLabel(file.size)}` : 'Прикрепить файл'}
+          </button>
+          <button type="button" className="primary" disabled={busy || (!text.trim() && !file)} onClick={() => void submit()}>
+            {busy ? 'Отправка...' : 'Отправить'}
+          </button>
+        </div>
+        {msg && (
+          <p className="error" role="alert">
+            {msg}
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
