@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
 - Phone: hold a task to drag it with a finger to another place in the list, into another task or onto another day.
 - Comments on tasks with files. A file is encrypted on the device with its own key; the server keeps only ciphertext. Images show inline.
