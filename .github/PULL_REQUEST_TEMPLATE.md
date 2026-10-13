@@ -15,3 +15,7 @@
 ## Screenshots
 
 <!-- For UI changes. -->
+
+## License
+
+- [ ] I agree to the Contributor License Agreement in [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md#contributor-license-agreement)

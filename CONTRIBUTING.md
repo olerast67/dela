@@ -31,4 +31,4 @@ The Windows app needs Rust and the Tauri prerequisites (`npm run desktop:build`)
 
 ## Contributor license agreement
 
-Dela is licensed under the AGPL-3.0. A hosted version may come later, so the author asks contributors to agree that the author may also distribute their contribution under other licenses. By opening a pull request you confirm that you wrote the code and agree to this. Your contribution stays available under the AGPL-3.0 in this repository.
+Dela is licensed under the AGPL-3.0. A hosted version may come later, so the author asks contributors to agree that the author may also distribute their contribution under other licenses. To agree, tick the CLA checkbox in the pull request description; a check blocks the pull request until it is ticked. By ticking it you confirm that you wrote the code and agree to this. Your contribution stays available under the AGPL-3.0 in this repository.

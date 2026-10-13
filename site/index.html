@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dela: open-source task manager with end-to-end encryption</title>
+  <meta name="description" content="Self-hosted task manager. Tasks are encrypted on your device, the app works offline and syncs web, Windows and Android through your own server.">
+  <link rel="alternate" hreflang="ru" href="https://olerast67.github.io/dela/ru.html">
+  <link rel="icon" href="demo/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <meta property="og:title" content="Dela: task manager with end-to-end encryption">
+  <meta property="og:description" content="Open source, self-hosted, works offline. Web, Windows and Android.">
+  <meta property="og:image" content="https://olerast67.github.io/dela/images/banner.png">
+  <meta property="og:url" content="https://olerast67.github.io/dela/">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="wrap top">
+    <a class="logo" href="./"><img src="demo/icon.svg" width="30" height="30" alt=""> Dela</a>
+    <nav aria-label="Sections">
+      <a href="#features">Features</a>
+      <a href="#download">Download</a>
+      <a href="#server">Server</a>
+      <a href="#security">Security</a>
+      <a href="ru.html" lang="ru">Русский</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="wrap hero">
+      <h1>Dela keeps your tasks encrypted on your own server</h1>
+      <p class="lead text">Every device keeps a full copy of the tasks, so the app opens instantly and works without a network. Tasks are encrypted on the device with a key the server does not have. Web, Windows and Android, open source under <span class="nw">AGPL-3.0</span>.</p>
+      <div class="actions">
+        <a class="btn primary" href="demo/" data-cta>Try it without a server</a>
+        <a class="btn" href="https://github.com/olerast67/dela/releases/latest">Download</a>
+        <a class="btn" href="https://github.com/olerast67/dela">Source on GitHub</a>
+      </div>
+      <picture>
+        <source media="(max-width: 760px)" srcset="images/phone-today.png" width="1170" height="2532">
+        <img class="shot" src="images/screens.png" width="1600" height="1594" alt="Dela: Today and the week calendar on a computer, Today and Upcoming on a phone">
+      </picture>
+    </div>
+
+    <section id="features" class="wrap">
+      <h2>What it does</h2>
+      <ul class="features">
+        <li><h3>Quick add in plain language</h3><p>“call mom tomorrow at 7pm #Home every week p1” in English or Russian. The date, time, recurrence, project and priority are highlighted while you type.</p></li>
+        <li><h3>Today, Upcoming and a calendar</h3><p>Day, week and month. Drag a task to another day or into the hour grid, drag its bottom edge to change the duration.</p></li>
+        <li><h3>Recurrence and filters</h3><p>“every 2nd tuesday of the month”, “every 3&nbsp;days after completion”. Filters in Todoist syntax, import from Todoist.</p></li>
+        <li><h3>Shared projects</h3><p>Members invited by email, assignees, comments with files. Files are encrypted on the device; a removed member cannot read later changes.</p></li>
+        <li><h3>Phone</h3><p>Swipe to complete or reschedule, a home screen widget with a task list, voice input, a PIN and fingerprint lock, reminders without a network.</p></li>
+        <li><h3>Computer</h3><p>A Windows app with a tray icon, <span class="nw">Ctrl+Shift+Space</span> from anywhere, keyboard shortcuts in any layout, automatic updates.</p></li>
+      </ul>
+    </section>
+
+    <section id="download" class="wrap">
+      <h2>Download</h2>
+      <table>
+        <thead><tr><th>Platform</th><th>File</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Windows 10&nbsp;and 11</td><td><a href="https://github.com/olerast67/dela/releases/latest">Installer .exe</a></td><td>Not code-signed yet, SmartScreen asks for confirmation. Later versions install themselves</td></tr>
+          <tr><td>Android 7&nbsp;and newer</td><td><a href="https://github.com/olerast67/dela/releases/latest">APK</a></td><td>Updates through <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela">Obtainium</a></td></tr>
+          <tr><td>Any browser</td><td>your server address</td><td>Installs as an app on desktop and Android</td></tr>
+        </tbody>
+      </table>
+      <p class="text">The apps ask for your server address at the first sign-in. To look around first, the <a href="demo/">demo</a> keeps tasks only in your browser.</p>
+    </section>
+
+    <section id="server" class="wrap">
+      <h2>Install the server</h2>
+      <p class="text">You need a server with Docker and a domain name. Service workers and Web Push require HTTPS, so Dela runs behind a reverse proxy such as Caddy.</p>
+      <pre><code>curl -O https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
+# set DELA_ADMIN_EMAIL in the file to your address first
+docker compose up -d</code></pre>
+      <p class="text">The first account can be registered only with the address from <code>DELA_ADMIN_EMAIL</code>. After that, registration needs an invite. The server copies the database before every migration and once a day. All settings are in the <a href="https://github.com/olerast67/dela#configuration">README</a>.</p>
+    </section>
+
+    <section id="security" class="wrap">
+      <h2>What the server can see</h2>
+      <p class="text">Argon2id derives two keys from the password on the device: one proves the login to the server, the other unlocks the account key. Every change is encrypted with XChaCha20-Poly1305 using the key of its project.</p>
+      <p class="text">The server sees email addresses, devices, members of shared projects, change times, sizes rounded to 64&nbsp;bytes and reminder times. Task text, dates, labels, project names, comments and files reach it only encrypted. If both the password and the recovery key are lost, the data cannot be decrypted. Details: <a href="https://github.com/olerast67/dela/blob/main/docs/architecture.md">architecture</a>, <a href="https://github.com/olerast67/dela/blob/main/SECURITY.md">security policy</a>.</p>
+    </section>
+
+    <section id="support" class="wrap">
+      <h2>Support the project</h2>
+      <p class="text">Dela is free and has no paid features. Donations pay for the time spent on new platforms and on an external security audit.</p>
+      <div class="support">
+        <a class="btn primary" href="https://boosty.to/olerast/donate">Donate on Boosty</a>
+        <a class="btn" href="https://github.com/olerast67/dela">Star on GitHub</a>
+        <a class="btn" href="https://github.com/olerast67/dela/blob/main/DONATE.md">USDT and other ways</a>
+      </div>
+    </section>
+
+    <section id="author" class="wrap">
+      <h2>Made by olerast</h2>
+      <p class="text">I make videos about the projects I build and test on myself: <a href="https://www.youtube.com/@olerast">YouTube</a>, <a href="https://t.me/olerast">Telegram</a>, <a href="https://olerast.com">olerast.com</a>. The code is written by Claude from Anthropic on my instructions and is covered by unit and end-to-end tests that run on every commit.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Dela, <span class="nw">AGPL-3.0</span></span>
+      <a href="https://github.com/olerast67/dela">GitHub</a>
+      <a href="https://github.com/olerast67/dela/blob/main/CHANGELOG.md">Changelog</a>
+      <a href="https://github.com/olerast67/dela/blob/main/PRIVACY.md">Privacy</a>
+      <a href="ru.html" lang="ru">Русская версия</a>
+    </div>
+  </footer>
+</body>
+</html>

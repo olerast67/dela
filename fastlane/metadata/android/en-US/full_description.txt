@@ -1,0 +1,14 @@
+Dela is an open-source task manager that you run on your own server. Every device keeps a full copy of the tasks, so the app opens instantly and works without a network. Tasks are encrypted on the device with a key the server does not have.
+
+<b>Features</b>
+<ul>
+<li>Quick add in plain English or Russian: "call mom tomorrow at 7pm #Home every week p1"</li>
+<li>Today, Upcoming and a calendar with day, week and month views</li>
+<li>Recurring tasks, filters in Todoist syntax, import from Todoist</li>
+<li>Shared projects with assignees and comments with encrypted files</li>
+<li>Home screen widget, quick add tile, voice input</li>
+<li>Swipe to complete or reschedule, hold to drag</li>
+<li>Reminders without a network, PIN and fingerprint lock</li>
+</ul>
+
+The app needs a Dela server: <a href="https://github.com/olerast67/dela#install-the-server">install it with Docker</a>. The server stores and syncs ciphertext only.

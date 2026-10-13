@@ -10,7 +10,8 @@ declare const self: ServiceWorkerGlobalScope;
 
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
-registerRoute(new NavigationRoute(createHandlerBoundToURL('/index.html'), { denylist: [/^\/api\//] }));
+// Путь относительно service worker: клиент может жить не в корне сайта (демо на GitHub Pages).
+registerRoute(new NavigationRoute(createHandlerBoundToURL('index.html'), { denylist: [/\/api\//] }));
 
 self.addEventListener('message', (e) => {
   if (e.data?.type === 'SKIP_WAITING') void self.skipWaiting();
@@ -20,7 +21,8 @@ self.addEventListener('message', (e) => {
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const taskId = (e.notification.data as { taskId?: string } | null)?.taskId;
-  const url = taskId ? `/#/today?task=${encodeURIComponent(taskId)}` : '/';
+  const base = self.registration.scope;
+  const url = taskId ? `${base}#/today?task=${encodeURIComponent(taskId)}` : base;
   e.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });

@@ -11,7 +11,14 @@ function same(a: Route, b: Route): boolean {
 }
 
 function SyncBadge() {
-  const { status } = useAppState();
+  const { status, local } = useAppState();
+  if (local) {
+    return (
+      <span className="sync sync-local" title="Задачи хранятся только в этом браузере">
+        <span className="dot" /> Только в этом браузере
+      </span>
+    );
+  }
   const text =
     status.state === 'syncing'
       ? 'Синхронизация…'

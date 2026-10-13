@@ -23,7 +23,7 @@
   <a href="#install-the-server"><img alt="Self-host with Docker" src="https://img.shields.io/badge/Docker-self--host-2E7D5B?style=for-the-badge&logo=docker&logoColor=white" height="40"></a>
 </p>
 
-<p align="center"><b>English</b> · <a href="README.ru.md">Русский</a> · <a href="https://olerast.com">olerast.com</a></p>
+<p align="center"><b>English</b> · <a href="README.ru.md">Русский</a> · <a href="https://olerast67.github.io/dela/">Website</a> · <a href="https://olerast67.github.io/dela/demo/">Demo without a server</a></p>
 
 ---
 
@@ -69,7 +69,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 | Android 7 and newer | `Dela-<version>-android.apk` | Updates through [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela) |
 | Any browser | your server address | Installs as a PWA on desktop and Android |
 
-All files are on the [releases page](https://github.com/olerast67/dela/releases/latest). The apps ask for your server address at the first sign-in.
+All files are on the [releases page](https://github.com/olerast67/dela/releases/latest). The apps ask for your server address at the first sign-in. The [demo](https://olerast67.github.io/dela/demo/) runs without a server and keeps tasks only in your browser.
 
 ## Install the server
 

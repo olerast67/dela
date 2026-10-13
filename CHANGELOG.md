@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Try Dela without a server: tasks stay encrypted in the browser only. The demo at https://olerast67.github.io/dela/demo/ runs this way.
+- Project site: https://olerast67.github.io/dela/
+- The Android build no longer includes the Google Services Gradle plugin; F-Droid metadata in fastlane/.
 - History of actions: created, completed and deleted tasks and comments by day, with the author in shared projects.
 - Project templates: save a project as a template, create a project from it, three ready templates, import and export as a file. Due dates are kept relative to the day of creation.
 

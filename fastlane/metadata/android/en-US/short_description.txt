@@ -1,0 +1,1 @@
+Task manager with end-to-end encryption on your own server, works offline

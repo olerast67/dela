@@ -82,6 +82,8 @@ export interface AppState {
   readonly locked: boolean;
   /** PIN-код задан на этом устройстве. */
   readonly lockEnabled: boolean;
+  /** Работа без сервера: задачи только в этом браузере (демо). */
+  readonly local: boolean;
 }
 
 interface StoredSession {
@@ -93,6 +95,8 @@ interface StoredSession {
   readonly spaceId: string;
   readonly node: string;
   readonly sealed: { iv: Uint8Array<ArrayBuffer>; data: ArrayBuffer };
+  /** Без сервера: синхронизации, push и WebSocket нет. */
+  readonly local?: boolean;
 }
 
 interface SecretKeys {
@@ -136,7 +140,7 @@ export class Controller {
   private secrets: SecretKeys | null = null;
   private clock: HybridClock | null = null;
   private clockOffset = 0;
-  private state: AppState = { phase: 'loading', email: null, isAdmin: false, status: IDLE, recoveryKey: null, notice: null, locked: false, lockEnabled: false };
+  private state: AppState = { phase: 'loading', email: null, isAdmin: false, status: IDLE, recoveryKey: null, notice: null, locked: false, lockEnabled: false, local: false };
   private readonly listeners = new Set<() => void>();
   private docVersion = 0;
   private readonly docListeners = new Set<() => void>();
@@ -182,6 +186,11 @@ export class Controller {
     this.clockOffset = (await this.store.getMeta<number>('clockOffset')) ?? 0;
     const stored = await this.store.getMeta<StoredSession>('session');
     if (!stored) {
+      // Демо на GitHub Pages: сразу открываем приложение без сервера.
+      if (import.meta.env.VITE_DEMO === '1') {
+        await this.startLocal();
+        return;
+      }
       this.set({ phase: 'auth' });
       return;
     }
@@ -268,6 +277,33 @@ export class Controller {
     await this.start(stored, secrets);
   }
 
+  /**
+   * Попробовать без сервера: ключи создаются на устройстве, задачи шифруются и лежат только в этом браузере.
+   * Перенести их на сервер можно экспортом и импортом.
+   */
+  async startLocal(): Promise<void> {
+    const secrets: SecretKeys = {
+      masterKey: toB64(newKey()),
+      publicKey: toB64(newKey()),
+      secretKey: toB64(newKey()),
+      spaceKey: toB64(newKey()),
+    };
+    const stored: StoredSession = {
+      token: '',
+      userId: uuidv7(),
+      deviceId: 'local',
+      email: 'Без сервера',
+      isAdmin: false,
+      spaceId: uuidv7(),
+      node: newNodeId(),
+      sealed: await sealLocal(this.store, secrets),
+      local: true,
+    };
+    await this.store.setMeta('session', stored);
+    await this.start(stored, secrets);
+    for (const t of welcomeTasks(new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date()))) this.doc?.createTask(t);
+  }
+
   private async start(stored: StoredSession, secrets: SecretKeys): Promise<void> {
     this.api.token = stored.token;
     this.stored = stored;
@@ -300,7 +336,7 @@ export class Controller {
     doc.ensureInbox();
     void this.refreshSpaces();
     this.docVersion++;
-    this.set({ phase: this.state.phase === 'recovery' ? 'recovery' : 'ready', email: stored.email, isAdmin: stored.isAdmin, notice: null });
+    this.set({ phase: this.state.phase === 'recovery' ? 'recovery' : 'ready', email: stored.email, isAdmin: stored.isAdmin, notice: null, local: stored.local === true });
     void this.applyWidgetCompleted();
     if (!this.widgetListening) {
       this.widgetListening = true;
@@ -373,7 +409,7 @@ export class Controller {
   /** Сверить общие пространства с сервером: новые подключить, исчезнувшие (исключили) убрать. */
   async refreshSpaces(): Promise<void> {
     const ws = this.doc;
-    if (!ws || !this.secrets || !this.stored) return;
+    if (!ws || !this.secrets || !this.stored || this.stored.local) return;
     let spaces: SpaceInfo[];
     try {
       spaces = (await this.api.spaces()).spaces;
@@ -591,7 +627,7 @@ export class Controller {
   }
 
   async syncNow(): Promise<void> {
-    if (!this.leader) return;
+    if (!this.leader || this.stored?.local) return;
     for (const engine of [...this.engines.values()]) {
       try {
         await engine.sync();
@@ -730,7 +766,7 @@ export class Controller {
   private pushDebounce: ReturnType<typeof setTimeout> | undefined;
 
   private schedulePushSoon(): void {
-    if (!this.pushEnabled()) return;
+    if (!this.pushEnabled() || this.stored?.local) return;
     clearTimeout(this.pushDebounce);
     this.pushDebounce = setTimeout(() => void this.uploadPushSchedule().catch(() => undefined), 3000);
   }
@@ -978,7 +1014,7 @@ export class Controller {
     this.channel?.postMessage({ type: 'logout' } satisfies ChannelMessage);
     this.leader = false;
     this.lock = null;
-    this.set({ phase: 'auth', email: null, status: IDLE, notice, locked: false, lockEnabled: false });
+    this.set({ phase: 'auth', email: null, status: IDLE, notice, locked: false, lockEnabled: false, local: false });
   }
 
   /** Число операций, ещё не отправленных на сервер. */

@@ -161,6 +161,11 @@ export function AuthScreen() {
         >
           {mode === 'login' ? 'Создать аккаунт' : 'Вернуться ко входу'}
         </button>
+        {!isNative() && (
+          <button type="button" className="link muted-link" onClick={() => void controller.startLocal()}>
+            Попробовать без сервера: задачи останутся только в этом браузере
+          </button>
+        )}
       </form>
     </main>
   );

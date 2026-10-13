@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dela: открытый менеджер задач со сквозным шифрованием</title>
+  <meta name="description" content="Менеджер задач на своём сервере. Задачи шифруются на устройстве, приложение работает без сети и синхронизирует веб, Windows и Android.">
+  <link rel="alternate" hreflang="en" href="https://olerast67.github.io/dela/">
+  <link rel="icon" href="demo/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/manrope-cyrillic-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+  <meta property="og:title" content="Dela: менеджер задач со сквозным шифрованием">
+  <meta property="og:description" content="Открытый код, свой сервер, работает без сети. Веб, Windows и Android.">
+  <meta property="og:image" content="https://olerast67.github.io/dela/images/banner.png">
+  <meta property="og:url" content="https://olerast67.github.io/dela/ru.html">
+  <meta name="twitter:card" content="summary_large_image">
+</head>
+<body>
+  <header class="wrap top">
+    <a class="logo" href="ru.html"><img src="demo/icon.svg" width="30" height="30" alt=""> Dela</a>
+    <nav aria-label="Разделы">
+      <a href="#features">Возможности</a>
+      <a href="#download">Скачать</a>
+      <a href="#server">Сервер</a>
+      <a href="#security">Безопасность</a>
+      <a href="./" lang="en">English</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="wrap hero">
+      <h1>Dela хранит ваши задачи на&nbsp;вашем сервере зашифрованными</h1>
+      <p class="lead text">На&nbsp;каждом устройстве лежит полная копия задач, поэтому приложение открывается сразу и&nbsp;работает без&nbsp;сети. Задачи шифруются на&nbsp;устройстве ключом, которого у&nbsp;сервера&nbsp;нет. Веб, Windows и&nbsp;Android, открытый код под&nbsp;лицензией <span class="nw">AGPL-3.0</span>.</p>
+      <div class="actions">
+        <a class="btn primary" href="demo/" data-cta>Попробовать без&nbsp;сервера</a>
+        <a class="btn" href="https://github.com/olerast67/dela/releases/latest">Скачать</a>
+        <a class="btn" href="https://github.com/olerast67/dela/blob/main/README.ru.md">Код на&nbsp;GitHub</a>
+      </div>
+      <picture>
+        <source media="(max-width: 760px)" srcset="images/phone-today.png" width="1170" height="2532">
+        <img class="shot" src="images/screens.png" width="1600" height="1594" alt="Dela: «Сегодня» и календарь недели на компьютере, «Сегодня» и «Предстоящие» на телефоне">
+      </picture>
+    </div>
+
+    <section id="features" class="wrap">
+      <h2>Что умеет</h2>
+      <ul class="features">
+        <li><h3>Задача обычной фразой</h3><p>«позвонить маме завтра в&nbsp;19 №Дом каждую неделю! 1». Дата, время, повтор, проект и&nbsp;приоритет подсвечиваются прямо при&nbsp;вводе.</p></li>
+        <li><h3>Сегодня, Предстоящие и&nbsp;календарь</h3><p>День, неделя и&nbsp;месяц. Задачу можно перетащить на&nbsp;другой день или&nbsp;в&nbsp;сетку часов и&nbsp;растянуть за&nbsp;нижний край, чтобы поменять длительность.</p></li>
+        <li><h3>Повторы и&nbsp;фильтры</h3><p>«каждый <span class="nw">2-й</span> вторник месяца», «каждые 3&nbsp;дня после выполнения». Фильтры в&nbsp;синтаксисе Todoist, перенос задач из&nbsp;Todoist.</p></li>
+        <li><h3>Общие проекты</h3><p>Участники по&nbsp;приглашению на&nbsp;почту, исполнители, комментарии с&nbsp;файлами. Файлы шифруются на&nbsp;устройстве, а&nbsp;убранный из&nbsp;проекта участник не&nbsp;прочитает новых изменений.</p></li>
+        <li><h3>Телефон</h3><p>Смахнуть, чтобы выполнить или&nbsp;перенести, виджет со&nbsp;списком задач, голосовой ввод, блокировка PIN-кодом и&nbsp;отпечатком, напоминания без&nbsp;сети.</p></li>
+        <li><h3>Компьютер</h3><p>Программа для&nbsp;Windows со&nbsp;значком в&nbsp;трее, <span class="nw">Ctrl+Shift+Space</span> откуда угодно, горячие клавиши в&nbsp;любой раскладке, автообновление.</p></li>
+      </ul>
+    </section>
+
+    <section id="download" class="wrap">
+      <h2>Скачать</h2>
+      <table>
+        <thead><tr><th>Платформа</th><th>Файл</th><th>Что знать</th></tr></thead>
+        <tbody>
+          <tr><td>Windows 10 и&nbsp;11</td><td><a href="https://github.com/olerast67/dela/releases/latest">Установщик .exe</a></td><td>Подписи кода пока нет, SmartScreen попросит подтверждение. Следующие версии программа ставит сама</td></tr>
+          <tr><td>Android 7 и&nbsp;новее</td><td><a href="https://github.com/olerast67/dela/releases/latest">APK</a></td><td>Обновления через <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela">Obtainium</a></td></tr>
+          <tr><td>Любой браузер</td><td>адрес вашего сервера</td><td>Ставится как&nbsp;приложение на&nbsp;компьютер и&nbsp;Android</td></tr>
+        </tbody>
+      </table>
+      <p class="text">При&nbsp;первом входе приложение спрашивает адрес сервера. Посмотреть без&nbsp;установки можно в&nbsp;<a href="demo/">демо</a>: там задачи хранятся только в&nbsp;браузере.</p>
+    </section>
+
+    <section id="server" class="wrap">
+      <h2>Установка сервера</h2>
+      <p class="text">Нужен сервер с&nbsp;Docker и&nbsp;доменное&nbsp;имя. Service worker и&nbsp;Web Push работают только по&nbsp;HTTPS, поэтому Dela стоит за&nbsp;обратным прокси, например Caddy.</p>
+      <pre><code>curl -O https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
+# сначала впишите в файл свой адрес в DELA_ADMIN_EMAIL
+docker compose up -d</code></pre>
+      <p class="text">Первый аккаунт регистрируется только с&nbsp;адресом из&nbsp;<code>DELA_ADMIN_EMAIL</code>, дальше регистрация идёт по&nbsp;приглашениям. Перед каждой миграцией и&nbsp;раз в&nbsp;сутки сервер копирует базу. Все настройки в&nbsp;<a href="https://github.com/olerast67/dela/blob/main/README.ru.md#настройки">README</a>.</p>
+    </section>
+
+    <section id="security" class="wrap">
+      <h2>Что видит сервер</h2>
+      <p class="text">Argon2id выводит из&nbsp;пароля на&nbsp;устройстве два ключа: один подтверждает вход на&nbsp;сервере, второй открывает ключ аккаунта. Каждое изменение шифруется XChaCha20-Poly1305 ключом своего проекта.</p>
+      <p class="text">Сервер видит адреса почты, устройства, участников общих проектов, время изменений, размеры с&nbsp;точностью до&nbsp;64&nbsp;байт и&nbsp;время напоминаний. Текст задач, даты, метки, названия проектов, комментарии и&nbsp;файлы попадают на&nbsp;него только зашифрованными. Если&nbsp;потеряны и&nbsp;пароль, и&nbsp;ключ восстановления, данные расшифровать нельзя. Подробности: <a href="https://github.com/olerast67/dela/blob/main/docs/architecture.md">архитектура</a>, <a href="https://github.com/olerast67/dela/blob/main/SECURITY.md">политика безопасности</a>.</p>
+    </section>
+
+    <section id="support" class="wrap">
+      <h2>Поддержать проект</h2>
+      <p class="text">Dela бесплатная, платных функций в&nbsp;ней&nbsp;нет. Донаты идут на&nbsp;время для&nbsp;новых платформ и&nbsp;на&nbsp;внешний аудит безопасности.</p>
+      <div class="support">
+        <a class="btn primary" href="https://boosty.to/olerast/donate">Донат на&nbsp;Boosty</a>
+        <a class="btn" href="https://github.com/olerast67/dela">Звезда на&nbsp;GitHub</a>
+        <a class="btn" href="https://github.com/olerast67/dela/blob/main/DONATE.md">USDT и&nbsp;другие способы</a>
+      </div>
+    </section>
+
+    <section id="author" class="wrap">
+      <h2>Автор</h2>
+      <p class="text">Я&nbsp;olerast, снимаю видео о&nbsp;проектах, которые делаю и&nbsp;проверяю на&nbsp;себе: <a href="https://www.youtube.com/@olerast">YouTube</a>, <a href="https://t.me/olerast">Telegram</a>, <a href="https://olerast.com">olerast.com</a>. Код проекта пишет Claude от&nbsp;Anthropic по&nbsp;моим задачам. Модульные и&nbsp;сквозные тесты гоняются на&nbsp;каждом коммите.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Dela, <span class="nw">AGPL-3.0</span></span>
+      <a href="https://github.com/olerast67/dela">GitHub</a>
+      <a href="https://github.com/olerast67/dela/blob/main/CHANGELOG.md">Изменения</a>
+      <a href="https://github.com/olerast67/dela/blob/main/PRIVACY.md">Приватность</a>
+      <a href="./" lang="en">English</a>
+    </div>
+  </footer>
+</body>
+</html>

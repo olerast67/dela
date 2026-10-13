@@ -56,7 +56,7 @@
 - [ ] 2.13 Подпись кода установщика для Windows
 - [ ] 2.14 iOS и iPadOS
 - [ ] 2.15 Ретранслятор push (APNs, FCM), UnifiedPush для сборки F-Droid
-- [ ] 2.16 Сайт документации, публичное демо, магазины приложений, CLA-бот
+- [x] 2.16 Сайт olerast67.github.io/dela, демо без сервера, описание для F-Droid (заявку в F-Droid подаёт автор; Google Play вместе с облаком), проверка CLA в pull request
 
 ## Фаза 3. Лучше Todoist
 

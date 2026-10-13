@@ -20,3 +20,7 @@ apps/desktop/src-tauri/gen/
 
 # Готовые сборки приложений
 /builds/
+
+# рабочие файлы навыка web-design
+/.web/
+/_site/

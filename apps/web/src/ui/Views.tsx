@@ -209,7 +209,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
                 </option>
               ))}
             </select>
-            <button onClick={() => setSharing(true)}>{doc.isShared(id) ? 'Участники' : 'Поделиться'}</button>
+            {!controller.getState().local && <button onClick={() => setSharing(true)}>{doc.isShared(id) ? 'Участники' : 'Поделиться'}</button>}
             <button onClick={() => setRenaming(true)}>Переименовать</button>
             <button onClick={() => setAddingSection(true)}>Раздел</button>
             <button onClick={() => saveProjectAsTemplate(doc, id)} title="Сохранить проект как шаблон">
@@ -406,18 +406,77 @@ export function applyTheme(theme: string): void {
   else delete document.documentElement.dataset.theme;
 }
 
+function ThemeSettings() {
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem('theme') ?? 'system';
+    } catch {
+      return 'system';
+    }
+  });
+  return (
+    <section className="settings">
+      <h2>Тема</h2>
+      <div className="row">
+        {THEMES.map(([value, label]) => (
+          <button
+            key={value}
+            className={theme === value ? 'active' : ''}
+            onClick={() => {
+              setTheme(value);
+              try {
+                localStorage.setItem('theme', value);
+              } catch {
+                // нет доступа к хранилищу
+              }
+              applyTheme(value);
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function SettingsView() {
-  const { email, isAdmin, status } = useAppState();
+  const { email, isAdmin, status, local } = useAppState();
   const [devices, setDevices] = useState<DeviceInfo[] | null>(null);
   const [invite, setInvite] = useState<string | null>(null);
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') ?? 'system');
-
   useEffect(() => {
+    if (local) return;
     controller.api
       .devices()
       .then((r) => setDevices(r.devices))
       .catch(() => setDevices([]));
   }, []);
+
+  if (local) {
+    return (
+      <>
+        <header className="view-head">
+          <h1>Настройки</h1>
+        </header>
+        <section className="settings">
+          <h2>Без сервера</h2>
+          <p className="muted">
+            Задачи зашифрованы и хранятся только в этом браузере, на другие устройства они не попадают. Чтобы синхронизировать телефон и компьютер,
+            поставьте сервер Dela и перенесите задачи через экспорт в JSON и импорт.
+          </p>
+          <a className="button-link" href="https://github.com/olerast67/dela#install-the-server" target="_blank" rel="noopener noreferrer">
+            Как поставить сервер
+          </a>
+          <button className="danger" onClick={() => confirm('Выйти? Все задачи из этого браузера удалятся.') && controller.logout()}>
+            Удалить данные и выйти
+          </button>
+        </section>
+        <ThemeSettings />
+        <LockSettings />
+        <ImportExport />
+      </>
+    );
+  }
 
   return (
     <>
@@ -434,24 +493,7 @@ export function SettingsView() {
           Выйти
         </button>
       </section>
-      <section className="settings">
-        <h2>Тема</h2>
-        <div className="row">
-          {THEMES.map(([value, label]) => (
-            <button
-              key={value}
-              className={theme === value ? 'active' : ''}
-              onClick={() => {
-                setTheme(value);
-                localStorage.setItem('theme', value);
-                applyTheme(value);
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </section>
+      <ThemeSettings />
       <section className="settings">
         <h2>Устройства</h2>
         {devices === null && <p className="muted">Загрузка…</p>}

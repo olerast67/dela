@@ -1,0 +1,29 @@
+# Согласие с CLA (CONTRIBUTING.md): автор pull request ставит галочку в описании.
+# Проверка читает только текст описания, код из pull request не запускается.
+name: CLA
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  cla:
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the CLA checkbox
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ "$AUTHOR" = "$OWNER" ]; then echo "Owner, no CLA needed"; exit 0; fi
+          if printf '%s' "$BODY" | grep -Eqi '\- \[x\] I agree to the Contributor License Agreement'; then
+            echo "CLA accepted by $AUTHOR"
+          else
+            echo "::error::Please tick 'I agree to the Contributor License Agreement' in the pull request description (see CONTRIBUTING.md)."
+            exit 1
+          fi

@@ -23,7 +23,7 @@
   <a href="#установка-сервера"><img alt="Свой сервер на Docker" src="https://img.shields.io/badge/Docker-свой%20сервер-2E7D5B?style=for-the-badge&logo=docker&logoColor=white" height="40"></a>
 </p>
 
-<p align="center"><a href="README.md">English</a> · <b>Русский</b> · <a href="https://olerast.com">olerast.com</a></p>
+<p align="center"><a href="README.md">English</a> · <b>Русский</b> · <a href="https://olerast67.github.io/dela/ru.html">Сайт</a> · <a href="https://olerast67.github.io/dela/demo/">Демо без сервера</a></p>
 
 ---
 
@@ -69,7 +69,7 @@
 | Android 7 и новее | `Dela-<версия>-android.apk` | Обновления через [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela) |
 | Любой браузер | адрес вашего сервера | Ставится как PWA на компьютер и Android |
 
-Все файлы на [странице выпусков](https://github.com/olerast67/dela/releases/latest). При первом входе приложение спрашивает адрес сервера.
+Все файлы на [странице выпусков](https://github.com/olerast67/dela/releases/latest). При первом входе приложение спрашивает адрес сервера. [Демо](https://olerast67.github.io/dela/demo/) работает без сервера и хранит задачи только в браузере.
 
 ## Установка сервера
 
