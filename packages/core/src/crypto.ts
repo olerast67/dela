@@ -351,6 +351,47 @@ export function openSealedSpaceKey(sealed: string, spaceId: string, keys: Accoun
   return payload.slice(prefix.length);
 }
 
+/**
+ * Ключ пространства от владельца с подтверждением отправителя: crypto_box (секретный ключ владельца,
+ * открытый ключ участника). Участник видит, чей это ключ, и сверяет его с закреплённым ключом владельца:
+ * сервер не может выдать свой ключ проекта под видом владельца. Формат: «DB1» ‖ открытый ключ отправителя ‖
+ * nonce ‖ шифротекст («пространство\nверсия\n» ‖ ключ). Кладётся в то же поле, что и запечатанный ключ.
+ */
+const BOX_MAGIC = encoder.encode('DB1');
+
+export function boxSpaceKeyFor(spaceKey: Uint8Array, spaceId: string, keyVersion: number, recipientPublicKey: Uint8Array, sender: AccountKeys): string {
+  const s = na();
+  const nonce = s.randombytes_buf(s.crypto_box_NONCEBYTES);
+  const payload = concat(encoder.encode(`${spaceId}\n${keyVersion}\n`), spaceKey);
+  return toB64(concat(concat(BOX_MAGIC, sender.publicKey), concat(nonce, s.crypto_box_easy(payload, nonce, recipientPublicKey, sender.secretKey))));
+}
+
+export function isBoxedSpaceKey(key: string): boolean {
+  const raw = fromB64(key);
+  return raw.length > BOX_MAGIC.length && BOX_MAGIC.every((b, i) => raw[i] === b);
+}
+
+/** Открыть ключ от владельца: возвращает ключ и открытый ключ отправителя (его сверяют с закреплённым). */
+export function openBoxedSpaceKey(boxed: string, spaceId: string, keyVersion: number, keys: AccountKeys): { key: Uint8Array; sender: Uint8Array } {
+  const s = na();
+  const raw = fromB64(boxed);
+  const pkEnd = BOX_MAGIC.length + s.crypto_box_PUBLICKEYBYTES;
+  const nonceEnd = pkEnd + s.crypto_box_NONCEBYTES;
+  if (raw.length <= nonceEnd) throw new DecryptError('boxed key too short');
+  const sender = raw.slice(BOX_MAGIC.length, pkEnd);
+  let payload: Uint8Array;
+  try {
+    payload = s.crypto_box_open_easy(raw.subarray(nonceEnd), raw.subarray(pkEnd, nonceEnd), sender, keys.secretKey);
+  } catch {
+    throw new DecryptError();
+  }
+  const prefix = encoder.encode(`${spaceId}\n${keyVersion}\n`);
+  if (payload.length !== prefix.length + KEY_BYTES || !prefix.every((b, i) => payload[i] === b)) {
+    throw new DecryptError('boxed key belongs to another space or version');
+  }
+  return { key: payload.slice(prefix.length), sender };
+}
+
 // ---------- конверт операции ----------
 
 /** Непрозрачный id ячейки: BLAKE2b-128 с ключом слотов пространства. */

@@ -16,7 +16,7 @@ import {
   unwrapSpaceKey,
   wrapSpaceKey,
   sealOp,
-  sealSpaceKeyFor,
+  boxSpaceKeyFor,
   spaceKeys,
   type AccountBundle,
   type AccountKeys,
@@ -130,23 +130,44 @@ export async function changeAccountPassword(
  */
 const ROTATION_BATCH = 400;
 
+/** Участник, чей ключ на сервере не совпадает с закреплённым у владельца или ещё не закреплён. */
+export class UnpinnedMembersError extends Error {
+  readonly members: ReadonlyArray<{ userId: string; email: string; publicKey: string; changed: boolean }>;
+  constructor(members: ReadonlyArray<{ userId: string; email: string; publicKey: string; changed: boolean }>) {
+    super('unpinned_members');
+    this.name = 'UnpinnedMembersError';
+    this.members = members;
+  }
+}
+
 export async function rotateSpaceKey(
   api: ApiClient,
   input: {
     spaceId: string;
     ops: Iterable<Op>;
     ownerId: string;
-    masterKey: Uint8Array;
+    account: AccountKeys;
     keyVersion: number;
     baseSeq: number;
+    /** Закреплённые у владельца открытые ключи участников (base64) по id. */
+    pinned: (userId: string) => string | undefined;
   },
 ): Promise<{ key: Uint8Array; keyVersion: number }> {
+  const { members } = await api.spaceMembers(input.spaceId);
+  // Сервер может подставить лишнего участника или чужой ключ: новый ключ проекта получат только закреплённые.
+  const unpinned = members
+    .filter((m) => m.userId !== input.ownerId && input.pinned(m.userId) !== m.publicKey)
+    .map((m) => ({ userId: m.userId, email: m.email, publicKey: m.publicKey, changed: input.pinned(m.userId) !== undefined }));
+  if (unpinned.length) throw new UnpinnedMembersError(unpinned);
   const key = newKey();
   const keys = spaceKeys(key);
-  const { members } = await api.spaceMembers(input.spaceId);
+  const version = input.keyVersion + 1;
   const memberKeys = members.map((m) => ({
     userId: m.userId,
-    key: m.userId === input.ownerId ? wrapSpaceKey(key, input.masterKey, input.spaceId) : sealSpaceKeyFor(key, input.spaceId, fromB64(m.publicKey)),
+    key:
+      m.userId === input.ownerId
+        ? wrapSpaceKey(key, input.account.masterKey, input.spaceId)
+        : boxSpaceKeyFor(key, input.spaceId, version, fromB64(m.publicKey), input.account),
   }));
   const envelopes = [...input.ops].map((op) => sealOp(input.spaceId, keys, op));
   // Частями: проект любого размера проходит предел тела запроса.

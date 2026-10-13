@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ApiError, NetworkError, fingerprint, fromB64 } from '#core';
+import { ApiError, NetworkError, UnpinnedMembersError, fingerprint, fromB64 } from '#core';
 import { controller } from '../controller.ts';
 import { navigate, useDoc } from '../hooks.ts';
 import { IconX } from './icons.tsx';
@@ -18,6 +18,7 @@ function errorText(err: unknown): string {
   if (err instanceof NetworkError) return 'Нет связи с сервером. Общий доступ настраивается только онлайн.';
   if (err instanceof ApiError && err.code === 'not_found') return 'На этом сервере нет пользователя с таким адресом. Пусть сначала зарегистрируется.';
   if (err instanceof ApiError && err.code === 'rate_limited') return 'Слишком много запросов. Попробуйте позже.';
+  if (err instanceof Error && err.message === 'self_invite') return 'Себя приглашать не нужно: вы уже владелец проекта.';
   return 'Не получилось. Попробуйте ещё раз.';
 }
 
@@ -29,6 +30,8 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [unpinned, setUnpinned] = useState<UnpinnedMembersError['members'] | null>(null);
+  const warning = controller.keyWarning(projectId);
 
   const load = () =>
     controller
@@ -77,6 +80,41 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
           </div>
         ) : (
           <div className="share-body">
+            {warning && (
+              <div className="notice" role="alert">
+                {warning === 'unsigned'
+                  ? 'Новый ключ проекта пришёл без подтверждения владельца, поэтому он не принят: правки в этом проекте пока шифруются прежним ключом. Скорее всего, владелец пользуется старой версией Dela.'
+                  : `Новый ключ проекта прислал не тот владелец, которому вы доверяли. Отпечаток отправителя: ${warning}. Если владелец проекта сменился (например, прежний удалил аккаунт), сверьте отпечаток с ним по другому каналу.`}
+                {warning !== 'unsigned' && (
+                  <button onClick={() => void controller.trustSpaceSender(projectId).then(() => setMsg('Ключ нового владельца принят.'))}>Доверять этому ключу</button>
+                )}
+              </div>
+            )}
+            {unpinned && (
+              <div className="notice" role="alert">
+                <p>Ключ проекта не сменён. Сверьте отпечатки ключей этих участников с ними по другому каналу:</p>
+                {unpinned.map((u) => (
+                  <p key={u.userId}>
+                    {u.email} · <span className="mono">{fingerprint(fromB64(u.publicKey))}</span>
+                    {u.changed ? ' (ключ изменился с момента приглашения)' : ' (приглашён на другом устройстве или в старой версии)'}
+                  </p>
+                ))}
+                <button
+                  onClick={async () => {
+                    controller.pinMembers(projectId, unpinned);
+                    setUnpinned(null);
+                    try {
+                      await controller.rotateKey(projectId);
+                      setMsg('Ключ проекта заменён.');
+                    } catch (err) {
+                      setMsg(errorText(err));
+                    }
+                  }}
+                >
+                  Отпечатки совпадают, сменить ключ
+                </button>
+              </div>
+            )}
             {members === null && !msg && <p className="muted">Загрузка…</p>}
             {members?.map((m) => (
               <div key={m.userId} className="trash-row">
@@ -102,7 +140,10 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                           void load();
                         }
                       } catch (err) {
-                        setMsg(errorText(err));
+                        if (err instanceof UnpinnedMembersError) {
+                          setUnpinned(err.members);
+                          void load();
+                        } else setMsg(errorText(err));
                       }
                     }}
                   >

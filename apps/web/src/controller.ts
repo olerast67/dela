@@ -28,7 +28,9 @@ import {
   fingerprint,
   fromB64,
   newKey,
-  sealSpaceKeyFor,
+  boxSpaceKeyFor,
+  isBoxedSpaceKey,
+  openBoxedSpaceKey,
   spaceKeyOf,
   uuidv7,
   wrapSpaceKey,
@@ -447,16 +449,16 @@ export class Controller {
         // Владелец сменил ключ (кого-то удалили из проекта): берём новый и шифруем им дальше.
         if ((sp.keyVersion ?? 1) !== this.keyVersionById.get(sp.id)) {
           try {
-            this.rekey(existing, spaceKeyOf(sp, keys), sp.keyVersion ?? 1);
+            this.rekey(existing, this.openSpaceKey(sp, keys), sp.keyVersion ?? 1);
           } catch {
-            // ключ не открылся: оставляем прежний движок
+            // ключ не открылся или пришёл не от владельца: оставляем прежний движок, предупреждение в keyWarnings
           }
         }
         continue;
       }
       let key: Uint8Array;
       try {
-        key = spaceKeyOf(sp, keys);
+        key = this.openSpaceKey(sp, keys);
       } catch {
         continue;
       }
@@ -546,12 +548,77 @@ export class Controller {
     return this.memberCache.get(spaceId)?.find((m) => m.userId === userId)?.email ?? null;
   }
 
-  /** Пригласить по адресу: ключ пространства запечатывается открытым ключом участника. Возвращает отпечаток его ключа. */
+  // ---------- закреплённые ключи (против подмены сервером) ----------
+
+  /** Запись в личном пространстве: зашифрована и есть на всех устройствах пользователя. */
+  private pin(id: string): string | undefined {
+    const v = this.doc?.personal.replica.get('pin', id)?.public_key;
+    return typeof v === 'string' ? v : undefined;
+  }
+
+  private setKeyPin(id: string, publicKey: string): void {
+    this.doc?.personal.write([['pin', id, 'public_key', publicKey]], { undoable: false });
+  }
+
+  /** Ключ проекта пришёл не от закреплённого владельца: отпечаток отправителя по пространству. */
+  private readonly keyWarnings = new Map<string, string>();
+
+  keyWarning(spaceId: string): string | null {
+    return this.keyWarnings.get(spaceId) ?? null;
+  }
+
+  /**
+   * Открыть ключ общего пространства. Ключ от владельца подтверждён отправителем: при первом получении
+   * его открытый ключ закрепляется, дальше ключ от другого отправителя не принимается. Анонимно
+   * запечатанный ключ принимается только в первой версии (так приглашали до 0.4.1).
+   */
+  private openSpaceKey(sp: SpaceInfo, keys: AccountKeys): Uint8Array {
+    if (sp.keyKind === 'wrapped') return spaceKeyOf(sp, keys);
+    const version = sp.keyVersion ?? 1;
+    if (!isBoxedSpaceKey(sp.key)) {
+      if (version > 1) {
+        this.keyWarnings.set(sp.id, 'unsigned');
+        throw new Error('unsigned_space_key');
+      }
+      return spaceKeyOf(sp, keys);
+    }
+    const { key, sender } = openBoxedSpaceKey(sp.key, sp.id, version, keys);
+    const senderB64 = toB64(sender);
+    const pinned = this.pin(`${sp.id}:owner`);
+    if (pinned === undefined) this.setKeyPin(`${sp.id}:owner`, senderB64);
+    else if (pinned !== senderB64) {
+      this.keyWarnings.set(sp.id, fingerprint(sender));
+      throw new Error('space_key_sender_changed');
+    }
+    this.keyWarnings.delete(sp.id);
+    return key;
+  }
+
+  /** Пользователь сверил отпечаток нового владельца и доверяет ему (например, прежний владелец удалил аккаунт). */
+  async trustSpaceSender(spaceId: string): Promise<void> {
+    const sp = (await this.api.spaces()).spaces.find((s) => s.id === spaceId);
+    if (!sp || !isBoxedSpaceKey(sp.key)) return;
+    const { sender } = openBoxedSpaceKey(sp.key, sp.id, sp.keyVersion ?? 1, this.accountKeys());
+    this.setKeyPin(`${spaceId}:owner`, toB64(sender));
+    this.keyWarnings.delete(spaceId);
+    await this.refreshSpaces();
+  }
+
+  /** Владелец подтверждает участников, чьи ключи ещё не закреплены (или сменились), сверив отпечатки. */
+  pinMembers(spaceId: string, members: ReadonlyArray<{ userId: string; publicKey: string }>): void {
+    for (const m of members) this.setKeyPin(`${spaceId}:${m.userId}`, m.publicKey);
+  }
+
+  /** Пригласить по адресу: ключ проекта шифруется для участника ключом владельца. Возвращает отпечаток ключа участника. */
   async addMember(spaceId: string, email: string, role: 'editor' | 'viewer'): Promise<string> {
     const { userId, publicKey } = await this.api.userPublicKey(email);
     const key = this.spaceKeyById.get(spaceId);
     if (!key) throw new Error('unknown space');
-    await this.api.addMember(spaceId, { userId, role, key: sealSpaceKeyFor(key, spaceId, fromB64(publicKey)) });
+    if (userId === this.stored?.userId) throw new Error('self_invite');
+    const version = this.keyVersionById.get(spaceId) ?? 1;
+    await this.api.addMember(spaceId, { userId, role, key: boxSpaceKeyFor(key, spaceId, version, fromB64(publicKey), this.accountKeys()) });
+    // Ключ участника, который владелец видит сейчас (и сверяет отпечаток), закрепляется для будущих смен ключа.
+    this.setKeyPin(`${spaceId}:${userId}`, publicKey);
     return fingerprint(fromB64(publicKey));
   }
 
@@ -579,7 +646,8 @@ export class Controller {
           spaceId,
           ops: doc.replica.ops(),
           ownerId: this.stored.userId,
-          masterKey: this.accountKeys().masterKey,
+          account: this.accountKeys(),
+          pinned: (userId) => this.pin(`${spaceId}:${userId}`),
           keyVersion: info.keyVersion ?? 1,
           // Сколько журнала загружено на этом устройстве: всё, что пришло позже, сервер не даст удалить.
           baseSeq: await this.store.cursor(spaceId),
