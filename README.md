@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/banner.png" alt="Dela, an open-source task manager with end-to-end encryption" width="100%">
+  <img src="docs/images/banner-en.png" alt="Dela, an open-source task manager with end-to-end encryption" width="100%">
 </p>
 
 <h1 align="center">Dela: task manager with end-to-end encryption</h1>
@@ -34,13 +34,13 @@ I built Dela as a self-hosted alternative to Todoist: quick add in plain languag
 ## Screenshots
 
 <p align="center">
-  <img src="docs/images/screens.png" alt="Today, Upcoming in dark theme, task details and the phone layout" width="100%">
+  <img src="docs/images/screens-en.png" alt="Today, Upcoming in dark theme, task details and the phone layout" width="100%">
 </p>
 
 Quick add recognizes the date, time, recurrence, project and priority while you type:
 
 <p align="center">
-  <img src="docs/images/quick-add.png" alt="Quick add with recognized parts highlighted" width="80%">
+  <img src="docs/images/quick-add-en.png" alt="Quick add with recognized parts highlighted" width="80%">
 </p>
 
 ## Features
@@ -121,7 +121,7 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 docker compose pull && docker compose --profile https up -d
 ```
 
-The `latest` image is the latest release; a specific version is available as `ghcr.io/olerast67/dela:0.4.2`. Migrations run at startup, and the server copies the database to `/data/dela.sqlite.before-vN-<time>.bak` first. Once a day it writes a snapshot to `/data/backups`. A plaintext export is available in the app under Settings → Export.
+The `latest` image is the latest release; a specific version is available by its number, for example `ghcr.io/olerast67/dela:0.5.0`. Migrations run at startup, and the server copies the database to `/data/dela.sqlite.before-vN-<time>.bak` first. Once a day it writes a snapshot to `/data/backups`. A plaintext export is available in the app under Settings → Export.
 
 ## Security
 

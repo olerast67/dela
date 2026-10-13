@@ -1,0 +1,1 @@
+English interface: the app follows the system language, Settings → Language switches it. The widget and notifications are translated too.

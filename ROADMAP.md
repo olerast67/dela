@@ -57,6 +57,7 @@
 - [ ] 2.14 iOS и iPadOS
 - [x] 2.15 Push на Android без сервисов Google через UnifiedPush (ntfy); FCM и APNs перенесены в 4.1
 - [x] 2.16 Сайт olerast67.github.io/dela, демо без сервера, описание для F-Droid (заявку в F-Droid подаёт автор; Google Play вместе с облаком), проверка CLA в pull request
+- [x] 2.17 Английский интерфейс (язык системы или выбор в настройках), установка сервера одной командой с HTTPS через встроенный Caddy
 
 ## Фаза 3. Лучше Todoist
 

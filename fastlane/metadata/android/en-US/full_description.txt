@@ -9,6 +9,7 @@ Dela is an open-source task manager that you run on your own server. Every devic
 <li>Home screen widget, quick add tile, voice input</li>
 <li>Swipe to complete or reschedule, hold to drag</li>
 <li>Reminders without a network, PIN and fingerprint lock</li>
+<li>Interface in English and Russian</li>
 </ul>
 
 The app needs a Dela server: <a href="https://github.com/olerast67/dela#install-the-server">install it with Docker</a>. The server stores and syncs ciphertext only.

@@ -1266,8 +1266,14 @@ input.inline {
   min-width: 140px;
 }
 
+/* Поле времени не сжимается: в 12-часовом формате «06:00 PM» иначе обрезается. Если места мало, оно переносится строкой ниже. */
+.fields dd.row {
+  flex-wrap: wrap;
+}
+
 .fields dd.row input[type='time'] {
-  flex: 0 1 110px;
+  flex: 0 0 auto;
+  min-width: 118px;
 }
 
 @media (max-width: 1200px) and (min-width: 761px) {

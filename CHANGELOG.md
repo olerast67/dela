@@ -1,8 +1,9 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
 - English interface. The app follows the system language; Settings → Language switches between English and Russian. New accounts get welcome tasks and built-in templates in the chosen language. The Android widget, notifications and the Windows tray menu are translated too.
+- Task card: the time field is no longer cut off in the 12-hour format.
 - Server install in one command: settings in `.env`, `--profile https` starts a bundled Caddy that gets the certificate itself. The `latest` image is the latest release, `edge` follows the main branch.
 
 ## 0.4.2
