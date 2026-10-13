@@ -125,8 +125,8 @@ export class ApiClient {
     return this.call('DELETE', `/api/spaces/${encodeURIComponent(spaceId)}/files/${encodeURIComponent(fileId)}`);
   }
 
-  passkeyRegisterOptions(): Promise<{ options: Record<string, unknown> }> {
-    return this.call('POST', '/api/passkeys/register/options', {});
+  passkeyRegisterOptions(input: { authSecret: string; totp?: string }): Promise<{ options: Record<string, unknown> }> {
+    return this.call('POST', '/api/passkeys/register/options', input);
   }
 
   passkeyRegister(input: { response: unknown; name: string; wrappedMaster: string }): Promise<{ ok: true }> {
@@ -194,8 +194,8 @@ export class ApiClient {
     return this.call('GET', '/api/account');
   }
 
-  totpSetup(): Promise<{ secret: string; uri: string }> {
-    return this.call('POST', '/api/account/totp/setup', {});
+  totpSetup(authSecret: string): Promise<{ secret: string; uri: string }> {
+    return this.call('POST', '/api/account/totp/setup', { authSecret });
   }
 
   totpEnable(code: string): Promise<{ ok: true }> {

@@ -132,6 +132,7 @@ export {
   changeAccountPassword,
   deleteAccountOnServer,
   rotateSpaceKey,
+  passwordProof,
   UnpinnedMembersError,
   ensurePersonalSpace,
   spaceKeyOf,

@@ -29,6 +29,7 @@ test('вход по passkey', async ({ browser }) => {
   await expect(page.getByText('Всё сохранено')).toBeVisible({ timeout: 10_000 });
 
   await page.goto('/#/settings');
+  await page.getByLabel('Пароль для passkey').fill('passkey-pass-1');
   await page.getByRole('button', { name: 'Добавить passkey' }).click();
   await expect(page.getByText('Passkey добавлен.')).toBeVisible({ timeout: 15_000 });
 

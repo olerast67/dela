@@ -8,6 +8,7 @@ import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
 import { LockSettings } from './Lock.tsx';
 import { passkeysSupported } from '../passkey.ts';
+import { passwordProof } from '#core';
 import { saveProjectAsTemplate } from './History.tsx';
 import { checkDesktopUpdate, platform } from '../platform.ts';
 import { ShareDialog } from './Share.tsx';
@@ -885,6 +886,7 @@ function Board({
 
 export function TwoFactor() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [totpPassword, setTotpPassword] = useState('');
   const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null);
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
@@ -927,18 +929,22 @@ export function TwoFactor() {
         </form>
       )}
       {enabled === false && !setup && (
-        <button
-          onClick={async () => {
+        <form
+          className="row"
+          onSubmit={async (e) => {
+            e.preventDefault();
             try {
-              setSetup(await controller.api.totpSetup());
+              setSetup(await controller.api.totpSetup(await passwordProof(controller.api, totpPassword)));
+              setTotpPassword('');
               setMsg(null);
             } catch (err) {
-              fail(err);
+              setMsg(err instanceof Error && err.message === 'invalid_credentials' ? 'Пароль неверный.' : 'Не получилось. Нужна связь с сервером.');
             }
           }}
         >
-          Включить
-        </button>
+          <input type="password" placeholder="Пароль" aria-label="Пароль для TOTP" autoComplete="current-password" value={totpPassword} onChange={(e) => setTotpPassword(e.target.value)} required />
+          <button>Включить</button>
+        </form>
       )}
       {enabled === false && setup && (
         <form
@@ -1075,6 +1081,8 @@ export function DesktopUpdates() {
 /** Passkey: вход без пароля в браузере на домене сервера. */
 export function Passkeys() {
   const [list, setList] = useState<Array<{ id: string; name: string; createdAt: number; lastUsedAt: number | null }> | null>(null);
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const load = () =>
@@ -1114,19 +1122,31 @@ export function Passkeys() {
           </button>
         </div>
       ))}
+      <input type="password" placeholder="Пароль" aria-label="Пароль для passkey" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <input inputMode="numeric" placeholder="Код TOTP, если включён" aria-label="Код TOTP для passkey" value={code} onChange={(e) => setCode(e.target.value)} />
       <button
-        disabled={busy}
+        disabled={busy || !password}
         onClick={async () => {
           setBusy(true);
           setMsg(null);
           try {
-            await controller.addPasskey(navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Android') ? 'Android' : 'Passkey');
+            await controller.addPasskey(
+              navigator.userAgent.includes('Windows') ? 'Windows' : navigator.userAgent.includes('Android') ? 'Android' : 'Passkey',
+              password,
+              code.replace(/\s/g, '') || undefined,
+            );
+            setPassword('');
+            setCode('');
             setMsg('Passkey добавлен. Теперь на экране входа можно нажать «Войти по passkey».');
             void load();
           } catch (err) {
             const code = err instanceof Error ? err.message : '';
             setMsg(
-              code === 'prf_unsupported'
+              code === 'invalid_credentials'
+                ? 'Пароль неверный.'
+                : code === 'totp_required' || code === 'invalid_totp'
+                  ? 'Нужен верный код из приложения-аутентификатора.'
+                  : code === 'prf_unsupported'
                 ? 'Этот passkey не умеет PRF. Подойдут Google Password Manager, iCloud Keychain, Windows Hello на Windows 11 и ключи FIDO2.'
                 : code === 'passkeys_disabled'
                   ? 'На сервере не задан DELA_PUBLIC_URL, поэтому passkey выключены.'

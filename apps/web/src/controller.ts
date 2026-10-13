@@ -24,6 +24,7 @@ import {
   changeAccountPassword,
   deleteAccountOnServer,
   rotateSpaceKey,
+  passwordProof,
   ensurePersonalSpace,
   fingerprint,
   fromB64,
@@ -242,8 +243,9 @@ export class Controller {
   }
 
   /** Добавить passkey к аккаунту: мастер-ключ оборачивается секретом PRF и хранится на сервере в таком виде. */
-  async addPasskey(name: string): Promise<void> {
-    const { options } = await this.api.passkeyRegisterOptions();
+  async addPasskey(name: string, password: string, totp?: string): Promise<void> {
+    const authSecret = await passwordProof(this.api, password);
+    const { options } = await this.api.passkeyRegisterOptions({ authSecret, ...(totp ? { totp } : {}) });
     const { response, prf } = await createPasskey(options);
     await this.api.passkeyRegister({ response, name, wrappedMaster: wrapMasterForPasskey(this.accountKeys().masterKey, prf) });
   }

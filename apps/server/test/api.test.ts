@@ -370,7 +370,10 @@ describe('двухфакторный вход', () => {
     const s = makeServer();
     const { acc, res } = await register(s, 'a@x.yz', 'p');
     const token = res.json.token;
-    const setup = await s.call('POST', '/api/account/totp/setup', {}, token);
+    // Без пароля включить TOTP нельзя: украденной сессии мало.
+    expect((await s.call('POST', '/api/account/totp/setup', {}, token)).status).toBe(400);
+    expect((await s.call('POST', '/api/account/totp/setup', { authSecret: toB64(new Uint8Array(32)) }, token)).status).toBe(401);
+    const setup = await s.call('POST', '/api/account/totp/setup', { authSecret: toB64(acc.authSecret) }, token);
     expect(setup.json.uri).toMatch(/^otpauth:\/\/totp\//);
     const code = (dt = 0) => hotp(base32Decode(setup.json.secret), totpCounter(NOW + dt));
     expect((await s.call('POST', '/api/account/totp/enable', { code: '000000' }, token)).status).toBe(401);
@@ -545,5 +548,18 @@ describe('файлы', () => {
     expect((await put(ta, new Uint8Array(7 * 1024 * 1024 + 1), uuidv7(NOW + 1))).status).toBe(413);
     expect((await s.call('DELETE', `/api/spaces/${spaceId}/files/${fileId}`, undefined, ta)).status).toBe(200);
     expect((await s.app.request(`/api/spaces/${spaceId}/files/${fileId}`, { headers: { authorization: `Bearer ${ta}` } })).status).toBe(404);
+  });
+});
+
+describe('passkey', () => {
+  it('добавить passkey можно только с паролем', async () => {
+    const s = makeServer();
+    const a = await register(s, 'a@x.yz', 'пароль');
+    const t = a.res.json.token as string;
+    expect((await s.call('POST', '/api/passkeys/register/options', {}, t)).status).toBe(400);
+    expect((await s.call('POST', '/api/passkeys/register/options', { authSecret: toB64(new Uint8Array(32)) }, t)).status).toBe(401);
+    const ok = await s.call('POST', '/api/passkeys/register/options', { authSecret: toB64(a.acc.authSecret) }, t);
+    expect(ok.status).toBe(200);
+    expect(ok.json.options.rp).toMatchObject({ id: 'localhost', name: 'Dela' });
   });
 });

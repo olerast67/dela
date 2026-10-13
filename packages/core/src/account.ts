@@ -178,3 +178,9 @@ export async function rotateSpaceKey(
   const res = await api.rotateCommit(input.spaceId, rotationId, { baseSeq: input.baseSeq, keys: memberKeys });
   return { key, keyVersion: res.keyVersion };
 }
+
+/** Доказательство пароля для чувствительных действий (passkey, TOTP): тот же authSecret, что при входе. */
+export async function passwordProof(api: ApiClient, password: string): Promise<string> {
+  const { bundle } = await api.account();
+  return toB64(derivePasswordKeys(password, fromB64(bundle.salt), bundle.kdf).authSecret);
+}

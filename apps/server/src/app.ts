@@ -338,6 +338,8 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   app.post('/api/passkeys/register/options', requireAuth, async (c) => {
     const { userId } = c.get('auth');
     const { rpID } = passkeyOrigin();
+    // Passkey даёт вход без пароля надолго: добавить его можно только с паролем и TOTP.
+    await confirmPassword(userId, await body(c));
     const row = db.prepare('SELECT email FROM users WHERE id = ?').get(userId) as { email: string };
     const existing = db.prepare('SELECT id, transports FROM passkeys WHERE user_id = ?').all(userId) as Array<{ id: string; transports: string }>;
     const options = await generateRegistrationOptions({
@@ -493,6 +495,8 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
       db.prepare('UPDATE users SET auth_salt = ?, auth_hash = ?, bundle = ? WHERE id = ?').run(salt, hash, JSON.stringify(bundle), row.id);
       db.prepare('UPDATE devices SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL').run(now(), row.id);
       db.prepare('DELETE FROM sessions WHERE user_id = ?').run(row.id);
+      // Восстановление закрывает все старые способы входа, в том числе passkey.
+      db.prepare('DELETE FROM passkeys WHERE user_id = ?').run(row.id);
       return createSession(row.id, deviceName);
     });
     for (const d of db.prepare('SELECT id FROM devices WHERE user_id = ?').all(row.id) as Array<{ id: string }>) {
@@ -532,8 +536,34 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   // ---------- двухфакторный вход (TOTP) ----------
 
   /** Новый секрет. Включается только после подтверждения кодом. */
-  app.post('/api/account/totp/setup', requireAuth, (c) => {
+  /**
+   * Подтверждение паролем (и кодом TOTP, если он включён) для действий, которые дают долгий доступ:
+   * украденной сессии для них мало.
+   */
+  async function confirmPassword(userId: string, b: Record<string, unknown>): Promise<void> {
+    const secret = b64(b.authSecret, 'authSecret', { bytes: 32 });
+    if (!loginLimiter.hit(`confirm:${userId}`)) fail(429, 'rate_limited');
+    const row = db.prepare('SELECT auth_salt, auth_hash, totp_secret, totp_enabled, totp_last FROM users WHERE id = ?').get(userId) as {
+      auth_salt: Uint8Array;
+      auth_hash: Uint8Array;
+      totp_secret: string | null;
+      totp_enabled: number;
+      totp_last: number | null;
+    };
+    if (!safeEqual(await hashAuthSecret(secret, row.auth_salt), row.auth_hash)) fail(401, 'invalid_credentials');
+    if (row.totp_enabled === 1 && row.totp_secret) {
+      const code = typeof b.totp === 'string' ? b.totp.replace(/\s/g, '') : '';
+      if (!code) fail(401, 'totp_required');
+      const step = verifyTotp(row.totp_secret, code, now(), row.totp_last === null ? null : Number(row.totp_last));
+      if (step === null) fail(401, 'invalid_totp');
+      db.prepare('UPDATE users SET totp_last = ? WHERE id = ?').run(step, userId);
+    }
+  }
+
+  app.post('/api/account/totp/setup', requireAuth, async (c) => {
     const { userId } = c.get('auth');
+    // Включить TOTP чужому аккаунту по украденной сессии нельзя: нужен пароль.
+    await confirmPassword(userId, await body(c));
     const row = db.prepare('SELECT email, totp_enabled FROM users WHERE id = ?').get(userId) as { email: string; totp_enabled: number };
     if (row.totp_enabled === 1) fail(409, 'totp_already_enabled');
     const secret = newTotpSecret();
@@ -591,6 +621,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
       // Остальные устройства входят заново с новым паролем.
       db.prepare('DELETE FROM sessions WHERE user_id = ? AND device_id != ?').run(userId, deviceId);
     });
+    for (const d of db.prepare('SELECT id FROM devices WHERE user_id = ? AND id != ?').all(userId, deviceId) as Array<{ id: string }>) hub.closeDevice(d.id);
     return c.json({ ok: true });
   });
 
