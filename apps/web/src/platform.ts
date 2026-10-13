@@ -155,3 +155,17 @@ export async function onQuickAddRequest(fn: () => void): Promise<() => void> {
   const { listen } = await import('@tauri-apps/api/event');
   return listen('quick-add', () => fn());
 }
+
+/** Телефон: текст из «Поделиться» в других приложениях. */
+export async function onSharedText(fn: (text: string) => void): Promise<() => void> {
+  if (platform() !== 'capacitor') return () => undefined;
+  const { registerPlugin } = await import('@capacitor/core');
+  const ShareIntent = registerPlugin<{
+    take(): Promise<{ text?: string }>;
+    addListener(event: 'shared', cb: (e: { text: string }) => void): Promise<{ remove(): Promise<void> }>;
+  }>('ShareIntent');
+  const handle = await ShareIntent.addListener('shared', (e) => e.text && fn(e.text));
+  const first = await ShareIntent.take();
+  if (first.text) fn(first.text);
+  return () => void handle.remove();
+}

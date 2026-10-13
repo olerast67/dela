@@ -9,7 +9,7 @@ import { TaskPanel } from './ui/TaskPanel.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
-import { onBackButton, onNotificationOpen, onQuickAddRequest } from './platform.ts';
+import { onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText } from './platform.ts';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 
 function typing(e: KeyboardEvent): boolean {
@@ -25,6 +25,7 @@ function Shell() {
   const [quickAdd, setQuickAdd] = useState(false);
   const [menu, setMenu] = useState(false);
   const [palette, setPalette] = useState(false);
+  const [sharedText, setSharedText] = useState('');
   const [help, setHelp] = useState(false);
 
   const open = useCallback((id: string) => setSelected(id), []);
@@ -147,6 +148,12 @@ function Shell() {
       });
     keep(onNotificationOpen((id) => setSelected(id)));
     keep(
+      onSharedText((text) => {
+        setSharedText(text);
+        setQuickAdd(true);
+      }),
+    );
+    keep(
       onBackButton(() => {
         const s = backState.current;
         if (s.quickAdd) setQuickAdd(false);
@@ -254,7 +261,15 @@ function Shell() {
       {quickAdd && (
         <div className="modal-scrim" onMouseDown={(e) => e.target === e.currentTarget && setQuickAdd(false)}>
           <div className="modal">
-            <QuickAdd defaults={quickDefaults} onClose={() => setQuickAdd(false)} compact={false} />
+            <QuickAdd
+              defaults={quickDefaults}
+              initialText={sharedText}
+              onClose={() => {
+                setQuickAdd(false);
+                setSharedText('');
+              }}
+              compact={false}
+            />
           </div>
         </div>
       )}

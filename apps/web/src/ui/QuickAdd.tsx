@@ -59,14 +59,16 @@ export function QuickAdd({
   onClose,
   placeholder = 'Например: позвонить маме завтра в 19 №Дом !1',
   compact = false,
+  initialText = '',
 }: {
   defaults?: QuickAddDefaults;
   onClose?: () => void;
   placeholder?: string;
   compact?: boolean;
+  initialText?: string;
 }) {
   const doc = useDoc();
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initialText);
   const [ignored, setIgnored] = useState<Ignored[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const mirror = useRef<HTMLDivElement>(null);
