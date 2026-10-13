@@ -25,6 +25,15 @@ export interface Config {
   readonly backupKeep: number;
   /** Контакт для push-сервисов (VAPID sub): mailto: или https:. */
   readonly vapidSubject: string;
+  /**
+   * Сервер стоит за обратным прокси (Caddy, nginx): адрес клиента берётся из последнего
+   * значения X-Forwarded-For. Без прокси включать нельзя: заголовок подделывается.
+   */
+  readonly trustProxy: boolean;
+  /** Адрес, которым может зарегистрироваться первый пользователь (администратор). */
+  readonly adminEmail: string;
+  /** Предел числа записей (ячеек) в одном пространстве. */
+  readonly maxRecordsPerSpace: number;
 }
 
 function bool(v: string | undefined, fallback: boolean): boolean {
@@ -46,6 +55,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     corsOrigins: (env.DELA_CORS_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     backupKeep: Number(env.DELA_BACKUP_KEEP ?? 7),
     vapidSubject: env.DELA_VAPID_SUBJECT ?? 'https://github.com/olerast67/dela',
+    trustProxy: bool(env.DELA_TRUST_PROXY, false),
+    adminEmail: (env.DELA_ADMIN_EMAIL ?? '').trim().toLowerCase(),
+    maxRecordsPerSpace: Number(env.DELA_MAX_RECORDS_PER_SPACE ?? 500_000),
   };
 }
 
@@ -62,6 +74,9 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     corsOrigins: [],
     backupKeep: 0,
     vapidSubject: 'mailto:test@dela.test',
+    trustProxy: false,
+    adminEmail: '',
+    maxRecordsPerSpace: 500_000,
     ...overrides,
   };
 }

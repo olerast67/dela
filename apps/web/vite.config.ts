@@ -47,6 +47,7 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     target: 'es2022',
-    sourcemap: true,
+    // Код открыт, но карты исходников раздували бы APK и установщик.
+    sourcemap: false,
   },
 });

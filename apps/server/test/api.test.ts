@@ -390,3 +390,39 @@ describe('двухфакторный вход', () => {
     expect((await login()).status).toBe(200);
   });
 });
+
+describe('защита сервера за прокси', () => {
+  it('лимит попыток считается по адресу клиента из X-Forwarded-For', async () => {
+    const db = openDb(':memory:');
+    const { app } = createApp(db, testConfig({ trustProxy: true }), () => NOW);
+    const login = (ip: string) =>
+      app.request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-forwarded-for': `6.6.6.6, ${ip}` },
+        body: JSON.stringify({ email: `u${ip}@x.yz`, authSecret: toB64(new Uint8Array(32)), deviceName: 'x' }),
+      });
+    for (let i = 0; i < 60; i++) await login('1.1.1.1');
+    expect((await login('1.1.1.1')).status).toBe(429);
+    // Другой клиент за тем же прокси не заблокирован.
+    expect((await login('2.2.2.2')).status).toBe(401);
+  });
+
+  it('первым может зарегистрироваться только адрес администратора', async () => {
+    const s = makeServer({ adminEmail: 'owner@x.yz' });
+    expect((await register(s, 'stranger@x.yz', 'p')).res).toEqual({ status: 403, json: { error: 'registration_closed' } });
+    expect((await register(s, 'owner@x.yz', 'p')).res.status).toBe(201);
+  });
+
+  it('ответы API не кэшируются, у пространства есть предел записей', async () => {
+    const s = makeServer({ maxRecordsPerSpace: 2 });
+    const { acc, res } = await register(s, 'a@x.yz', 'p');
+    const token = res.json.token;
+    const health = await s.app.request('/api/health');
+    expect(health.headers.get('cache-control')).toBe('no-store');
+    const spaceId = uuidv7(NOW);
+    await s.call('POST', '/api/spaces', { id: spaceId, key: wrapSpaceKey(newKey(), acc.keys.masterKey, spaceId) }, token);
+    const env = (i: number) => ({ slot: i.toString(16).padStart(32, '0'), hlc: ts(NOW), payload: 'AAAA' });
+    expect((await s.call('POST', `/api/spaces/${spaceId}/push`, { envelopes: [env(1), env(2)] }, token)).status).toBe(200);
+    expect((await s.call('POST', `/api/spaces/${spaceId}/push`, { envelopes: [env(3)] }, token))).toEqual({ status: 413, json: { error: 'space_full' } });
+  });
+});

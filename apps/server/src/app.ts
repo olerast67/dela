@@ -32,7 +32,7 @@ const MAX_PAYLOAD_BYTES = 64 * 1024;
 const SLOT_RE = /^[0-9a-f]{32}$/;
 const DEFAULT_KDF = { alg: 'argon2id13', ops: 3, mem: 64 * 1024 * 1024 } as const;
 
-function fail(status: 401 | 403 | 404 | 409 | 429, message: string, extra?: Record<string, unknown>): never {
+function fail(status: 401 | 403 | 404 | 409 | 413 | 429, message: string, extra?: Record<string, unknown>): never {
   throw new HTTPException(status, {
     res: new Response(JSON.stringify({ error: message, ...extra }), {
       status,
@@ -63,7 +63,13 @@ function normEmail(v: unknown): string {
   return str(v, 'email', { max: 254, re: EMAIL_RE }).trim().toLowerCase();
 }
 
-function clientIp(c: Context): string {
+function clientIp(c: Context, trustProxy: boolean): string {
+  if (trustProxy) {
+    // Прокси дописывает адрес клиента в конец списка; значения левее мог прислать сам клиент.
+    const forwarded = c.req.header('x-forwarded-for')?.split(',').map((s) => s.trim()).filter(Boolean);
+    const last = forwarded?.[forwarded.length - 1];
+    if (last) return last;
+  }
   const incoming = (c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined)?.incoming;
   return incoming?.socket?.remoteAddress ?? 'local';
 }
@@ -200,6 +206,11 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     }),
   );
   app.use('/api/*', bodyLimit({ maxSize: 8 * 1024 * 1024, onError: (c) => c.json({ error: 'body_too_large' }, 413) }));
+  // Ответы API личные: браузер и прокси их не кэшируют.
+  app.use('/api/*', async (c, next) => {
+    await next();
+    c.header('cache-control', 'no-store');
+  });
 
   const requireAuth = async (c: Context<AppEnv>, next: () => Promise<void>) => {
     const header = c.req.header('authorization') ?? '';
@@ -228,7 +239,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
   app.post('/api/auth/register', async (c) => {
     const b = await body(c);
-    if (!ipLimiter.hit(`ip:${clientIp(c)}`)) fail(429, 'rate_limited');
+    if (!ipLimiter.hit(`ip:${clientIp(c, config.trustProxy)}`)) fail(429, 'rate_limited');
     const email = normEmail(b.email);
     const authSecret = b64(b.authSecret, 'authSecret', { bytes: 32 });
     const recoveryAuth = b64(b.recoveryAuth, 'recoveryAuth', { bytes: 32 });
@@ -243,6 +254,8 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const result = tx(db, () => {
       const users = Number((db.prepare('SELECT count(*) AS n FROM users').get() as { n: number }).n);
       const isFirst = users === 0;
+      // На новом сервере первым (администратором) может стать только адрес из DELA_ADMIN_EMAIL.
+      if (isFirst && config.adminEmail && email !== config.adminEmail) fail(403, 'registration_closed');
       let inviteHash: Buffer | undefined;
       if (!isFirst && !config.openRegistration) {
         if (!invite) fail(403, 'invite_required');
@@ -268,7 +281,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const email = normEmail(b.email);
     const authSecret = b64(b.authSecret, 'authSecret', { bytes: 32 });
     const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
-    if (!ipLimiter.hit(`ip:${clientIp(c)}`) || !loginLimiter.hit(`login:${email}`)) fail(429, 'rate_limited');
+    if (!ipLimiter.hit(`ip:${clientIp(c, config.trustProxy)}`) || !loginLimiter.hit(`login:${email}`)) fail(429, 'rate_limited');
 
     const row = db
       .prepare('SELECT id, auth_salt, auth_hash, bundle, is_admin, totp_secret, totp_enabled, totp_last FROM users WHERE email = ?')
@@ -305,7 +318,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   async function checkRecovery(c: Context, b: Record<string, unknown>) {
     const email = normEmail(b.email);
     const recoveryAuth = b64(b.recoveryAuth, 'recoveryAuth', { bytes: 32 });
-    if (!ipLimiter.hit(`ip:${clientIp(c)}`) || !loginLimiter.hit(`recover:${email}`)) fail(429, 'rate_limited');
+    if (!ipLimiter.hit(`ip:${clientIp(c, config.trustProxy)}`) || !loginLimiter.hit(`recover:${email}`)) fail(429, 'rate_limited');
     const row = db.prepare('SELECT id, bundle, is_admin, recovery_salt, recovery_hash FROM users WHERE email = ?').get(email) as
       | { id: string; bundle: string; is_admin: number; recovery_salt: Uint8Array | null; recovery_hash: Uint8Array | null }
       | undefined;
@@ -609,6 +622,8 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     if (envelopes.some((e) => exceedsDrift(e.hlc, t, config.maxClockDrift))) {
       fail(409, 'clock_drift', { serverTime: t });
     }
+    const stored = Number((db.prepare('SELECT count(*) AS n FROM envelopes WHERE space_id = ?').get(spaceId) as { n: number }).n);
+    if (stored + envelopes.length > config.maxRecordsPerSpace) fail(413, 'space_full');
     const { accepted, seq } = relay.push(spaceId, envelopes);
     if (accepted > 0) {
       const members = (db.prepare('SELECT user_id FROM members WHERE space_id = ?').all(spaceId) as Array<{ user_id: string }>).map(
