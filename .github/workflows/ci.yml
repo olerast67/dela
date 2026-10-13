@@ -51,7 +51,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Ветка main публикует latest, тег v1.2.3 публикует версию 1.2.3.
+      # Тег v1.2.3 публикует версию 1.2.3 и latest (последний выпуск), ветка main публикует edge.
       - id: tags
         env:
           REPO: ${{ github.repository }}
@@ -59,7 +59,7 @@ jobs:
           {
             echo 'list<<EOF'
             echo "ghcr.io/$REPO:$GITHUB_SHA"
-            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "ghcr.io/$REPO:${GITHUB_REF_NAME#v}"; else echo "ghcr.io/$REPO:latest"; fi
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "ghcr.io/$REPO:${GITHUB_REF_NAME#v}"; echo "ghcr.io/$REPO:latest"; else echo "ghcr.io/$REPO:edge"; fi
             echo EOF
           } >> "$GITHUB_OUTPUT"
       # Образ публикуется без общего кэша сборки: отравленный кэш не попадёт в выпуск.

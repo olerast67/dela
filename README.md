@@ -73,15 +73,19 @@ All files are on the [releases page](https://github.com/olerast67/dela/releases/
 
 ## Install the server
 
-You need a server with Docker and a domain name. Service workers and Web Push require HTTPS, so Dela runs behind a reverse proxy.
+You need a server with Docker and a domain name whose DNS record points to the server. Service workers and Web Push require HTTPS; the bundled Caddy obtains the certificate itself.
 
 ```bash
-curl -O https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
-# set DELA_ADMIN_EMAIL in the file to your address first
-docker compose up -d
+mkdir dela && cd dela
+curl -fsSLO https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/olerast67/dela/main/.env.example -o .env
+nano .env    # your email and domain
+docker compose --profile https up -d
 ```
 
-The container listens on port 8080 on `127.0.0.1`. A Caddy site that obtains the certificate itself:
+Then open `https://<your domain>` and register with the email from `.env`.
+
+Already have a reverse proxy? Start without the profile: `docker compose up -d`. Dela then listens on `127.0.0.1:8080`, and a Caddy site for it looks like this:
 
 ```
 tasks.example.com {
@@ -96,6 +100,7 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 | Variable | Default | Meaning |
 |---|---|---|
 | `DELA_ADMIN_EMAIL` | empty | The only address allowed to register first |
+| `DELA_DOMAIN` | empty | Domain for the bundled Caddy (`--profile https`) |
 | `DELA_OPEN_REGISTRATION` | `false` | Registration without an invite |
 | `DELA_TRUST_PROXY` | `false` | Take the client address from `X-Forwarded-For` for login rate limits. Enable only behind a proxy |
 | `DELA_PORT` | `8080` | Server port |
@@ -112,10 +117,10 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 ### Updating and backups
 
 ```bash
-docker compose pull && docker compose up -d
+docker compose pull && docker compose --profile https up -d
 ```
 
-Migrations run at startup, and the server copies the database to `/data/dela.sqlite.before-vN-<time>.bak` first. Once a day it writes a snapshot to `/data/backups`. A plaintext export is available in the app under Settings → Export.
+The `latest` image is the latest release; a specific version is available as `ghcr.io/olerast67/dela:0.4.2`. Migrations run at startup, and the server copies the database to `/data/dela.sqlite.before-vN-<time>.bak` first. Once a day it writes a snapshot to `/data/backups`. A plaintext export is available in the app under Settings → Export.
 
 ## Security
 

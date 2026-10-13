@@ -73,15 +73,19 @@
 
 ## Установка сервера
 
-Нужен сервер с Docker и доменное имя. Service worker и Web Push работают только по HTTPS, поэтому Dela стоит за обратным прокси.
+Нужен сервер с Docker и доменное имя, запись DNS которого указывает на сервер. Service worker и Web Push работают только по HTTPS, сертификат получает встроенный Caddy.
 
 ```bash
-curl -O https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
-# сначала впишите в файл свой адрес в DELA_ADMIN_EMAIL
-docker compose up -d
+mkdir dela && cd dela
+curl -fsSLO https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/olerast67/dela/main/.env.example -o .env
+nano .env    # свой адрес почты и домен
+docker compose --profile https up -d
 ```
 
-Контейнер слушает порт 8080 на `127.0.0.1`. Сайт для Caddy, сертификат Caddy получит сам:
+Потом откройте `https://<ваш домен>` и зарегистрируйтесь с адресом из `.env`.
+
+Если обратный прокси уже есть, запускайте без профиля: `docker compose up -d`. Тогда Dela слушает `127.0.0.1:8080`, а сайт для Caddy выглядит так:
 
 ```
 tasks.example.com {
@@ -96,6 +100,7 @@ tasks.example.com {
 | Переменная | По умолчанию | Что задаёт |
 |---|---|---|
 | `DELA_ADMIN_EMAIL` | пусто | Единственный адрес, с которым можно зарегистрироваться первым |
+| `DELA_DOMAIN` | пусто | Домен для встроенного Caddy (`--profile https`) |
 | `DELA_OPEN_REGISTRATION` | `false` | Регистрация без приглашения |
 | `DELA_TRUST_PROXY` | `false` | Брать адрес клиента из `X-Forwarded-For` для лимита попыток входа. Включать только за прокси |
 | `DELA_PORT` | `8080` | Порт сервера |
@@ -112,10 +117,10 @@ tasks.example.com {
 ### Обновление и резервные копии
 
 ```bash
-docker compose pull && docker compose up -d
+docker compose pull && docker compose --profile https up -d
 ```
 
-Миграции идут при запуске, перед ними сервер копирует базу в `/data/dela.sqlite.before-vN-<время>.bak`. Раз в сутки он пишет снимок в `/data/backups`. Открытая выгрузка есть в приложении: «Настройки → Экспорт».
+Образ `latest` это последний выпуск, конкретная версия доступна как `ghcr.io/olerast67/dela:0.4.2`. Миграции идут при запуске, перед ними сервер копирует базу в `/data/dela.sqlite.before-vN-<время>.bak`. Раз в сутки он пишет снимок в `/data/backups`. Открытая выгрузка есть в приложении: «Настройки → Экспорт».
 
 ## Безопасность
 

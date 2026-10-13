@@ -69,10 +69,12 @@
 
     <section id="server" class="wrap">
       <h2>Установка сервера</h2>
-      <p class="text">Нужен сервер с&nbsp;Docker и&nbsp;доменное&nbsp;имя. Service worker и&nbsp;Web Push работают только по&nbsp;HTTPS, поэтому Dela стоит за&nbsp;обратным прокси, например Caddy.</p>
-      <pre><code>curl -O https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
-# сначала впишите в файл свой адрес в DELA_ADMIN_EMAIL
-docker compose up -d</code></pre>
+      <p class="text">Нужен сервер с&nbsp;Docker и&nbsp;доменное&nbsp;имя, запись DNS которого указывает на&nbsp;сервер. Сертификат HTTPS встроенный Caddy получает сам.</p>
+      <pre><code>mkdir dela &amp;&amp; cd dela
+curl -fsSLO https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/olerast67/dela/main/.env.example -o .env
+nano .env    # свой адрес почты и домен
+docker compose --profile https up -d</code></pre>
       <p class="text">Первый аккаунт регистрируется только с&nbsp;адресом из&nbsp;<code>DELA_ADMIN_EMAIL</code>, дальше регистрация идёт по&nbsp;приглашениям. Перед каждой миграцией и&nbsp;раз в&nbsp;сутки сервер копирует базу. Все настройки в&nbsp;<a href="https://github.com/olerast67/dela/blob/main/README.ru.md#настройки">README</a>.</p>
     </section>
 

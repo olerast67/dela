@@ -14,6 +14,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
 FROM node:24-alpine
+LABEL org.opencontainers.image.source="https://github.com/olerast67/dela" \
+      org.opencontainers.image.description="Dela: self-hosted task manager with end-to-end encryption" \
+      org.opencontainers.image.licenses="AGPL-3.0-only"
 ENV NODE_ENV=production \
     DELA_DATA_DIR=/data \
     DELA_PORT=8080 \

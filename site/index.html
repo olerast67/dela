@@ -69,10 +69,12 @@
 
     <section id="server" class="wrap">
       <h2>Install the server</h2>
-      <p class="text">You need a server with Docker and a domain name. Service workers and Web Push require HTTPS, so Dela runs behind a reverse proxy such as Caddy.</p>
-      <pre><code>curl -O https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
-# set DELA_ADMIN_EMAIL in the file to your address first
-docker compose up -d</code></pre>
+      <p class="text">You need a server with Docker and a domain name whose DNS record points to the server. The bundled Caddy obtains the HTTPS certificate itself.</p>
+      <pre><code>mkdir dela &amp;&amp; cd dela
+curl -fsSLO https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/olerast67/dela/main/.env.example -o .env
+nano .env    # your email and domain
+docker compose --profile https up -d</code></pre>
       <p class="text">The first account can be registered only with the address from <code>DELA_ADMIN_EMAIL</code>. After that, registration needs an invite. The server copies the database before every migration and once a day. All settings are in the <a href="https://github.com/olerast67/dela#configuration">README</a>.</p>
     </section>
 

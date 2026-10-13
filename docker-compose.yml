@@ -1,22 +1,24 @@
-# Пример установки. Запуск: docker compose up -d
-# Сервер слушает 8080 только на 127.0.0.1; снаружи его закрывает HTTPS-прокси (Caddy, nginx, Traefik).
+# Dela server. Settings are read from .env next to this file (copy .env.example).
+#
+#   docker compose --profile https up -d   the bundled Caddy gets an HTTPS certificate for DELA_DOMAIN
+#   docker compose up -d                   only Dela on 127.0.0.1:8080, behind your own HTTPS proxy
+#
+# Update: docker compose pull && docker compose --profile https up -d
 services:
   dela:
-    image: ghcr.io/olerast67/dela:0.4.2
+    image: ghcr.io/olerast67/dela:latest
     restart: unless-stopped
     ports:
       - '127.0.0.1:8080:8080'
     volumes:
       - dela-data:/data
     environment:
-      # Первым (администратором) может зарегистрироваться только этот адрес. Впишите свой.
-      DELA_ADMIN_EMAIL: ''
-      # Регистрация после администратора только по приглашениям; true открывает её всем.
-      DELA_OPEN_REGISTRATION: 'false'
-      # Сервер стоит за прокси: адрес клиента для лимитов попыток берётся из X-Forwarded-For.
+      DELA_ADMIN_EMAIL: ${DELA_ADMIN_EMAIL:-}
+      DELA_OPEN_REGISTRATION: ${DELA_OPEN_REGISTRATION:-false}
+      DELA_PUBLIC_URL: ${DELA_PUBLIC_URL:-}
+      DELA_BACKUP_KEEP: ${DELA_BACKUP_KEEP:-7}
+      # Dela runs behind a proxy: the client address for login limits comes from X-Forwarded-For.
       DELA_TRUST_PROXY: 'true'
-      # Сколько ежедневных снимков базы хранить в /data/backups.
-      DELA_BACKUP_KEEP: '7'
     read_only: true
     tmpfs:
       - /tmp
@@ -32,5 +34,27 @@ services:
         max-size: 10m
         max-file: '3'
 
+  caddy:
+    image: caddy:2-alpine
+    profiles: [https]
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${DELA_DOMAIN:-localhost} --to dela:8080
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - dela
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+
 volumes:
   dela-data:
+  caddy-data:
+  caddy-config:
