@@ -647,13 +647,89 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const { userId } = c.get('auth');
     const rows = db
       .prepare(
-        `SELECT s.id, s.kind, s.last_seq, m.role, m.key_kind, m.key
+        `SELECT s.id, s.kind, s.last_seq, s.key_version, m.role, m.key_kind, m.key
          FROM members m JOIN spaces s ON s.id = m.space_id WHERE m.user_id = ? ORDER BY s.created_at`,
       )
-      .all(userId) as Array<{ id: string; kind: string; last_seq: number; role: string; key_kind: string; key: string }>;
+      .all(userId) as Array<{ id: string; kind: string; last_seq: number; key_version: number; role: string; key_kind: string; key: string }>;
     return c.json({
-      spaces: rows.map((r) => ({ id: r.id, kind: r.kind, role: r.role, keyKind: r.key_kind, key: r.key, lastSeq: Number(r.last_seq) })),
+      spaces: rows.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        role: r.role,
+        keyKind: r.key_kind,
+        key: r.key,
+        lastSeq: Number(r.last_seq),
+        keyVersion: Number(r.key_version),
+      })),
     });
+  });
+
+  function keyVersionOf(spaceId: string): number {
+    return Number((db.prepare('SELECT key_version FROM spaces WHERE id = ?').get(spaceId) as { key_version: number }).key_version);
+  }
+
+  function parseEnvelopes(list: unknown[]): Envelope<string>[] {
+    return list.map((raw, i) => {
+      const e = obj(raw, `envelopes[${i}]`);
+      const slot = str(e.slot, 'slot', { re: SLOT_RE });
+      const hlc = str(e.hlc, 'hlc', { max: 64 });
+      if (!isTimestamp(hlc)) bad(`envelopes[${i}].hlc is invalid`);
+      const payload = b64(e.payload, 'payload', { maxBytes: MAX_PAYLOAD_BYTES }).toString('base64');
+      return { slot, hlc, payload };
+    });
+  }
+
+  /**
+   * Новый ключ общего пространства (после удаления участника). Владелец присылает всё содержимое,
+   * заново зашифрованное новым ключом, и новый ключ для каждого оставшегося участника.
+   * Старые конверты удаляются в той же транзакции. baseSeq защищает от потери правок,
+   * пришедших, пока владелец шифровал: если журнал успел вырасти, ответ 409 stale.
+   */
+  app.post('/api/spaces/:id/rotate', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const { role } = membership(spaceId, userId);
+    if (role !== 'owner') fail(403, 'forbidden');
+    const space = db.prepare('SELECT kind, last_seq, key_version FROM spaces WHERE id = ?').get(spaceId) as {
+      kind: string;
+      last_seq: number;
+      key_version: number;
+    };
+    if (space.kind !== 'shared') bad('only shared spaces rotate keys');
+    const b = await body(c);
+    if (Number(b.keyVersion) !== Number(space.key_version) + 1) fail(409, 'key_rotated', { keyVersion: Number(space.key_version) });
+    if (Number(b.baseSeq) !== Number(space.last_seq)) fail(409, 'stale', { lastSeq: Number(space.last_seq) });
+    if (!Array.isArray(b.envelopes)) bad('envelopes must be an array');
+    if (b.envelopes.length > config.maxRecordsPerSpace) fail(413, 'space_full');
+    if (!Array.isArray(b.keys)) bad('keys must be an array');
+    const t = now();
+    const envelopes = parseEnvelopes(b.envelopes);
+    if (envelopes.some((e) => exceedsDrift(e.hlc, t, config.maxClockDrift))) fail(409, 'clock_drift', { serverTime: t });
+    const members = (db.prepare('SELECT user_id FROM members WHERE space_id = ?').all(spaceId) as Array<{ user_id: string }>).map((r) => r.user_id);
+    const keys = new Map<string, string>();
+    for (const [i, raw] of b.keys.entries()) {
+      const k = obj(raw, `keys[${i}]`);
+      keys.set(str(k.userId, 'userId', { re: UUID_RE }), b64(k.key, 'key', { maxBytes: 256 }).toString('base64'));
+    }
+    if (keys.size !== members.length || members.some((m) => !keys.has(m))) bad('keys must cover exactly the current members');
+    // В одном слоте остаётся конверт с самой поздней меткой.
+    const bySlot = new Map<string, Envelope<string>>();
+    for (const e of envelopes) {
+      const prev = bySlot.get(e.slot);
+      if (!prev || prev.hlc < e.hlc) bySlot.set(e.slot, e);
+    }
+    let seq = Number(space.last_seq);
+    tx(db, () => {
+      db.prepare('DELETE FROM envelopes WHERE space_id = ?').run(spaceId);
+      const insert = db.prepare('INSERT INTO envelopes (space_id, slot, hlc, payload, seq) VALUES (?, ?, ?, ?, ?)');
+      for (const e of bySlot.values()) insert.run(spaceId, e.slot, e.hlc, Buffer.from(e.payload, 'base64'), ++seq);
+      db.prepare('UPDATE spaces SET last_seq = ?, key_version = key_version + 1 WHERE id = ?').run(seq, spaceId);
+      const update = db.prepare("UPDATE members SET key = ?, key_kind = CASE WHEN user_id = ? THEN 'wrapped' ELSE 'sealed' END WHERE space_id = ? AND user_id = ?");
+      for (const [member, key] of keys) update.run(key, userId, spaceId, member);
+    });
+    hub.notify(members, { type: 'spaces' });
+    hub.notify(members, { type: 'changed', space: spaceId, seq });
+    return c.json({ ok: true, keyVersion: Number(space.key_version) + 1, seq });
   });
 
   app.post('/api/spaces/:id/push', requireAuth, async (c) => {
@@ -664,15 +740,12 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const b = await body(c);
     if (!Array.isArray(b.envelopes)) bad('envelopes must be an array');
     if (b.envelopes.length > MAX_ENVELOPES_PER_PUSH) bad(`at most ${MAX_ENVELOPES_PER_PUSH} envelopes per push`);
+    // После смены ключа конверты со старым ключом не принимаются: клиент берёт новый ключ и шифрует заново.
+    const current = keyVersionOf(spaceId);
+    const sent = b.keyVersion === undefined ? 1 : Number(b.keyVersion);
+    if (sent !== current) fail(409, 'key_rotated', { keyVersion: current });
     const t = now();
-    const envelopes: Envelope<string>[] = b.envelopes.map((raw, i) => {
-      const e = obj(raw, `envelopes[${i}]`);
-      const slot = str(e.slot, 'slot', { re: SLOT_RE });
-      const hlc = str(e.hlc, 'hlc', { max: 64 });
-      if (!isTimestamp(hlc)) bad(`envelopes[${i}].hlc is invalid`);
-      const payload = b64(e.payload, 'payload', { maxBytes: MAX_PAYLOAD_BYTES }).toString('base64');
-      return { slot, hlc, payload };
-    });
+    const envelopes = parseEnvelopes(b.envelopes);
     if (envelopes.some((e) => exceedsDrift(e.hlc, t, config.maxClockDrift))) {
       fail(409, 'clock_drift', { serverTime: t });
     }

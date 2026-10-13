@@ -97,7 +97,10 @@ export function ShareDialog({ projectId, onClose }: { projectId: string; onClose
                         if (self) {
                           onClose();
                           navigate({ view: 'today' });
-                        } else void load();
+                        } else {
+                          setMsg('Участник убран. Ключ проекта заменён: новых изменений он не увидит.');
+                          void load();
+                        }
                       } catch (err) {
                         setMsg(errorText(err));
                       }

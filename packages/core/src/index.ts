@@ -121,6 +121,7 @@ export {
   recoverAccount,
   changeAccountPassword,
   deleteAccountOnServer,
+  rotateSpaceKey,
   ensurePersonalSpace,
   spaceKeyOf,
   normalizeEmail,

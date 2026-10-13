@@ -56,7 +56,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 | Reminders | In the open app, through Web Push when the browser is closed, through the Android alarm schedule without a network |
 | Sharing | Shared projects with members invited by email; the project key is sealed with each member's public key |
 | Keyboard | `Ctrl+K` command palette, `Q` quick add, `J`/`K`, `E` to complete, `T` for today, `Ctrl+Z` undoes the last 100 actions. Shortcuts use physical keys and work in any layout |
-| Apps | Web app (PWA), Windows app with a tray icon and the global shortcut `Ctrl+Shift+Space`, Android app with "Share to Dela" |
+| Apps | Web app (PWA), Windows app with a tray icon and the global shortcut `Ctrl+Shift+Space`, Android app with "Share to Dela", a home screen widget with a task list and a quick add tile |
 | Your data | Import from Todoist by API token or export file, export to JSON and Markdown, deleting tasks forever and deleting the account |
 | Security | Password never leaves the device, recovery key, two-factor login (TOTP), list of devices with revocation, app lock with a PIN and a fingerprint on Android |
 
@@ -118,7 +118,7 @@ Argon2id derives two keys from the password on the device: one proves the login 
 
 The server sees email addresses, devices, members of shared projects, change times, sizes rounded to 64 bytes and reminder times. Task text, dates, labels, project names, field names and record IDs reach the server only encrypted. If both the password and the recovery key are lost, the data cannot be decrypted.
 
-Known limitations: in the browser the data is stored decrypted in IndexedDB (the account keys are wrapped by a non-extractable WebCrypto key); a member removed from a shared project keeps the project key received earlier; the PIN lock closes the app screen and does not add another layer of encryption to the data on the device. Details are in [docs/architecture.md](docs/architecture.md), the report process is in [SECURITY.md](SECURITY.md).
+Known limitations: in the browser the data is stored decrypted in IndexedDB (the account keys are wrapped by a non-extractable WebCrypto key); a member removed from a shared project keeps what they already saw, and the project gets a new key, so they cannot read later changes; the PIN lock closes the app screen and does not add another layer of encryption to the data on the device. Details are in [docs/architecture.md](docs/architecture.md), the report process is in [SECURITY.md](SECURITY.md).
 
 ## Support the project
 
@@ -136,7 +136,7 @@ I make videos about the projects I build and test on myself: [YouTube](https://w
 
 ## Roadmap
 
-Next on the [roadmap](ROADMAP.md): a Today widget for Android, voice input, key rotation when a member is removed, comments and assignees in shared projects, automatic updates for the Windows app.
+Next on the [roadmap](ROADMAP.md): voice input, comments and assignees in shared projects, automatic updates for the Windows app.
 
 ## Development
 

@@ -105,6 +105,10 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE users ADD COLUMN totp_last INTEGER;
   `,
+  `
+  -- Версия ключа общего пространства: растёт при смене ключа после удаления участника.
+  ALTER TABLE spaces ADD COLUMN key_version INTEGER NOT NULL DEFAULT 1;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

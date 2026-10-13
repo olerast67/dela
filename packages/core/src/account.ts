@@ -15,10 +15,14 @@ import {
   toB64,
   unwrapSpaceKey,
   wrapSpaceKey,
+  sealOp,
+  sealSpaceKeyFor,
+  spaceKeys,
   type AccountBundle,
   type AccountKeys,
   type KdfParams,
 } from './crypto.ts';
+import type { Op } from './op.ts';
 import { uuidv7 } from './uuid.ts';
 
 export interface Session extends SessionInfo {
@@ -117,4 +121,32 @@ export async function changeAccountPassword(
   const keys = openAccount(bundle, current.kek);
   const changed = changePassword(bundle, keys, input.newPassword, input.kdf ?? bundle.kdf);
   await api.changePassword({ authSecret: toB64(current.authSecret), newAuthSecret: toB64(changed.authSecret), bundle: changed.bundle });
+}
+
+/**
+ * Новый ключ общего пространства: всё содержимое заново шифруется новым ключом, каждый оставшийся
+ * участник получает ключ, запечатанный своим открытым ключом, владелец обёрнутым мастер-ключом.
+ * Возвращает новый ключ; сервер принимает смену, только если журнал не вырос с baseSeq.
+ */
+export async function rotateSpaceKey(
+  api: ApiClient,
+  input: {
+    spaceId: string;
+    ops: Iterable<Op>;
+    ownerId: string;
+    masterKey: Uint8Array;
+    keyVersion: number;
+    baseSeq: number;
+  },
+): Promise<{ key: Uint8Array; keyVersion: number }> {
+  const key = newKey();
+  const keys = spaceKeys(key);
+  const { members } = await api.spaceMembers(input.spaceId);
+  const memberKeys = members.map((m) => ({
+    userId: m.userId,
+    key: m.userId === input.ownerId ? wrapSpaceKey(key, input.masterKey, input.spaceId) : sealSpaceKeyFor(key, input.spaceId, fromB64(m.publicKey)),
+  }));
+  const envelopes = [...input.ops].map((op) => sealOp(input.spaceId, keys, op));
+  const res = await api.rotateSpace(input.spaceId, { keyVersion: input.keyVersion + 1, baseSeq: input.baseSeq, keys: memberKeys, envelopes });
+  return { key, keyVersion: res.keyVersion };
 }

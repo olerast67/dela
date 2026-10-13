@@ -41,6 +41,8 @@ export interface SpaceInfo {
   readonly keyKind: 'wrapped' | 'sealed';
   readonly key: string;
   readonly lastSeq: number;
+  /** Версия ключа пространства (растёт при смене ключа). Старые серверы её не присылают. */
+  readonly keyVersion?: number;
 }
 
 export interface DeviceInfo {
@@ -194,8 +196,15 @@ export class ApiClient {
     return this.call('DELETE', `/api/spaces/${spaceId}/members/${encodeURIComponent(userId)}`);
   }
 
-  push(spaceId: string, envelopes: readonly Envelope<string>[]): Promise<{ accepted: number; seq: number; serverTime: number }> {
-    return this.call('POST', `/api/spaces/${spaceId}/push`, { envelopes });
+  push(spaceId: string, envelopes: readonly Envelope<string>[], keyVersion = 1): Promise<{ accepted: number; seq: number; serverTime: number }> {
+    return this.call('POST', `/api/spaces/${spaceId}/push`, { envelopes, keyVersion });
+  }
+
+  rotateSpace(
+    spaceId: string,
+    input: { keyVersion: number; baseSeq: number; keys: ReadonlyArray<{ userId: string; key: string }>; envelopes: readonly Envelope<string>[] },
+  ): Promise<{ ok: true; keyVersion: number; seq: number }> {
+    return this.call('POST', `/api/spaces/${spaceId}/rotate`, input);
   }
 
   pull(spaceId: string, since: number, limit = 500): Promise<PullResult<string> & { serverTime: number }> {

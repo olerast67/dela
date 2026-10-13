@@ -21,6 +21,7 @@ import {
   SyncEngine,
   changeAccountPassword,
   deleteAccountOnServer,
+  rotateSpaceKey,
   ensurePersonalSpace,
   fingerprint,
   fromB64,
@@ -100,7 +101,7 @@ interface SecretKeys {
   readonly secretKey: string;
   readonly spaceKey: string;
   /** Ключи общих пространств: нужны, чтобы открыть приложение без сети. */
-  readonly shared?: ReadonlyArray<{ readonly id: string; readonly key: string; readonly role: string }>;
+  readonly shared?: ReadonlyArray<{ readonly id: string; readonly key: string; readonly role: string; readonly v?: number }>;
 }
 
 type ChannelMessage = { type: 'ops'; space: string; ops: Op[] } | { type: 'sync' } | { type: 'logout' } | { type: 'spaces' };
@@ -283,7 +284,7 @@ export class Controller {
       const shared = new Doc({ spaceId: sp.id, clock: this.clock, now, kind: 'shared' });
       shared.load(await this.store.loadCells(sp.id));
       this.roles.set(sp.id, sp.role);
-      this.attach(shared, fromB64(sp.key));
+      this.attach(shared, fromB64(sp.key), sp.v ?? 1);
       ws.addShared(shared);
     }
 
@@ -308,15 +309,18 @@ export class Controller {
   }
 
   /** Подключить пространство: движок синхронизации, сохранение и пересылка изменений между вкладками. */
-  private attach(doc: Doc, key: Uint8Array): void {
+  private attach(doc: Doc, key: Uint8Array, keyVersion = 1): void {
     const spaceId = doc.spaceId;
     this.spaceKeyById.set(spaceId, key);
+    this.keyVersionById.set(spaceId, keyVersion);
     const engine = new SyncEngine({
       api: this.api,
       store: this.store,
       doc,
       spaceId,
       keys: spaceKeys(key),
+      keyVersion,
+      onKeyRotated: () => void this.refreshSpaces(),
       onServerTime: (serverTime) => {
         this.clockOffset = serverTime - Date.now();
         void this.store.setMeta('clockOffset', this.clockOffset);
@@ -342,10 +346,19 @@ export class Controller {
       stopForward();
       this.engines.delete(spaceId);
       this.spaceKeyById.delete(spaceId);
+      this.keyVersionById.delete(spaceId);
     });
   }
 
   private readonly detachFns = new Map<string, () => void>();
+  private readonly keyVersionById = new Map<string, number>();
+
+  /** Пересоздать движок пространства с новым ключом: документ и очередь исходящих остаются. */
+  private rekey(doc: Doc, key: Uint8Array, keyVersion: number): void {
+    this.detachFns.get(doc.spaceId)?.();
+    this.detachFns.delete(doc.spaceId);
+    this.attach(doc, key, keyVersion);
+  }
 
   /** Общий статус: худшее из состояний движков. */
   private updateStatus(): void {
@@ -372,7 +385,18 @@ export class Controller {
     for (const sp of spaces) {
       if (sp.kind !== 'shared') continue;
       this.roles.set(sp.id, sp.role);
-      if (ws.sharedDoc(sp.id)) continue;
+      const existing = ws.sharedDoc(sp.id);
+      if (existing) {
+        // Владелец сменил ключ (кого-то удалили из проекта): берём новый и шифруем им дальше.
+        if ((sp.keyVersion ?? 1) !== this.keyVersionById.get(sp.id)) {
+          try {
+            this.rekey(existing, spaceKeyOf(sp, keys), sp.keyVersion ?? 1);
+          } catch {
+            // ключ не открылся: оставляем прежний движок
+          }
+        }
+        continue;
+      }
       let key: Uint8Array;
       try {
         key = spaceKeyOf(sp, keys);
@@ -381,7 +405,7 @@ export class Controller {
       }
       const doc = new Doc({ spaceId: sp.id, clock: this.clock!, now, kind: 'shared' });
       doc.load(await this.store.loadCells(sp.id));
-      this.attach(doc, key);
+      this.attach(doc, key, sp.keyVersion ?? 1);
       ws.addShared(doc);
     }
     for (const doc of ws.docs()) {
@@ -407,7 +431,12 @@ export class Controller {
     const shared = this.doc
       .docs()
       .filter((d) => d.kind === 'shared')
-      .map((d) => ({ id: d.spaceId, key: toB64(this.spaceKeyById.get(d.spaceId)!), role: this.roles.get(d.spaceId) ?? 'editor' }));
+      .map((d) => ({
+        id: d.spaceId,
+        key: toB64(this.spaceKeyById.get(d.spaceId)!),
+        role: this.roles.get(d.spaceId) ?? 'editor',
+        v: this.keyVersionById.get(d.spaceId) ?? 1,
+      }));
     this.secrets = { ...this.secrets, shared };
     this.stored = { ...this.stored, sealed: await sealLocal(this.store, this.secrets) };
     await this.store.setMeta('session', this.stored);
@@ -451,6 +480,41 @@ export class Controller {
   async removeMember(spaceId: string, userId: string): Promise<void> {
     await this.api.removeMember(spaceId, userId);
     if (userId === this.stored?.userId) await this.refreshSpaces();
+    else await this.rotateKey(spaceId);
+  }
+
+  /**
+   * Новый ключ общего проекта после удаления участника: удалённый сохраняет то, что уже видел,
+   * но новых изменений прочитать не сможет. Если кто-то успел отправить правку, догружаем и пробуем снова.
+   */
+  async rotateKey(spaceId: string): Promise<void> {
+    const ws = this.doc;
+    const doc = ws?.sharedDoc(spaceId);
+    const engine = this.engines.get(spaceId);
+    if (!doc || !engine || !this.stored) throw new Error('unknown space');
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await engine.sync();
+      const info = (await this.api.spaces()).spaces.find((s) => s.id === spaceId);
+      if (!info) throw new Error('unknown space');
+      try {
+        const { key, keyVersion } = await rotateSpaceKey(this.api, {
+          spaceId,
+          ops: doc.replica.ops(),
+          ownerId: this.stored.userId,
+          masterKey: this.accountKeys().masterKey,
+          keyVersion: info.keyVersion ?? 1,
+          baseSeq: info.lastSeq,
+        });
+        this.rekey(doc, key, keyVersion);
+        await this.saveSecrets();
+        this.requestSync();
+        return;
+      } catch (err) {
+        if (err instanceof ApiError && err.code === 'stale') continue;
+        throw err;
+      }
+    }
+    throw new Error('rotation_busy');
   }
 
   get userId(): string | null {

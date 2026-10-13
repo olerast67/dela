@@ -254,3 +254,43 @@ test('общий проект: приглашение, правки с двух 
   await b.getByRole('button', { name: 'Выйти' }).click();
   await expect(b.locator('.sidebar').getByText('Семья')).toBeHidden({ timeout: 10_000 });
 });
+
+test('общий проект: владелец убирает участника, ключ меняется, остальные продолжают', async ({ browser }) => {
+  const stamp = Date.now();
+  const page = async () => (await browser.newContext()).newPage();
+  const [a, b, c] = [await page(), await page(), await page()];
+  await registerUser(a, `rot-owner-${stamp}@dela.test`);
+  await registerUser(b, `rot-stay-${stamp}@dela.test`);
+  await registerUser(c, `rot-gone-${stamp}@dela.test`);
+
+  await a.getByRole('button', { name: 'Новый проект' }).click();
+  await a.getByPlaceholder('Название проекта').fill('Ремонт');
+  await a.getByPlaceholder('Название проекта').press('Enter');
+  await addTask(a, 'Выбрать плитку');
+  await a.getByRole('button', { name: 'Поделиться' }).click();
+  await a.getByRole('button', { name: 'Сделать проект общим' }).click();
+  for (const who of ['stay', 'gone']) {
+    await a.getByLabel('Почта участника').fill(`rot-${who}-${stamp}@dela.test`);
+    await a.getByRole('button', { name: 'Пригласить' }).click();
+    await expect(a.getByText(/Добавлен\. Отпечаток ключа участника/)).toBeVisible({ timeout: 10_000 });
+  }
+  await a.getByRole('button', { name: 'Закрыть' }).click();
+  for (const p of [b, c]) {
+    await expect(p.locator('.sidebar').getByText('Ремонт')).toBeVisible({ timeout: 15_000 });
+    await p.locator('.sidebar').getByText('Ремонт').click();
+    await expect(p.locator('.content').getByText('Выбрать плитку')).toBeVisible({ timeout: 10_000 });
+  }
+
+  // A убирает C: ключ проекта заменяется, проект пропадает у C.
+  await a.getByRole('button', { name: 'Участники' }).click();
+  await a.locator('.share-body .trash-row', { hasText: `rot-gone-${stamp}` }).getByRole('button', { name: 'Убрать' }).click();
+  await expect(a.getByText('Ключ проекта заменён')).toBeVisible({ timeout: 15_000 });
+  await a.getByRole('button', { name: 'Закрыть' }).click();
+  await expect(c.locator('.sidebar').getByText('Ремонт')).toBeHidden({ timeout: 15_000 });
+
+  // B получает новый ключ и продолжает: его правка доходит до A, правка A доходит до B.
+  await addTask(b, 'Купить клей');
+  await expect(a.locator('.content').getByText('Купить клей')).toBeVisible({ timeout: 20_000 });
+  await addTask(a, 'Позвать мастера');
+  await expect(b.locator('.content').getByText('Позвать мастера')).toBeVisible({ timeout: 20_000 });
+});

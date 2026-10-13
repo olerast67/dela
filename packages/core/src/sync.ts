@@ -105,6 +105,10 @@ export interface SyncEngineOptions {
   readonly doc: Doc;
   readonly spaceId: string;
   readonly keys: SpaceKeys;
+  /** Версия ключа пространства, с которой шифруется отправка. */
+  readonly keyVersion?: number;
+  /** Сервер ответил, что ключ пространства сменился: приложение берёт новый ключ и пересоздаёт движок. */
+  readonly onKeyRotated?: () => void;
   /** Сервер сообщил своё время (при расхождении часов): приложение обновляет поправку часов. */
   readonly onServerTime?: (serverTime: number) => void;
   /** Переподписать операцию новой меткой после исправления часов. */
@@ -185,8 +189,14 @@ export class SyncEngine {
         await api.push(
           spaceId,
           batch.map((e) => sealOp(spaceId, keys, e.op)),
+          this.o.keyVersion ?? 1,
         );
       } catch (err) {
+        if (err instanceof ApiError && err.code === 'key_rotated') {
+          // Очередь остаётся: после смены ключа те же операции уйдут зашифрованными новым ключом.
+          this.o.onKeyRotated?.();
+          throw err;
+        }
         if (err instanceof ApiError && err.code === 'clock_drift' && typeof err.body.serverTime === 'number') {
           await this.fixClock(batch, err.body.serverTime);
           continue;

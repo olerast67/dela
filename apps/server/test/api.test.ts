@@ -468,3 +468,47 @@ describe('удаление аккаунта', () => {
     expect((await s.call('POST', '/api/account/delete', { authSecret: toB64(a.acc.authSecret), totp: '000000' }, t)).json.error).toBe('invalid_totp');
   });
 });
+
+describe('новый ключ общего проекта', () => {
+  it('после удаления участника владелец перешифровывает проект; старый ключ больше не принимается', async () => {
+    const s = makeServer({ openRegistration: true });
+    const a = await register(s, 'a@x.yz', 'пароль-а');
+    const b = await register(s, 'b@x.yz', 'пароль-б');
+    const c = await register(s, 'c@x.yz', 'пароль-в');
+    const [ta, tb] = [a.res.json.token as string, b.res.json.token as string];
+    const spaceId = uuidv7(NOW);
+    const k1 = newKey();
+    await s.call('POST', '/api/spaces', { id: spaceId, kind: 'shared', key: wrapSpaceKey(k1, a.acc.keys.masterKey, spaceId) }, ta);
+    for (const m of [b, c]) await s.call('POST', `/api/spaces/${spaceId}/members`, { userId: m.res.json.userId, key: toB64(newKey()) }, ta);
+    const op = { table: 'task', record: uuidv7(NOW), field: 'title', value: 'Секрет', hlc: ts(NOW) };
+    expect((await s.call('POST', `/api/spaces/${spaceId}/push`, { envelopes: [sealOp(spaceId, spaceKeys(k1), op)] }, tb)).json.accepted).toBe(1);
+    expect((await s.call('DELETE', `/api/spaces/${spaceId}/members/${c.res.json.userId}`, undefined, ta)).status).toBe(200);
+
+    const k2 = newKey();
+    const keys = [
+      { userId: a.res.json.userId, key: wrapSpaceKey(k2, a.acc.keys.masterKey, spaceId) },
+      { userId: b.res.json.userId, key: toB64(newKey()) },
+    ];
+    const body = (baseSeq: number, ks = keys) => ({ keyVersion: 2, baseSeq, keys: ks, envelopes: [sealOp(spaceId, spaceKeys(k2), op)] });
+    // Только владелец; ключи для всех оставшихся; журнал не вырос.
+    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate`, body(1), tb)).status).toBe(403);
+    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate`, body(1, keys.slice(0, 1)), ta)).status).toBe(400);
+    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate`, body(0), ta)).json).toEqual({ error: 'stale', lastSeq: 1 });
+    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate`, body(1), ta)).json).toEqual({ ok: true, keyVersion: 2, seq: 2 });
+
+    // На сервере только новые конверты; их открывает новый ключ.
+    const pulled = (await s.call('GET', `/api/spaces/${spaceId}/pull?since=0`, undefined, tb)).json.envelopes;
+    expect(pulled).toHaveLength(1);
+    expect(openEnvelope(spaceId, spaceKeys(k2), pulled[0])).toEqual(op);
+    expect(() => openEnvelope(spaceId, spaceKeys(k1), pulled[0])).toThrow();
+    // Устройство со старым ключом получает отказ и версию ключа.
+    const later = { ...op, value: 'Новое', hlc: ts(NOW + 5) };
+    expect((await s.call('POST', `/api/spaces/${spaceId}/push`, { envelopes: [sealOp(spaceId, spaceKeys(k1), later)] }, tb)).json).toEqual({
+      error: 'key_rotated',
+      keyVersion: 2,
+    });
+    expect((await s.call('POST', `/api/spaces/${spaceId}/push`, { envelopes: [sealOp(spaceId, spaceKeys(k2), later)], keyVersion: 2 }, tb)).json.accepted).toBe(1);
+    const listB = (await s.call('GET', '/api/spaces', undefined, tb)).json.spaces;
+    expect(listB.find((x: any) => x.id === spaceId)).toMatchObject({ keyVersion: 2, key: keys[1]!.key, keyKind: 'sealed' });
+  });
+});
