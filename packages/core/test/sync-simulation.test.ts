@@ -7,7 +7,41 @@
  * значение операции с наибольшей меткой среди всех когда-либо созданных.
  */
 import { describe, expect, it } from 'vitest';
-import { HybridClock, MemoryRelay, MemoryReplica, cellKey, type Json, type Op } from '../src/index.ts';
+import {
+  HybridClock,
+  MemoryRelay,
+  MemoryReplica,
+  cellKey,
+  initCrypto,
+  newKey,
+  openEnvelope,
+  sealOp,
+  spaceKeys,
+  type Envelope,
+  type Json,
+  type Op,
+} from '../src/index.ts';
+
+await initCrypto();
+
+/** Как операция превращается в конверт и обратно: открытым текстом или с шифрованием. */
+interface Codec<P> {
+  seal(op: Op): Envelope<P>;
+  open(env: Envelope<P>): Op;
+}
+
+const plainCodec: Codec<Op> = {
+  seal: (op) => ({ slot: cellKey(op.table, op.record, op.field), hlc: op.hlc, payload: op }),
+  open: (env) => env.payload,
+};
+
+function encryptedCodec(): Codec<string> {
+  const keys = spaceKeys(newKey());
+  return {
+    seal: (op) => sealOp('space-1', keys, op),
+    open: (env) => openEnvelope('space-1', keys, env),
+  };
+}
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -20,7 +54,7 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-class Device {
+class Device<P> {
   readonly clock: HybridClock;
   readonly replica = new MemoryReplica();
   outbox: Op[] = [];
@@ -28,8 +62,11 @@ class Device {
   online = true;
   maxSeen = '';
 
-  constructor(node: string, now: () => number) {
+  private readonly codec: Codec<P>;
+
+  constructor(node: string, now: () => number, codec: Codec<P>) {
     this.clock = new HybridClock(node, now);
+    this.codec = codec;
   }
 
   write(table: string, record: string, field: string, value: Json): Op {
@@ -42,20 +79,20 @@ class Device {
     return op;
   }
 
-  push(relay: MemoryRelay<Op>, ackLost: boolean): void {
+  push(relay: MemoryRelay<P>, ackLost: boolean): void {
     if (!this.online || this.outbox.length === 0) return;
-    relay.push(this.outbox.map((op) => ({ slot: cellKey(op.table, op.record, op.field), hlc: op.hlc, payload: op })));
+    relay.push(this.outbox.map((op) => this.codec.seal(op)));
     if (!ackLost) this.outbox = [];
   }
 
-  pull(relay: MemoryRelay<Op>, pageSize: number): void {
+  pull(relay: MemoryRelay<P>, pageSize: number): void {
     if (!this.online) return;
     for (;;) {
       const page = relay.pull(this.cursor, pageSize);
       for (const env of page.envelopes) {
         this.clock.receive(env.hlc);
         if (env.hlc > this.maxSeen) this.maxSeen = env.hlc;
-        this.replica.apply(env.payload);
+        this.replica.apply(this.codec.open(env));
       }
       this.cursor = page.cursor;
       if (!page.more) break;
@@ -63,16 +100,16 @@ class Device {
   }
 }
 
-function simulate(seed: number, steps: number): void {
+function simulate<P>(seed: number, steps: number, codec: Codec<P>): void {
   const rnd = mulberry32(seed);
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rnd() * xs.length)]!;
 
   let time = 1_760_000_000_000;
   const deviceCount = 2 + Math.floor(rnd() * 4);
-  const relay = new MemoryRelay<Op>();
+  const relay = new MemoryRelay<P>();
   const devices = Array.from({ length: deviceCount }, (_, i) => {
     const skew = Math.floor((rnd() - 0.5) * 60_000);
-    return new Device(i.toString(16).padStart(16, '0'), () => time + skew);
+    return new Device(i.toString(16).padStart(16, '0'), () => time + skew, codec);
   });
 
   const expected = new Map<string, { value: Json; hlc: string }>();
@@ -114,15 +151,26 @@ function simulate(seed: number, steps: number): void {
     expect(d.outbox).toEqual([]);
     expect(d.replica.dump()).toEqual(want);
   }
-  expect(relay.dump().map(([slot, hlc, op]) => [slot, op.value, hlc])).toEqual(want);
+  const onServer = relay
+    .dump()
+    .map(([slot, hlc, payload]) => {
+      const op = codec.open({ slot, hlc, payload });
+      return [cellKey(op.table, op.record, op.field), op.value, hlc];
+    })
+    .sort((a, b) => ((a[0] as string) < (b[0] as string) ? -1 : 1));
+  expect(onServer).toEqual(want);
 }
 
 describe('симуляция синхронизации', () => {
   for (let seed = 1; seed <= 60; seed++) {
-    it(`seed ${seed}: все устройства и сервер сходятся к эталону`, () => simulate(seed, 2_000));
+    it(`seed ${seed}: все устройства и сервер сходятся к эталону`, () => simulate(seed, 2_000, plainCodec));
   }
 
-  it('длинный прогон', () => simulate(424242, 50_000));
+  it('длинный прогон', () => simulate(424242, 50_000, plainCodec));
+
+  for (let seed = 1; seed <= 5; seed++) {
+    it(`seed ${seed}: то же поверх зашифрованных конвертов`, () => simulate(seed, 1_500, encryptedCodec()));
+  }
 });
 
 describe('MemoryRelay', () => {

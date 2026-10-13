@@ -100,7 +100,7 @@ payload  шифротекст
 ### Конверт операции
 
 ```
-slot    = BLAKE2b-128(ключ слотов, table ‖ 0x00 ‖ record ‖ 0x00 ‖ field), hex
+slot    = BLAKE2b-128(ключ слотов, JSON [table, record, field]), hex
 payload = nonce(24) ‖ XChaCha20-Poly1305(
             ключ шифрования,
             pad64(JSON {t, r, f, v}),
