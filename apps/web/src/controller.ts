@@ -393,6 +393,11 @@ export class Controller {
     });
     this.engines.set(spaceId, engine);
     const stopPersist = persistLocal(doc, this.store, spaceId, () => {
+      // Без сервера отправлять некуда: очередь исходящих сразу очищается, данные уже в хранилище.
+      if (this.stored?.local) {
+        void this.store.outbox(spaceId, 5000).then((batch) => this.store.dropOutbox(spaceId, batch.map((e) => e.key)));
+        return;
+      }
       void this.store.setMeta('hlc', this.clock!.current());
       // Сразу показываем, что есть неотправленное: точное число придёт после синхронизации.
       this.set({ status: { ...this.state.status, pending: this.state.status.pending + 1 } });
@@ -911,7 +916,8 @@ export class Controller {
         const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(r.key)));
         const id = [...digest.subarray(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
         const body = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
-        const content = { t: r.title || 'Задача', b: body, k: r.key, id: r.taskId };
+        // Сервер принимает до 1 КБ на напоминание: длинное название обрезается, иначе отклонилось бы всё расписание.
+        const content = { t: (r.title || 'Задача').slice(0, 200), b: body, k: r.key, id: r.taskId };
         return { id, fireAt: r.at, payload: platform() === 'capacitor' ? await this.sealForPhone(content) : await sealLocalB64(this.store, content) };
       }),
     );

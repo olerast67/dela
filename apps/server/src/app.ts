@@ -787,6 +787,8 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     if (space.kind !== 'shared') bad('personal space cannot be shared');
     const b = await body(c);
     const memberId = str(b.userId, 'userId', { re: UUID_RE });
+    // Пригласить себя значило бы сменить свою роль владельца на участника.
+    if (memberId === userId) bad('cannot add yourself');
     const memberRole = b.role === 'viewer' ? 'viewer' : 'editor';
     const key = b64(b.key, 'key', { maxBytes: 256 }).toString('base64');
     if (!db.prepare('SELECT 1 FROM users WHERE id = ?').get(memberId)) fail(404, 'not_found');
