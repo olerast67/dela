@@ -30,3 +30,13 @@ Each release lists SHA-256 checksums of its files in `SHA256SUMS.txt`. To check 
 ```bash
 sha256sum -c SHA256SUMS.txt --ignore-missing
 ```
+
+Android APKs are signed with the certificate `CN=Dela, O=olerast67` whose SHA-256 fingerprint is:
+
+```
+2C:D1:19:3E:9C:56:36:A9:20:76:4F:00:53:68:7E:06:8B:2F:93:71:DC:6D:A0:A8:AE:11:42:77:BF:B8:CC:52
+```
+
+```bash
+apksigner verify --print-certs Dela-*-android.apk
+```
