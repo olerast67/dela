@@ -581,7 +581,8 @@ export class Controller {
           ownerId: this.stored.userId,
           masterKey: this.accountKeys().masterKey,
           keyVersion: info.keyVersion ?? 1,
-          baseSeq: info.lastSeq,
+          // Сколько журнала загружено на этом устройстве: всё, что пришло позже, сервер не даст удалить.
+          baseSeq: await this.store.cursor(spaceId),
         });
         this.rekey(doc, key, keyVersion);
         await this.saveSecrets();

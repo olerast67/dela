@@ -101,7 +101,7 @@ export class ApiClient {
     if (this.token) headers.authorization = `Bearer ${this.token}`;
     let res: Response;
     try {
-      res = await this.fetcher(`${this.baseUrl}/api/spaces/${spaceId}/files/${fileId}`, { method: 'PUT', headers, body: blob as BodyInit });
+      res = await this.fetcher(`${this.baseUrl}/api/spaces/${encodeURIComponent(spaceId)}/files/${encodeURIComponent(fileId)}`, { method: 'PUT', headers, body: blob as BodyInit });
     } catch (err) {
       throw new NetworkError(err);
     }
@@ -113,7 +113,7 @@ export class ApiClient {
     if (this.token) headers.authorization = `Bearer ${this.token}`;
     let res: Response;
     try {
-      res = await this.fetcher(`${this.baseUrl}/api/spaces/${spaceId}/files/${fileId}`, { headers });
+      res = await this.fetcher(`${this.baseUrl}/api/spaces/${encodeURIComponent(spaceId)}/files/${encodeURIComponent(fileId)}`, { headers });
     } catch (err) {
       throw new NetworkError(err);
     }
@@ -122,7 +122,7 @@ export class ApiClient {
   }
 
   deleteFile(spaceId: string, fileId: string): Promise<{ ok: true }> {
-    return this.call('DELETE', `/api/spaces/${spaceId}/files/${fileId}`);
+    return this.call('DELETE', `/api/spaces/${encodeURIComponent(spaceId)}/files/${encodeURIComponent(fileId)}`);
   }
 
   passkeyRegisterOptions(): Promise<{ options: Record<string, unknown> }> {
@@ -254,11 +254,20 @@ export class ApiClient {
     return this.call('POST', `/api/spaces/${spaceId}/push`, { envelopes, keyVersion });
   }
 
-  rotateSpace(
+  rotateBegin(spaceId: string, keyVersion: number): Promise<{ rotationId: string }> {
+    return this.call('POST', `/api/spaces/${encodeURIComponent(spaceId)}/rotate/begin`, { keyVersion });
+  }
+
+  rotateEnvelopes(spaceId: string, rotationId: string, envelopes: readonly Envelope<string>[]): Promise<{ ok: true; staged: number }> {
+    return this.call('POST', `/api/spaces/${encodeURIComponent(spaceId)}/rotate/${encodeURIComponent(rotationId)}/envelopes`, { envelopes });
+  }
+
+  rotateCommit(
     spaceId: string,
-    input: { keyVersion: number; baseSeq: number; keys: ReadonlyArray<{ userId: string; key: string }>; envelopes: readonly Envelope<string>[] },
+    rotationId: string,
+    input: { baseSeq: number; keys: ReadonlyArray<{ userId: string; key: string }> },
   ): Promise<{ ok: true; keyVersion: number; seq: number }> {
-    return this.call('POST', `/api/spaces/${spaceId}/rotate`, input);
+    return this.call('POST', `/api/spaces/${encodeURIComponent(spaceId)}/rotate/${encodeURIComponent(rotationId)}/commit`, input);
   }
 
   pull(spaceId: string, since: number, limit = 500): Promise<PullResult<string> & { serverTime: number }> {

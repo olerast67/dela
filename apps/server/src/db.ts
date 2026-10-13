@@ -136,6 +136,22 @@ const MIGRATIONS: readonly string[] = [
   ) STRICT;
   CREATE INDEX passkeys_user ON passkeys(user_id);
   `,
+  `
+  -- Смена ключа общего пространства по шагам: конверты с новым ключом копятся здесь до commit.
+  CREATE TABLE rotations (
+    id          TEXT PRIMARY KEY,
+    space_id    TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+    key_version INTEGER NOT NULL,
+    created_at  INTEGER NOT NULL
+  ) STRICT;
+  CREATE TABLE rotation_envelopes (
+    rotation_id TEXT NOT NULL REFERENCES rotations(id) ON DELETE CASCADE,
+    slot        TEXT NOT NULL,
+    hlc         TEXT NOT NULL,
+    payload     BLOB NOT NULL,
+    PRIMARY KEY (rotation_id, slot)
+  ) STRICT, WITHOUT ROWID;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

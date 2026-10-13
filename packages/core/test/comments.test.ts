@@ -14,7 +14,7 @@ describe('комментарии и исполнитель', () => {
   it('комментарии по порядку, счётчик у задачи, удаление затирает текст и возвращает файл', () => {
     const doc = make();
     const task = doc.createTask({ title: 'Ремонт' });
-    const file = { id: '01929c3e-0000-7000-8000-0000000000f1', name: 'смета.pdf', size: 1200, type: 'application/pdf', key: 'a2V5' };
+    const file = { id: '01929c3e-0000-7000-8000-0000000000f1', name: 'смета.pdf', size: 1200, type: 'application/pdf', key: 'a2V5'.repeat(11) };
     const c1 = doc.addComment(task, { text: 'Первый', author: 'u1' });
     doc.addComment(task, { text: 'Смета во вложении', author: 'u2', file });
     expect(doc.comments(task).map((c) => c.text)).toEqual(['Первый', 'Смета во вложении']);
@@ -31,12 +31,19 @@ describe('комментарии и исполнитель', () => {
     const task = doc.createTask({ title: 'Покрасить стены' });
     doc.updateTask(task, { assignee: '01929c3e-0000-7000-8000-0000000000b2' });
     expect(doc.task(task)?.assignee).toBe('01929c3e-0000-7000-8000-0000000000b2');
-    const file = { id: '01929c3e-0000-7000-8000-0000000000f2', name: 'цвет.jpg', size: 10, type: 'image/jpeg', key: 'a2V5' };
+    const file = { id: '01929c3e-0000-7000-8000-0000000000f2', name: 'цвет.jpg', size: 10, type: 'image/jpeg', key: 'a2V5'.repeat(11) };
     const c = doc.addComment(task, { text: 'Цвет: белый', author: null, file });
     doc.deleteTask(task);
     expect(doc.purgeTask(task)).toEqual([file]);
     expect(doc.replica.get('comment', c)).toMatchObject({ text: null, author: null });
     expect(doc.replica.get('comment', c)?.deleted_at).not.toBeNull();
+  });
+
+  it('файл с подложным id отбрасывается: id попадает в адрес запроса', () => {
+    const doc = make();
+    const task = doc.createTask({ title: 'Задача' });
+    doc.addComment(task, { text: 'атака', author: 'u1', file: { id: '../members/01929c3e-0000-7000-8000-0000000000b2', name: 'x', size: 1, type: '', key: 'a2V5'.repeat(11) } });
+    expect(doc.comments(task)[0]!.file).toBeNull();
   });
 
   it('файл шифруется своим ключом и привязан к пространству и id', () => {

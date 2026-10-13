@@ -190,10 +190,14 @@ export interface Comment {
   readonly deletedAt: number | null;
 }
 
+const FILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 function attachment(v: Json | undefined): Attachment | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const o = v as Record<string, Json>;
   if (typeof o.id !== 'string' || typeof o.key !== 'string' || typeof o.name !== 'string') return null;
+  // id файла попадает в адрес запроса: только UUID, иначе участник подсунул бы путь вроде «../members/…».
+  if (!FILE_ID.test(o.id) || !/^[A-Za-z0-9+/=_-]{20,100}$/.test(o.key)) return null;
   return { id: o.id.slice(0, 64), name: o.name.slice(0, 300), size: typeof o.size === 'number' ? o.size : 0, type: typeof o.type === 'string' ? o.type.slice(0, 100) : '', key: o.key };
 }
 

@@ -489,12 +489,23 @@ describe('новый ключ общего проекта', () => {
       { userId: a.res.json.userId, key: wrapSpaceKey(k2, a.acc.keys.masterKey, spaceId) },
       { userId: b.res.json.userId, key: toB64(newKey()) },
     ];
-    const body = (baseSeq: number, ks = keys) => ({ keyVersion: 2, baseSeq, keys: ks, envelopes: [sealOp(spaceId, spaceKeys(k2), op)] });
+    const rotate = async (token: string, baseSeq: number, ks = keys) => {
+      const begin = await s.call('POST', `/api/spaces/${spaceId}/rotate/begin`, { keyVersion: 2 }, token);
+      if (begin.status !== 201) return begin;
+      const rid = begin.json.rotationId as string;
+      await s.call('POST', `/api/spaces/${spaceId}/rotate/${rid}/envelopes`, { envelopes: [sealOp(spaceId, spaceKeys(k2), op)] }, token);
+      return s.call('POST', `/api/spaces/${spaceId}/rotate/${rid}/commit`, { baseSeq, keys: ks }, token);
+    };
     // Только владелец; ключи для всех оставшихся; журнал не вырос.
-    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate`, body(1), tb)).status).toBe(403);
-    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate`, body(1, keys.slice(0, 1)), ta)).status).toBe(400);
-    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate`, body(0), ta)).json).toEqual({ error: 'stale', lastSeq: 1 });
-    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate`, body(1), ta)).json).toEqual({ ok: true, keyVersion: 2, seq: 2 });
+    expect((await rotate(tb, 1)).status).toBe(403);
+    expect((await rotate(ta, 1, keys.slice(0, 1))).status).toBe(400);
+    expect((await rotate(ta, 0)).json).toEqual({ error: 'stale', lastSeq: 1 });
+    // Правка, пришедшая между началом смены и commit, тоже делает смену устаревшей.
+    const begin = await s.call('POST', `/api/spaces/${spaceId}/rotate/begin`, { keyVersion: 2 }, ta);
+    const late = { ...op, field: 'description', value: 'пока шифровали', hlc: ts(NOW + 2) };
+    expect((await s.call('POST', `/api/spaces/${spaceId}/push`, { envelopes: [sealOp(spaceId, spaceKeys(k1), late)] }, tb)).json.accepted).toBe(1);
+    expect((await s.call('POST', `/api/spaces/${spaceId}/rotate/${begin.json.rotationId}/commit`, { baseSeq: 1, keys }, ta)).json).toEqual({ error: 'stale', lastSeq: 2 });
+    expect((await rotate(ta, 2)).json).toEqual({ ok: true, keyVersion: 2, seq: 3 });
 
     // На сервере только новые конверты; их открывает новый ключ.
     const pulled = (await s.call('GET', `/api/spaces/${spaceId}/pull?since=0`, undefined, tb)).json.envelopes;

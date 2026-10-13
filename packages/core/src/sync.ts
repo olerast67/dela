@@ -128,6 +128,8 @@ export class SyncEngine {
   private status: SyncStatus = { state: 'idle', pending: 0, lastSyncedAt: null, error: null };
   /** Сколько конвертов не удалось расшифровать (испорченные или чужие). */
   skipped = 0;
+  /** Конверты, которые не открылись: второй раз они пропускаются. */
+  private readonly undecryptable = new Set<number>();
 
   constructor(options: SyncEngineOptions) {
     this.o = options;
@@ -227,17 +229,31 @@ export class SyncEngine {
     for (;;) {
       const page = await api.pull(spaceId, cursor, BATCH);
       const ops: Op[] = [];
+      let upTo = page.cursor;
+      let stalled = false;
       for (const env of page.envelopes) {
         try {
           ops.push(openEnvelope(spaceId, keys, env));
         } catch (err) {
           if (!(err instanceof DecryptError)) throw err;
+          // Конверт может быть зашифрован новым ключом (владелец сменил ключ): курсор останавливается
+          // перед ним, движок берёт новый ключ и читает дальше. Испорченный конверт со второго раза пропускается.
+          if (!this.undecryptable.has(env.seq)) {
+            this.undecryptable.add(env.seq);
+            upTo = env.seq - 1;
+            stalled = true;
+            break;
+          }
           this.skipped++;
         }
       }
       doc.applyRemote(ops);
-      await store.saveRemote(spaceId, ops, page.cursor);
-      cursor = page.cursor;
+      await store.saveRemote(spaceId, ops, upTo);
+      cursor = upTo;
+      if (stalled) {
+        this.o.onKeyRotated?.();
+        return;
+      }
       if (!page.more) return;
     }
   }

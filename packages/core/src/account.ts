@@ -128,6 +128,8 @@ export async function changeAccountPassword(
  * участник получает ключ, запечатанный своим открытым ключом, владелец обёрнутым мастер-ключом.
  * Возвращает новый ключ; сервер принимает смену, только если журнал не вырос с baseSeq.
  */
+const ROTATION_BATCH = 400;
+
 export async function rotateSpaceKey(
   api: ApiClient,
   input: {
@@ -147,6 +149,11 @@ export async function rotateSpaceKey(
     key: m.userId === input.ownerId ? wrapSpaceKey(key, input.masterKey, input.spaceId) : sealSpaceKeyFor(key, input.spaceId, fromB64(m.publicKey)),
   }));
   const envelopes = [...input.ops].map((op) => sealOp(input.spaceId, keys, op));
-  const res = await api.rotateSpace(input.spaceId, { keyVersion: input.keyVersion + 1, baseSeq: input.baseSeq, keys: memberKeys, envelopes });
+  // Частями: проект любого размера проходит предел тела запроса.
+  const { rotationId } = await api.rotateBegin(input.spaceId, input.keyVersion + 1);
+  for (let i = 0; i < envelopes.length; i += ROTATION_BATCH) {
+    await api.rotateEnvelopes(input.spaceId, rotationId, envelopes.slice(i, i + ROTATION_BATCH));
+  }
+  const res = await api.rotateCommit(input.spaceId, rotationId, { baseSeq: input.baseSeq, keys: memberKeys });
   return { key, keyVersion: res.keyVersion };
 }

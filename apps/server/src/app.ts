@@ -819,56 +819,110 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   }
 
   /**
-   * Новый ключ общего пространства (после удаления участника). Владелец присылает всё содержимое,
-   * заново зашифрованное новым ключом, и новый ключ для каждого оставшегося участника.
-   * Старые конверты удаляются в той же транзакции. baseSeq защищает от потери правок,
-   * пришедших, пока владелец шифровал: если журнал успел вырасти, ответ 409 stale.
+   * Новый ключ общего пространства (после удаления участника), по шагам: begin, конверты частями, commit.
+   * Владелец присылает всё содержимое, заново зашифрованное новым ключом, и новый ключ для каждого
+   * оставшегося участника. На commit в одной транзакции сверяется baseSeq (сколько журнала владелец
+   * загрузил), удаляются старые конверты и ставятся новые. Если журнал вырос, ответ 409 stale:
+   * владелец догружает правки и начинает заново, ничего не теряется.
    */
-  app.post('/api/spaces/:id/rotate', requireAuth, async (c) => {
-    const { userId } = c.get('auth');
-    const spaceId = c.req.param('id') ?? '';
+  const ROTATION_TTL = 30 * 60_000;
+
+  function ownerOfShared(spaceId: string, userId: string): void {
     const { role } = membership(spaceId, userId);
     if (role !== 'owner') fail(403, 'forbidden');
-    const space = db.prepare('SELECT kind, last_seq, key_version FROM spaces WHERE id = ?').get(spaceId) as {
-      kind: string;
-      last_seq: number;
-      key_version: number;
-    };
+    const space = db.prepare('SELECT kind FROM spaces WHERE id = ?').get(spaceId) as { kind: string };
     if (space.kind !== 'shared') bad('only shared spaces rotate keys');
+  }
+
+  app.post('/api/spaces/:id/rotate/begin', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    ownerOfShared(spaceId, userId);
     const b = await body(c);
-    if (Number(b.keyVersion) !== Number(space.key_version) + 1) fail(409, 'key_rotated', { keyVersion: Number(space.key_version) });
-    if (Number(b.baseSeq) !== Number(space.last_seq)) fail(409, 'stale', { lastSeq: Number(space.last_seq) });
+    const current = keyVersionOf(spaceId);
+    if (Number(b.keyVersion) !== current + 1) fail(409, 'key_rotated', { keyVersion: current });
+    const id = newToken();
+    tx(db, () => {
+      // Незавершённые смены ключа этого пространства больше не нужны.
+      db.prepare('DELETE FROM rotations WHERE space_id = ? OR created_at < ?').run(spaceId, now() - ROTATION_TTL);
+      db.prepare('INSERT INTO rotations (id, space_id, key_version, created_at) VALUES (?, ?, ?, ?)').run(id, spaceId, current + 1, now());
+    });
+    return c.json({ rotationId: id }, 201);
+  });
+
+  function rotationOf(spaceId: string, rotationId: string): { key_version: number } {
+    const r = db.prepare('SELECT key_version, created_at FROM rotations WHERE id = ? AND space_id = ?').get(rotationId, spaceId) as
+      | { key_version: number; created_at: number }
+      | undefined;
+    if (!r || Number(r.created_at) < now() - ROTATION_TTL) fail(404, 'not_found');
+    return r!;
+  }
+
+  app.post('/api/spaces/:id/rotate/:rid/envelopes', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const rotationId = c.req.param('rid') ?? '';
+    ownerOfShared(spaceId, userId);
+    rotationOf(spaceId, rotationId);
+    const b = await body(c);
     if (!Array.isArray(b.envelopes)) bad('envelopes must be an array');
-    if (b.envelopes.length > config.maxRecordsPerSpace) fail(413, 'space_full');
-    if (!Array.isArray(b.keys)) bad('keys must be an array');
+    if (b.envelopes.length > MAX_ENVELOPES_PER_PUSH) bad(`at most ${MAX_ENVELOPES_PER_PUSH} envelopes per request`);
     const t = now();
     const envelopes = parseEnvelopes(b.envelopes);
     if (envelopes.some((e) => exceedsDrift(e.hlc, t, config.maxClockDrift))) fail(409, 'clock_drift', { serverTime: t });
-    const members = (db.prepare('SELECT user_id FROM members WHERE space_id = ?').all(spaceId) as Array<{ user_id: string }>).map((r) => r.user_id);
+    const staged = Number((db.prepare('SELECT count(*) AS n FROM rotation_envelopes WHERE rotation_id = ?').get(rotationId) as { n: number }).n);
+    if (staged + envelopes.length > config.maxRecordsPerSpace) fail(413, 'space_full');
+    const upsert = db.prepare(
+      `INSERT INTO rotation_envelopes (rotation_id, slot, hlc, payload) VALUES (?, ?, ?, ?)
+       ON CONFLICT (rotation_id, slot) DO UPDATE SET hlc = excluded.hlc, payload = excluded.payload WHERE excluded.hlc > rotation_envelopes.hlc`,
+    );
+    tx(db, () => {
+      for (const e of envelopes) upsert.run(rotationId, e.slot, e.hlc, Buffer.from(e.payload, 'base64'));
+    });
+    return c.json({ ok: true, staged: staged + envelopes.length });
+  });
+
+  app.post('/api/spaces/:id/rotate/:rid/commit', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const rotationId = c.req.param('rid') ?? '';
+    ownerOfShared(spaceId, userId);
+    const b = await body(c);
+    if (!Array.isArray(b.keys)) bad('keys must be an array');
     const keys = new Map<string, string>();
     for (const [i, raw] of b.keys.entries()) {
       const k = obj(raw, `keys[${i}]`);
       keys.set(str(k.userId, 'userId', { re: UUID_RE }), b64(k.key, 'key', { maxBytes: 256 }).toString('base64'));
     }
-    if (keys.size !== members.length || members.some((m) => !keys.has(m))) bad('keys must cover exactly the current members');
-    // В одном слоте остаётся конверт с самой поздней меткой.
-    const bySlot = new Map<string, Envelope<string>>();
-    for (const e of envelopes) {
-      const prev = bySlot.get(e.slot);
-      if (!prev || prev.hlc < e.hlc) bySlot.set(e.slot, e);
-    }
-    let seq = Number(space.last_seq);
+    const baseSeq = Number(b.baseSeq);
+    let result: { keyVersion: number; seq: number; members: string[] } | null = null;
     tx(db, () => {
+      // Всё сверяется внутри транзакции: правка, пришедшая между проверкой и заменой, не потеряется.
+      const r = rotationOf(spaceId, rotationId);
+      const space = db.prepare('SELECT last_seq, key_version FROM spaces WHERE id = ?').get(spaceId) as { last_seq: number; key_version: number };
+      if (Number(r.key_version) !== Number(space.key_version) + 1) fail(409, 'key_rotated', { keyVersion: Number(space.key_version) });
+      if (baseSeq !== Number(space.last_seq)) fail(409, 'stale', { lastSeq: Number(space.last_seq) });
+      const members = (db.prepare('SELECT user_id FROM members WHERE space_id = ?').all(spaceId) as Array<{ user_id: string }>).map((m) => m.user_id);
+      if (keys.size !== members.length || members.some((m) => !keys.has(m))) bad('keys must cover exactly the current members');
+      let seq = Number(space.last_seq);
       db.prepare('DELETE FROM envelopes WHERE space_id = ?').run(spaceId);
+      const staged = db.prepare('SELECT slot, hlc, payload FROM rotation_envelopes WHERE rotation_id = ? ORDER BY slot').all(rotationId) as Array<{
+        slot: string;
+        hlc: string;
+        payload: Uint8Array;
+      }>;
       const insert = db.prepare('INSERT INTO envelopes (space_id, slot, hlc, payload, seq) VALUES (?, ?, ?, ?, ?)');
-      for (const e of bySlot.values()) insert.run(spaceId, e.slot, e.hlc, Buffer.from(e.payload, 'base64'), ++seq);
+      for (const e of staged) insert.run(spaceId, e.slot, e.hlc, e.payload, ++seq);
       db.prepare('UPDATE spaces SET last_seq = ?, key_version = key_version + 1 WHERE id = ?').run(seq, spaceId);
       const update = db.prepare("UPDATE members SET key = ?, key_kind = CASE WHEN user_id = ? THEN 'wrapped' ELSE 'sealed' END WHERE space_id = ? AND user_id = ?");
       for (const [member, key] of keys) update.run(key, userId, spaceId, member);
+      db.prepare('DELETE FROM rotations WHERE id = ?').run(rotationId);
+      result = { keyVersion: Number(space.key_version) + 1, seq, members };
     });
-    hub.notify(members, { type: 'spaces' });
-    hub.notify(members, { type: 'changed', space: spaceId, seq });
-    return c.json({ ok: true, keyVersion: Number(space.key_version) + 1, seq });
+    const done = result as unknown as { keyVersion: number; seq: number; members: string[] };
+    hub.notify(done.members, { type: 'spaces' });
+    hub.notify(done.members, { type: 'changed', space: spaceId, seq: done.seq });
+    return c.json({ ok: true, keyVersion: done.keyVersion, seq: done.seq });
   });
 
   // ---------- файлы ----------
