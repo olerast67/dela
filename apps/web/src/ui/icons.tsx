@@ -110,3 +110,8 @@ export const IconDeadline = (p: P) => (
     <path d="M12 9v4l2.5 2.5M9 2h6" />
   </Svg>
 );
+export const IconFilter = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />
+  </Svg>
+);

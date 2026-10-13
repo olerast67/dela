@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAppState, useDoc, href, navigate, type Route } from '../hooks.ts';
 import { TZ, todayDate } from '../format.ts';
-import { IconDone, IconInbox, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
+import { IconDone, IconFilter, IconInbox, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
 
 function same(a: Route, b: Route): boolean {
   return href(a) === href(b);
@@ -111,6 +111,16 @@ export function Sidebar({ route, onNavigate }: { route: Route; onNavigate?: () =
           {countIn(p.project.id) ? <span className="count">{countIn(p.project.id)}</span> : null}
         </a>
       ))}
+
+      <div className="nav-head">
+        <span>Фильтры</span>
+        <a className="icon small" href={href({ view: 'filter', id: 'new' })} aria-label="Новый фильтр" onClick={onNavigate}>
+          <IconPlus width={16} height={16} />
+        </a>
+      </div>
+      {doc.filters().map((f) =>
+        item({ view: 'filter', id: f.id }, <IconFilter width={16} height={16} className={`c-${f.color}`} />, f.name),
+      )}
 
       {doc.labels().length > 0 && (
         <>

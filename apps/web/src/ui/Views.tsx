@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { COLORS, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, type DeviceInfo, type TaskView, type TodoistData } from '#core';
+import { COLORS, FilterSyntaxError, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
 import { controller } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, useAppState, useDoc } from '../hooks.ts';
@@ -531,5 +531,94 @@ export function ChangePassword() {
       </form>
       {msg && <p className="notice">{msg}</p>}
     </section>
+  );
+}
+
+const FILTER_EXAMPLES = ['сегодня | просрочено', '(today | overdue) & p1', '#Работа & !@ждёт', 'следующие 7 дней', 'без даты & !подзадачи', 'поиск: молоко'];
+
+export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string }) {
+  const doc = useDoc();
+  const existing = id === 'new' ? undefined : doc.filters().find((f) => f.id === id);
+  const [editing, setEditing] = useState(id === 'new');
+  const [name, setName] = useState(existing?.name ?? '');
+  const [query, setQuery] = useState(existing?.query ?? '');
+  useEffect(() => {
+    setEditing(id === 'new');
+    setName(existing?.name ?? '');
+    setQuery(existing?.query ?? '');
+  }, [id]);
+
+  if (id !== 'new' && !existing) return <Empty>Фильтр не найден.</Empty>;
+  const q = editing ? query : existing!.query;
+  let result: { tasks: TaskView[]; unknown: string[] } | null = null;
+  let error: string | null = null;
+  if (q.trim()) {
+    try {
+      result = runFilter(doc, q, todayDate(), TZ);
+    } catch (err) {
+      error = err instanceof FilterSyntaxError ? err.message : 'ошибка в запросе';
+    }
+  }
+
+  return (
+    <>
+      <header className="view-head">
+        <h1>{editing ? (id === 'new' ? 'Новый фильтр' : 'Фильтр') : existing!.name}</h1>
+        {!editing && (
+          <div className="head-actions">
+            <button onClick={() => setEditing(true)}>Изменить</button>
+            <button
+              className="danger"
+              onClick={() => {
+                doc.deleteFilter(id);
+                navigate({ view: 'today' });
+                showToast('Фильтр удалён', { label: 'Отменить', run: () => doc.undo() });
+              }}
+            >
+              Удалить
+            </button>
+          </div>
+        )}
+      </header>
+      {editing && (
+        <form
+          className="stack wide"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!name.trim() || !query.trim() || error) return;
+            if (id === 'new') navigate({ view: 'filter', id: doc.createFilter(name, query) });
+            else {
+              doc.updateFilter(id, { name, query });
+              setEditing(false);
+            }
+          }}
+        >
+          <input placeholder="Название" value={name} onChange={(e) => setName(e.target.value)} autoFocus required aria-label="Название фильтра" />
+          <input placeholder="Запрос, например: сегодня | просрочено" value={query} onChange={(e) => setQuery(e.target.value)} required aria-label="Запрос" />
+          <div className="chips">
+            {FILTER_EXAMPLES.map((ex) => (
+              <button type="button" key={ex} className="chip" onClick={() => setQuery(ex)}>
+                {ex}
+              </button>
+            ))}
+          </div>
+          <div className="row">
+            <button className="primary" disabled={!name.trim() || !query.trim() || !!error}>
+              Сохранить
+            </button>
+            {id !== 'new' && (
+              <button type="button" onClick={() => setEditing(false)}>
+                Отмена
+              </button>
+            )}
+          </div>
+        </form>
+      )}
+      {!editing && <p className="muted mono">{existing!.query}</p>}
+      {error && <p className="error">Ошибка в запросе: {error}</p>}
+      {result && result.unknown.length > 0 && <p className="notice">Не понял: {result.unknown.map((u) => `«${u}»`).join(', ')}</p>}
+      {result && <TaskList tasks={result.tasks} onOpen={onOpen} selectedId={selectedId} />}
+      {result && result.tasks.length === 0 && !error && <Empty>Под фильтр ничего не попадает.</Empty>}
+    </>
   );
 }

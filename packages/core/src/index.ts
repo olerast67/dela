@@ -142,3 +142,4 @@ export {
   type ImportSummary,
   type TodoistData,
 } from './transfer.ts';
+export { parseFilter, runFilter, FilterSyntaxError, type FilterResult } from './filter.ts';

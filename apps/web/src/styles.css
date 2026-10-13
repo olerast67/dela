@@ -1182,3 +1182,23 @@ input.inline {
   gap: 8px;
   max-width: 360px;
 }
+
+.stack.wide {
+  max-width: 560px;
+  margin-bottom: 16px;
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 13px;
+}
+
+button.chip {
+  cursor: pointer;
+}
+
+.nav-head a.icon {
+  display: inline-flex;
+  padding: 3px;
+  color: var(--text-muted);
+}

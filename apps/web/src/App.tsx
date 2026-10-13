@@ -7,7 +7,7 @@ import { QuickAdd } from './ui/QuickAdd.tsx';
 import { Sidebar } from './ui/Sidebar.tsx';
 import { TaskPanel } from './ui/TaskPanel.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
-import { CompletedView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
+import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 
 function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
@@ -65,6 +65,9 @@ function Shell() {
       break;
     case 'label':
       view = <LabelView id={route.id} {...props} />;
+      break;
+    case 'filter':
+      view = <FilterView id={route.id} {...props} />;
       break;
     case 'search':
       view = <SearchView q={route.q} {...props} />;
