@@ -52,13 +52,21 @@ export interface DeviceInfo {
 }
 
 export class ApiClient {
-  readonly baseUrl: string;
+  private base: string;
   token: string | null = null;
   private readonly fetcher: Fetcher;
 
   constructor(baseUrl: string, fetcher?: Fetcher) {
-    this.baseUrl = baseUrl.replace(/\/+$/, '');
+    this.base = baseUrl.replace(/\/+$/, '');
     this.fetcher = fetcher ?? ((input, init) => fetch(input, init));
+  }
+
+  get baseUrl(): string {
+    return this.base;
+  }
+
+  set baseUrl(url: string) {
+    this.base = url.replace(/\/+$/, '');
   }
 
   private async call<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -104,7 +112,7 @@ export class ApiClient {
     return this.call('POST', '/api/auth/register', input);
   }
 
-  login(input: { email: string; authSecret: string; deviceName: string }): Promise<SessionInfo & { bundle: AccountBundle }> {
+  login(input: { email: string; authSecret: string; deviceName: string; totp?: string }): Promise<SessionInfo & { bundle: AccountBundle }> {
     return this.call('POST', '/api/auth/login', input);
   }
 
@@ -126,8 +134,20 @@ export class ApiClient {
     return this.call('POST', '/api/auth/logout', {});
   }
 
-  account(): Promise<{ userId: string; deviceId: string; email: string; isAdmin: boolean; bundle: AccountBundle }> {
+  account(): Promise<{ userId: string; deviceId: string; email: string; isAdmin: boolean; totpEnabled: boolean; bundle: AccountBundle }> {
     return this.call('GET', '/api/account');
+  }
+
+  totpSetup(): Promise<{ secret: string; uri: string }> {
+    return this.call('POST', '/api/account/totp/setup', {});
+  }
+
+  totpEnable(code: string): Promise<{ ok: true }> {
+    return this.call('POST', '/api/account/totp/enable', { code });
+  }
+
+  totpDisable(code: string): Promise<{ ok: true }> {
+    return this.call('POST', '/api/account/totp/disable', { code });
   }
 
   changePassword(input: { authSecret: string; newAuthSecret: string; bundle: AccountBundle }): Promise<{ ok: true }> {

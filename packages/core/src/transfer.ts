@@ -355,7 +355,8 @@ export function exportMarkdown(doc: Doc): string {
     }
     lines.push('');
   };
-  write(doc.inboxId, 'Входящие');
+  // У общего пространства нет «Входящих»: его единственный проект выводится ниже.
+  if (doc.kind !== 'shared') write(doc.inboxId, 'Входящие');
   for (const p of doc.projects()) write(p.project.id, `${'↳ '.repeat(p.depth)}${p.project.name}`);
   return lines.join('\n');
 }

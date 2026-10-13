@@ -100,6 +100,11 @@ const MIGRATIONS: readonly string[] = [
   ) STRICT;
   CREATE INDEX push_schedule_fire ON push_schedule(fire_at);
   `,
+  `
+  ALTER TABLE users ADD COLUMN totp_secret TEXT;
+  ALTER TABLE users ADD COLUMN totp_enabled INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE users ADD COLUMN totp_last INTEGER;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

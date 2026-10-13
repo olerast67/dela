@@ -1,0 +1,14 @@
+{
+  "appId": "io.github.olerast67.dela",
+  "appName": "Dela",
+  "webDir": "../web/dist",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_dela",
+      "iconColor": "#2E7D5B"
+    }
+  }
+}

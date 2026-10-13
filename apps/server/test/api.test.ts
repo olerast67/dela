@@ -363,3 +363,30 @@ describe('Web Push', () => {
     expect(sent).toHaveLength(2);
   });
 });
+
+describe('двухфакторный вход', () => {
+  it('включение, вход с кодом, повтор кода и отключение', async () => {
+    const { hotp, base32Decode, totpCounter } = await import('../src/totp.ts');
+    const s = makeServer();
+    const { acc, res } = await register(s, 'a@x.yz', 'p');
+    const token = res.json.token;
+    const setup = await s.call('POST', '/api/account/totp/setup', {}, token);
+    expect(setup.json.uri).toMatch(/^otpauth:\/\/totp\//);
+    const code = (dt = 0) => hotp(base32Decode(setup.json.secret), totpCounter(NOW + dt));
+    expect((await s.call('POST', '/api/account/totp/enable', { code: '000000' }, token)).status).toBe(401);
+    expect((await s.call('POST', '/api/account/totp/enable', { code: code() }, token)).status).toBe(200);
+    expect((await s.call('GET', '/api/account', undefined, token)).json.totpEnabled).toBe(true);
+
+    const login = (totp?: string) =>
+      s.call('POST', '/api/auth/login', { email: 'a@x.yz', authSecret: toB64(acc.authSecret), deviceName: 'B', ...(totp ? { totp } : {}) });
+    expect((await login()).json.error).toBe('totp_required');
+    // Тот же код второй раз не принимается.
+    expect((await login(code())).json.error).toBe('invalid_totp');
+    s.advance(30_000);
+    expect((await login(code(30_000))).status).toBe(200);
+
+    s.advance(30_000);
+    expect((await s.call('POST', '/api/account/totp/disable', { code: code(60_000) }, token)).status).toBe(200);
+    expect((await login()).status).toBe(200);
+  });
+});

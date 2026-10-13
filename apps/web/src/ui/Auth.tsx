@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { ApiError, DecryptError, NetworkError } from '#core';
 import { controller } from '../controller.ts';
+import { isNative, normalizeServerUrl, serverUrl, setServerUrl } from '../platform.ts';
 import { useAppState } from '../hooks.ts';
 
 const ERRORS: Record<string, string> = {
   invalid_credentials: 'Неверный адрес или пароль.',
+  totp_required: 'Введите код из приложения-аутентификатора.',
+  invalid_totp: 'Код не подошёл. Проверьте время на телефоне и введите новый код.',
   rate_limited: 'Слишком много попыток. Подождите несколько минут.',
   invite_required: 'Регистрация на этом сервере только по приглашению.',
   invalid_invite: 'Приглашение неверное, использовано или истекло.',
@@ -23,16 +26,33 @@ export function AuthScreen() {
   const { notice } = useAppState();
   const [mode, setMode] = useState<'login' | 'register' | 'recover'>('login');
   const [recoveryKey, setRecoveryKey] = useState('');
+  const [needTotp, setNeedTotp] = useState(false);
+  const [totp, setTotp] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [repeat, setRepeat] = useState('');
   const [invite, setInvite] = useState(() => new URLSearchParams(location.search).get('invite') ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [server, setServer] = useState(() => serverUrl());
+  const native = isNative();
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (native) {
+      const url = normalizeServerUrl(server);
+      if (!url) return setError('Укажите адрес сервера Dela, например tasks.example.com. Нужен HTTPS.');
+      try {
+        await fetch(`${url}/api/health`).then((r) => {
+          if (!r.ok) throw new Error();
+        });
+      } catch {
+        return setError(`По адресу ${url} не отвечает сервер Dela.`);
+      }
+      setServerUrl(url);
+      controller.api.baseUrl = url;
+    }
     if (mode !== 'login') {
       if (password.length < 10) return setError('Пароль должен быть не короче 10 символов.');
       if (password !== repeat) return setError('Пароли не совпадают.');
@@ -41,10 +61,11 @@ export function AuthScreen() {
     // Даём браузеру отрисовать «Подождите…»: вычисление ключа из пароля занимает около секунды.
     await new Promise((r) => setTimeout(r, 30));
     try {
-      if (mode === 'login') await controller.login(email, password);
+      if (mode === 'login') await controller.login(email, password, needTotp ? totp : undefined);
       else if (mode === 'recover') await controller.recover(email, recoveryKey, password);
       else await controller.register(email, password, invite.trim() || undefined);
     } catch (err) {
+      if (err instanceof ApiError && (err.code === 'totp_required' || err.code === 'invalid_totp')) setNeedTotp(true);
       setError(message(err));
       setBusy(false);
     }
@@ -63,6 +84,12 @@ export function AuthScreen() {
               : 'Пароль не уходит на сервер: из него на устройстве получаются ключи шифрования.'}
         </p>
         {notice && <p className="notice">{notice}</p>}
+        {native && (
+          <label>
+            Сервер
+            <input inputMode="url" autoCapitalize="off" autoCorrect="off" placeholder="tasks.example.com" required value={server} onChange={(e) => setServer(e.target.value)} />
+          </label>
+        )}
         <label>
           Электронная почта
           <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -83,6 +110,12 @@ export function AuthScreen() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
+        {mode === 'login' && needTotp && (
+          <label>
+            Код из приложения-аутентификатора
+            <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required value={totp} onChange={(e) => setTotp(e.target.value)} autoFocus />
+          </label>
+        )}
         {mode !== 'login' && (
           <label>
             Пароль ещё раз

@@ -51,12 +51,12 @@ export async function signUp(
 
 export async function signIn(
   api: ApiClient,
-  input: { email: string; password: string; deviceName: string },
+  input: { email: string; password: string; deviceName: string; totp?: string },
 ): Promise<Session> {
   const email = normalizeEmail(input.email);
   const pre = await api.prelogin(email);
   const { authSecret, kek } = derivePasswordKeys(input.password, fromB64(pre.salt), pre.kdf);
-  const res = await api.login({ email, authSecret: toB64(authSecret), deviceName: input.deviceName });
+  const res = await api.login({ email, authSecret: toB64(authSecret), deviceName: input.deviceName, ...(input.totp ? { totp: input.totp } : {}) });
   const keys = openAccount(res.bundle, kek);
   api.token = res.token;
   const { bundle, ...info } = res;

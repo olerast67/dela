@@ -39,6 +39,7 @@ import {
 } from '#core';
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
+import { nativeNotify, serverUrl, syncNativeReminders } from './platform.ts';
 
 function loadFired(): string[] {
   try {
@@ -111,7 +112,7 @@ function deviceName(): string {
 
 export class Controller {
   readonly store = new IdbStore();
-  readonly api = new ApiClient('');
+  readonly api = new ApiClient(serverUrl());
   doc: Workspace | null = null;
   private readonly engines = new Map<string, SyncEngine>();
   private readonly spaceKeyById = new Map<string, Uint8Array>();
@@ -190,8 +191,8 @@ export class Controller {
     this.set({ phase: 'recovery', recoveryKey });
   }
 
-  async login(email: string, password: string): Promise<void> {
-    const session = await signIn(this.api, { email, password, deviceName: deviceName() });
+  async login(email: string, password: string, totp?: string): Promise<void> {
+    const session = await signIn(this.api, { email, password, deviceName: deviceName(), ...(totp ? { totp } : {}) });
     await this.persistAndStart(session);
   }
 
@@ -647,6 +648,7 @@ export class Controller {
       saveFired(this.fired);
       void this.fire(r);
     }
+    void this.syncPhoneReminders();
     const next = list.find((r) => r.at > now);
     // Не дольше часа: таймеры браузера в фоне неточны, пересчитываем регулярно.
     const delay = next ? Math.min(next.at - now, 3600_000) : 3600_000;
@@ -661,8 +663,26 @@ export class Controller {
     this.onReminder?.({ key: msg.key, taskId: msg.taskId, title: msg.title, at: Date.now(), dueAt: Date.now(), offset: 0 });
   }
 
+  /** Телефон: расписание уведомлений Android на неделю вперёд. */
+  private async syncPhoneReminders(): Promise<void> {
+    if (!this.doc) return;
+    const now = Date.now();
+    const list = remindersBetween(this.doc, now, now + 7 * 24 * 3600_000, TZ, this.reminderDefaults());
+    await syncNativeReminders(
+      list.map((r) => ({
+        key: r.key,
+        at: r.at,
+        title: r.title || 'Задача',
+        body: r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`,
+        taskId: r.taskId,
+      })),
+    ).catch((err) => console.error('native reminders failed', err));
+  }
+
   private async fire(r: Reminder): Promise<void> {
     this.onReminder?.(r);
+    const text = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
+    if (await nativeNotify(r.title || 'Задача', text).catch(() => false)) return;
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     const body = r.offset === 0 ? 'Пора' : `Через ${r.offset >= 60 ? `${r.offset / 60} ч` : `${r.offset} мин`}`;
     try {

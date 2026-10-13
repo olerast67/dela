@@ -13,3 +13,10 @@ Thumbs.db
 .claude/handoff*.md
 test-results/
 playwright-report/
+
+# Сборки нативных оболочек
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# Готовые сборки приложений
+/builds/

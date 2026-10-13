@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Права главного окна: события и уведомления",
+  "windows": ["main"],
+  "permissions": ["core:default", "core:event:default", "notification:default"]
+}

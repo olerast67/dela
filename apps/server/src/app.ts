@@ -14,6 +14,7 @@ import { tx, type Db } from './db.ts';
 import { Hub, type HubSocket } from './hub.ts';
 import { SqliteRelay } from './relay.ts';
 import { generateVapid, isAllowedEndpoint, loadVapid, sendPush } from './webpush.ts';
+import { newTotpSecret, otpauthUri, verifyTotp } from './totp.ts';
 import { EMAIL_RE, UUID_RE, b64, bad, int, obj, optStr, str } from './validate.ts';
 
 export const VERSION = '0.1.0';
@@ -187,9 +188,17 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
       crossOriginEmbedderPolicy: false,
     }),
   );
-  if (config.corsOrigins.length > 0) {
-    app.use('/api/*', cors({ origin: [...config.corsOrigins], allowHeaders: ['content-type', 'authorization'] }));
-  }
+  // Клиенты в оболочках Tauri и Capacitor загружаются не с сервера, поэтому API доступен с любого источника.
+  // Вход идёт по токену в заголовке Authorization, cookie сервер не ставит, и чужой сайт без токена ничего не получит.
+  app.use(
+    '/api/*',
+    cors({
+      origin: config.corsOrigins.length > 0 ? [...config.corsOrigins] : '*',
+      allowHeaders: ['content-type', 'authorization'],
+      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      maxAge: 86400,
+    }),
+  );
   app.use('/api/*', bodyLimit({ maxSize: 8 * 1024 * 1024, onError: (c) => c.json({ error: 'body_too_large' }, 413) }));
 
   const requireAuth = async (c: Context<AppEnv>, next: () => Promise<void>) => {
@@ -261,12 +270,30 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
     if (!ipLimiter.hit(`ip:${clientIp(c)}`) || !loginLimiter.hit(`login:${email}`)) fail(429, 'rate_limited');
 
-    const row = db.prepare('SELECT id, auth_salt, auth_hash, bundle, is_admin FROM users WHERE email = ?').get(email) as
-      | { id: string; auth_salt: Uint8Array; auth_hash: Uint8Array; bundle: string; is_admin: number }
+    const row = db
+      .prepare('SELECT id, auth_salt, auth_hash, bundle, is_admin, totp_secret, totp_enabled, totp_last FROM users WHERE email = ?')
+      .get(email) as
+      | {
+          id: string;
+          auth_salt: Uint8Array;
+          auth_hash: Uint8Array;
+          bundle: string;
+          is_admin: number;
+          totp_secret: string | null;
+          totp_enabled: number;
+          totp_last: number | null;
+        }
       | undefined;
     // Для несуществующего адреса считаем хеш всё равно, чтобы время ответа не выдавало регистрацию.
     const hash = await hashAuthSecret(authSecret, row ? row.auth_salt : serverSecret.subarray(0, 16));
     if (!row || !safeEqual(hash, row.auth_hash)) fail(401, 'invalid_credentials');
+    if (row.totp_enabled === 1 && row.totp_secret) {
+      const code = typeof b.totp === 'string' ? b.totp.replace(/\s/g, '') : '';
+      if (!code) fail(401, 'totp_required');
+      const step = verifyTotp(row.totp_secret, code, now(), row.totp_last === null ? null : Number(row.totp_last));
+      if (step === null) fail(401, 'invalid_totp');
+      db.prepare('UPDATE users SET totp_last = ? WHERE id = ?').run(step, row.id);
+    }
 
     const session = createSession(row.id, deviceName);
     return c.json({ userId: row.id, isAdmin: row.is_admin === 1, bundle: JSON.parse(row.bundle), ...session });
@@ -334,12 +361,61 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
   app.get('/api/account', requireAuth, (c) => {
     const { userId, deviceId } = c.get('auth');
-    const row = db.prepare('SELECT email, bundle, is_admin FROM users WHERE id = ?').get(userId) as {
+    const row = db.prepare('SELECT email, bundle, is_admin, totp_enabled FROM users WHERE id = ?').get(userId) as {
       email: string;
       bundle: string;
       is_admin: number;
+      totp_enabled: number;
     };
-    return c.json({ userId, deviceId, email: row.email, isAdmin: row.is_admin === 1, bundle: JSON.parse(row.bundle) });
+    return c.json({
+      userId,
+      deviceId,
+      email: row.email,
+      isAdmin: row.is_admin === 1,
+      totpEnabled: row.totp_enabled === 1,
+      bundle: JSON.parse(row.bundle),
+    });
+  });
+
+  // ---------- двухфакторный вход (TOTP) ----------
+
+  /** Новый секрет. Включается только после подтверждения кодом. */
+  app.post('/api/account/totp/setup', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const row = db.prepare('SELECT email, totp_enabled FROM users WHERE id = ?').get(userId) as { email: string; totp_enabled: number };
+    if (row.totp_enabled === 1) fail(409, 'totp_already_enabled');
+    const secret = newTotpSecret();
+    db.prepare('UPDATE users SET totp_secret = ?, totp_last = NULL WHERE id = ?').run(secret, userId);
+    return c.json({ secret, uri: otpauthUri(secret, row.email) });
+  });
+
+  async function checkTotp(c: Context<AppEnv>, requireEnabled: boolean): Promise<string> {
+    const { userId } = c.get('auth');
+    const b = await body(c);
+    const code = str(b.code, 'code', { max: 10 }).replace(/\s/g, '');
+    if (!loginLimiter.hit(`totp:${userId}`)) fail(429, 'rate_limited');
+    const row = db.prepare('SELECT totp_secret, totp_enabled, totp_last FROM users WHERE id = ?').get(userId) as {
+      totp_secret: string | null;
+      totp_enabled: number;
+      totp_last: number | null;
+    };
+    if (!row.totp_secret || (requireEnabled && row.totp_enabled !== 1)) bad('totp is not set up');
+    const step = verifyTotp(row.totp_secret, code, now(), row.totp_last === null ? null : Number(row.totp_last));
+    if (step === null) fail(401, 'invalid_totp');
+    db.prepare('UPDATE users SET totp_last = ? WHERE id = ?').run(step, userId);
+    return userId;
+  }
+
+  app.post('/api/account/totp/enable', requireAuth, async (c) => {
+    const userId = await checkTotp(c, false);
+    db.prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').run(userId);
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/account/totp/disable', requireAuth, async (c) => {
+    const userId = await checkTotp(c, true);
+    db.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL, totp_last = NULL WHERE id = ?').run(userId);
+    return c.json({ ok: true });
   });
 
   app.put('/api/account/password', requireAuth, async (c) => {

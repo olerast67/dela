@@ -415,6 +415,7 @@ export function SettingsView() {
       </section>
       <ReminderSettings />
       <ChangePassword />
+      <TwoFactor />
       <ImportExport />
       {isAdmin && (
         <section className="settings">
@@ -529,8 +530,8 @@ export function ImportExport() {
       <h2>Экспорт</h2>
       <p className="muted">Выгрузка собирается на этом устройстве из расшифрованных данных.</p>
       <div className="row">
-        <button onClick={() => download(`dela-${todayDate()}.json`, JSON.stringify(exportJson(doc.personal), null, 2), 'application/json')}>JSON</button>
-        <button onClick={() => download(`dela-${todayDate()}.md`, exportMarkdown(doc.personal), 'text/markdown')}>Markdown</button>
+        <button onClick={() => download(`dela-${todayDate()}.json`, JSON.stringify({ ...exportJson(doc.personal), shared: doc.docs().filter((d) => d.kind === 'shared').map((d) => exportJson(d)) }, null, 2), 'application/json')}>JSON</button>
+        <button onClick={() => download(`dela-${todayDate()}.md`, doc.docs().map((d) => exportMarkdown(d)).join(String.fromCharCode(10)), 'text/markdown')}>Markdown</button>
       </div>
     </section>
   );
@@ -763,5 +764,90 @@ function Board({
         + Раздел
       </button>
     </div>
+  );
+}
+
+export function TwoFactor() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null);
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    controller.api
+      .account()
+      .then((a) => setEnabled(a.totpEnabled))
+      .catch(() => setEnabled(null));
+  }, []);
+
+  const fail = (err: unknown) =>
+    setMsg(err instanceof Error && err.message === 'invalid_totp' ? 'Код не подошёл. Введите новый код из приложения.' : 'Не получилось. Нужна связь с сервером.');
+
+  return (
+    <section className="settings">
+      <h2>Двухфакторный вход</h2>
+      <p className="muted">
+        При входе на новом устройстве кроме пароля понадобится код из приложения-аутентификатора (Aegis, Google Authenticator, 2FAS). Вход по ключу
+        восстановления кода не требует.
+      </p>
+      {enabled === true && (
+        <form
+          className="row"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              await controller.api.totpDisable(code.replace(/\s/g, ''));
+              setEnabled(false);
+              setCode('');
+              setMsg('Двухфакторный вход отключён.');
+            } catch (err) {
+              fail(err);
+            }
+          }}
+        >
+          <span>Включён.</span>
+          <input inputMode="numeric" placeholder="Код для отключения" value={code} onChange={(e) => setCode(e.target.value)} required aria-label="Код" />
+          <button>Отключить</button>
+        </form>
+      )}
+      {enabled === false && !setup && (
+        <button
+          onClick={async () => {
+            try {
+              setSetup(await controller.api.totpSetup());
+              setMsg(null);
+            } catch (err) {
+              fail(err);
+            }
+          }}
+        >
+          Включить
+        </button>
+      )}
+      {enabled === false && setup && (
+        <form
+          className="stack"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              await controller.api.totpEnable(code.replace(/\s/g, ''));
+              setEnabled(true);
+              setSetup(null);
+              setCode('');
+              setMsg('Двухфакторный вход включён.');
+            } catch (err) {
+              fail(err);
+            }
+          }}
+        >
+          <p>Добавьте ключ в приложение-аутентификатор и введите код, который оно покажет.</p>
+          <code className="recovery-key">{setup.secret.match(/.{1,4}/g)!.join(' ')}</code>
+          <a href={setup.uri}>Открыть в приложении-аутентификаторе</a>
+          <input inputMode="numeric" autoComplete="one-time-code" placeholder="Код из приложения" value={code} onChange={(e) => setCode(e.target.value)} required aria-label="Код" />
+          <button className="primary">Подтвердить</button>
+        </form>
+      )}
+      {msg && <p className="notice">{msg}</p>}
+    </section>
   );
 }

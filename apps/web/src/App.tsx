@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { controller } from './controller.ts';
 import { useAppState, useDoc, useMedia, useRoute } from './hooks.ts';
 import { AuthScreen, RecoveryScreen } from './ui/Auth.tsx';
@@ -9,6 +9,7 @@ import { TaskPanel } from './ui/TaskPanel.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
+import { onBackButton, onNotificationOpen, onQuickAddRequest } from './platform.ts';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 
 function typing(e: KeyboardEvent): boolean {
@@ -132,6 +133,51 @@ function Shell() {
   }, [doc, selected]);
 
   useEffect(() => setMenu(false), [route]);
+
+  // Телефон: тап по уведомлению и кнопка «Назад».
+  const backState = useRef({ quickAdd, selected, palette, help, menu });
+  backState.current = { quickAdd, selected, palette, help, menu };
+  useEffect(() => {
+    const offs: Array<() => void> = [];
+    let cancelled = false;
+    const keep = (p: Promise<() => void>) =>
+      void p.then((fn) => {
+        if (cancelled) fn();
+        else offs.push(fn);
+      });
+    keep(onNotificationOpen((id) => setSelected(id)));
+    keep(
+      onBackButton(() => {
+        const s = backState.current;
+        if (s.quickAdd) setQuickAdd(false);
+        else if (s.palette) setPalette(false);
+        else if (s.help) setHelp(false);
+        else if (s.selected) setSelected(null);
+        else if (s.menu) setMenu(false);
+        else if (!/^#\/(today)?$/.test(location.hash || '#/')) location.hash = '#/today';
+        else return false;
+        return true;
+      }),
+    );
+    return () => {
+      cancelled = true;
+      offs.forEach((fn) => fn());
+    };
+  }, []);
+
+  // Оболочка компьютера: «Новая задача» из трея и по Ctrl+Shift+Space из любой программы.
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    let cancelled = false;
+    void onQuickAddRequest(() => setQuickAdd(true)).then((fn) => {
+      if (cancelled) fn();
+      else off = fn;
+    });
+    return () => {
+      cancelled = true;
+      off?.();
+    };
+  }, []);
 
   useEffect(() => {
     controller.onReminder = (r) => showToast(`⏰ ${r.title}`, { label: 'Открыть', run: () => setSelected(r.taskId) }, 60_000);

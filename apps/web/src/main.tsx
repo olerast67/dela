@@ -7,6 +7,7 @@ import { controller } from './controller.ts';
 import { applyTheme } from './ui/Views.tsx';
 import { registerSW } from 'virtual:pwa-register';
 import { showToast } from './ui/toast.tsx';
+import { isNative } from './platform.ts';
 
 try {
   applyTheme(localStorage.getItem('theme') ?? 'system');
@@ -23,8 +24,11 @@ createRoot(document.getElementById('root')!).render(
 void controller.init();
 
 // Новая версия приложения: предлагаем обновиться, а не перезагружаем страницу посреди работы.
-const updateSW = registerSW({
-  onNeedRefresh() {
-    showToast('Доступна новая версия Dela', { label: 'Обновить', run: () => void updateSW(true) }, 10 * 60_000);
-  },
-});
+// В оболочках Tauri и Capacitor клиент встроен в приложение и обновляется вместе с ним.
+if (!isNative()) {
+  const updateSW = registerSW({
+    onNeedRefresh() {
+      showToast('Доступна новая версия Dela', { label: 'Обновить', run: () => void updateSW(true) }, 10 * 60_000);
+    },
+  });
+}
