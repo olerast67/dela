@@ -11,3 +11,5 @@ Thumbs.db
 
 # Заметки сессий Claude Code
 .claude/handoff*.md
+test-results/
+playwright-report/

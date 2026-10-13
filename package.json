@@ -17,9 +17,11 @@
     "server": "node --disable-warning=ExperimentalWarning apps/server/src/main.ts",
     "dev:web": "vite --config apps/web/vite.config.ts",
     "build:web": "vite build --config apps/web/vite.config.ts",
-    "start": "node --disable-warning=ExperimentalWarning apps/server/src/main.ts"
+    "start": "node --disable-warning=ExperimentalWarning apps/server/src/main.ts",
+    "test:e2e": "npm run build:web && playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@types/libsodium-wrappers-sumo": "^0.7.8",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",

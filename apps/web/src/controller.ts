@@ -93,6 +93,7 @@ export class Controller {
   private syncTimer: ReturnType<typeof setTimeout> | undefined;
   private ws: WebSocket | null = null;
   private wsRetry = 0;
+  private wsTimer: ReturnType<typeof setTimeout> | undefined;
   private stopFns: Array<() => void> = [];
 
   // ---------- подписки для React ----------
@@ -234,7 +235,13 @@ export class Controller {
       this.connectWs();
       void this.syncNow();
       const interval = setInterval(() => void this.syncNow(), 60_000);
-      const online = () => void this.syncNow();
+      const online = () => {
+        // Сеть вернулась: переподключаемся сразу, не дожидаясь паузы между попытками.
+        this.wsRetry = 0;
+        clearTimeout(this.wsTimer);
+        if (!this.ws) this.connectWs();
+        void this.syncNow();
+      };
       const visible = () => document.visibilityState === 'visible' && void this.syncNow();
       window.addEventListener('online', online);
       document.addEventListener('visibilitychange', visible);
@@ -281,7 +288,11 @@ export class Controller {
     ws.addEventListener('message', (e) => {
       try {
         const msg = JSON.parse(String(e.data)) as { type?: string };
-        if (msg.type === 'ready') this.wsRetry = 0;
+        if (msg.type === 'ready') {
+          this.wsRetry = 0;
+          // Пока соединения не было, сигналы могли потеряться: забираем всё пропущенное.
+          this.requestSync();
+        }
         if (msg.type === 'changed') this.requestSync();
       } catch {
         // не JSON — игнорируем
@@ -295,7 +306,8 @@ export class Controller {
         return;
       }
       const delay = Math.min(30_000, 1000 * 2 ** this.wsRetry++);
-      setTimeout(() => this.connectWs(), delay);
+      clearTimeout(this.wsTimer);
+      this.wsTimer = setTimeout(() => this.connectWs(), delay);
     });
   }
 
@@ -323,6 +335,7 @@ export class Controller {
       // сервер недоступен или сессия уже закрыта
     }
     for (const fn of this.stopFns.splice(0)) fn();
+    clearTimeout(this.wsTimer);
     const ws = this.ws;
     this.ws = null;
     ws?.close();
