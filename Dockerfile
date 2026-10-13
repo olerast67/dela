@@ -1,19 +1,19 @@
 # Dela: сервер и веб-клиент в одном образе.
 # docker run -d -p 8080:8080 -v dela-data:/data ghcr.io/olerast67/dela:latest
 
-FROM node:24-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build:web
 
-FROM node:24-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 
-FROM node:24-alpine
+FROM node:26-alpine
 ENV NODE_ENV=production \
     DELA_DATA_DIR=/data \
     DELA_PORT=8080 \
