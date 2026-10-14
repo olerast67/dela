@@ -47,6 +47,8 @@ test('календарь: планирование дня перетаскива
   // Растягивание за нижний край: полчаса превращаются в час.
   const block = grid.locator('.cal-block', { hasText: 'Разобрать почту' });
   const handle = block.locator('.cal-resize');
+  // Сетка открывается на текущем часе, и в зависимости от времени запуска блок может оказаться у края прокрутки.
+  await block.evaluate((el) => el.scrollIntoView({ block: 'center' }));
   const hb = (await handle.boundingBox())!;
   await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
   await page.mouse.down();

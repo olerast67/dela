@@ -626,7 +626,12 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
       rule.byMonthDay = [parts(anchor).day];
     }
     if (until) rule.until = until;
-    const first = firstOnOrAfter(rule, anchor, anchor);
+    // Повтор со временем без явной даты: если время сегодня уже прошло, первый срок ищется с завтрашнего дня,
+    // как у задачи без повтора. Иначе «по будням в 10», набранное в 12:00, сразу оказалось бы просроченным.
+    let from = anchor;
+    const startTime = time as string | null;
+    if (!seriesStart && !date && startTime && startTime <= wallClock(ctx.now, tz ?? ctx.tz).time) from = addDays(today, 1);
+    const first = firstOnOrAfter(rule, anchor, from);
     if (first) {
       due = { date: first, ...(time ? { time } : {}), ...(tz && time ? { tz } : {}) };
       recurrence = { rule: formatRule(rule), mode: completionMode ? 'completion' : 'schedule', text: recurrenceText.trim().replace(/\s+/g, ' ') };

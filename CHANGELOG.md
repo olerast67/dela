@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Quick add: a repeating task with a time that has already passed today starts tomorrow, the same way a task without a repeat does. "every weekday at 10" typed at noon no longer lands overdue.
+
 ## 0.5.0
 
 - English interface. The app follows the system language; Settings → Language switches between English and Russian. New accounts get welcome tasks and built-in templates in the chosen language. The Android widget, notifications and the Windows tray menu are translated too.

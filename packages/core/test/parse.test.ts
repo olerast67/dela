@@ -61,8 +61,11 @@ const cases: Array<[string, Expect]> = [
   ['уборка на полтора часа', { title: 'уборка', duration: 90 }],
   ['чтение на 1,5 ч', { title: 'чтение', duration: 90 }],
   // Повторы
-  ['зарядка каждый день в 7 утра', { title: 'зарядка', due: { date: '2026-10-13', time: '07:00' }, rule: 'FREQ=DAILY' }],
-  ['планёрка по будням в 10', { title: 'планёрка', due: { date: '2026-10-13', time: '10:00' }, rule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' }],
+  // Сейчас 12:00: время 7:00 и 10:00 сегодня уже прошло, первый срок завтра.
+  ['зарядка каждый день в 7 утра', { title: 'зарядка', due: { date: '2026-10-14', time: '07:00' }, rule: 'FREQ=DAILY' }],
+  ['планёрка по будням в 10', { title: 'планёрка', due: { date: '2026-10-14', time: '10:00' }, rule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' }],
+  ['созвон каждый день в 15', { title: 'созвон', due: { date: '2026-10-13', time: '15:00' }, rule: 'FREQ=DAILY' }],
+  ['планёрка по будням с сегодня в 10', { title: 'планёрка', due: { date: '2026-10-13', time: '10:00' }, rule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' }],
   ['платить аренду каждое 5 число', { title: 'платить аренду', due: { date: '2026-11-05' }, rule: 'FREQ=MONTHLY;BYMONTHDAY=5' }],
   [
     'полить цветы каждые 3 дня после выполнения',
@@ -102,7 +105,7 @@ const cases: Array<[string, Expect]> = [
   // Английский
   ['call mom tomorrow at 7pm #Home p2', { title: 'call mom', due: { date: '2026-10-14', time: '19:00' }, projectId: 'p-home-en', priority: 2 }],
   ['pay rent every month', { title: 'pay rent', due: { date: '2026-10-13' }, rule: 'FREQ=MONTHLY;BYMONTHDAY=13' }],
-  ['standup every weekday at 9:30am', { title: 'standup', due: { date: '2026-10-13', time: '09:30' }, rule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' }],
+  ['standup every weekday at 9:30am', { title: 'standup', due: { date: '2026-10-14', time: '09:30' }, rule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR' }],
   ['review every other friday', { title: 'review', due: { date: '2026-10-16' }, rule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR' }],
   ['water plants every! 3 days', { title: 'water plants', rule: 'FREQ=DAILY;INTERVAL=3', mode: 'completion' }],
   ['meeting next monday for 1h', { title: 'meeting', due: { date: '2026-10-19' }, duration: 60 }],
