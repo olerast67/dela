@@ -7,6 +7,7 @@
  * перешифровываются ключом нового пространства.
  */
 import { localDate, instant } from './dates.ts';
+import type { CommentSigned } from './crypto.ts';
 import type { ActivityEvent, Change, Doc, Listener, Position, ProjectNode, ProjectTasks, TaskInput, TaskNode, TaskPatch, TaskView } from './doc.ts';
 import { compareOrder } from './fractional.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
@@ -265,7 +266,7 @@ export class Workspace {
     this.batch(() => this.docForTask(id).restoreTask(id));
   }
 
-  addComment(taskId: string, input: { text: string; author: string | null; file?: Attachment | null }): string {
+  addComment(taskId: string, input: { text: string; author: string | null; file?: Attachment | null; sign?: (c: CommentSigned) => string }): string {
     let id = '';
     this.batch(() => {
       id = this.docForTask(taskId).addComment(taskId, input);

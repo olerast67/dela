@@ -35,6 +35,14 @@ export const EN: Readonly<Record<string, string>> = {
   'Слишком много неверных PIN-кодов. Данные на этом устройстве стёрты, войдите с паролем.':
     'Too many wrong PINs. The data on this device was erased; sign in with your password.',
   'Скрыть уведомление': 'Dismiss',
+  'Подпись не сходится': 'Signature does not match',
+  'Комментарий изменён или написан не тем, кто указан автором.': 'The comment was changed or written by someone other than the stated author.',
+  'без подписи': 'unsigned',
+  'Ключ подписи': 'Signing key',
+  'На сервере для вашего аккаунта стоит другой ключ подписи комментариев. Его могли поставить по украденной сессии. Пока он стоит, другие участники видят ваши новые комментарии как неподписанные вами.':
+    'The server has a different comment signing key for your account. It may have been set through a stolen session. While it stays, other members see your new comments as not signed by you.',
+  'Ключ подписи восстановлен. Смените пароль, если не ставили ключ сами.': 'The signing key is restored. Change your password if you did not set that key yourself.',
+  'Вернуть свой ключ': 'Restore my key',
 
   // ---------- карточка задачи ----------
   'в срок': 'on time',

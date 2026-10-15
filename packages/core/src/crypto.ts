@@ -486,3 +486,46 @@ export function wrapMasterForPasskey(masterKey: Uint8Array, prfOutput: Uint8Arra
 export function openAccountWithPasskey(bundle: AccountBundle, wrappedMaster: string, prfOutput: Uint8Array): AccountKeys {
   return openWithMaster(bundle, unwrapKey(wrappedMaster, passkeyWrappingKey(prfOutput), 'master-passkey'));
 }
+
+// ---------- подпись комментариев ----------
+
+export interface SigningKeys {
+  readonly publicKey: Uint8Array;
+  readonly secretKey: Uint8Array;
+}
+
+/** Ключ подписи Ed25519 выводится из мастер-ключа: одинаков на всех устройствах пользователя и отдельно не хранится. */
+export function signingKeys(masterKey: Uint8Array): SigningKeys {
+  const s = na();
+  const seed = s.crypto_kdf_derive_from_key(32, 1, 'dela_sig', masterKey);
+  const pair = s.crypto_sign_seed_keypair(seed);
+  return { publicKey: pair.publicKey, secretKey: pair.privateKey };
+}
+
+/** Что подписывает автор комментария: всё, что видит читатель, плюс пространство, задача и время. */
+export interface CommentSigned {
+  readonly spaceId: string;
+  readonly id: string;
+  readonly taskId: string;
+  readonly author: string | null;
+  readonly createdAt: number;
+  readonly text: string;
+  readonly file: { readonly id: string; readonly name: string; readonly size: number; readonly type: string; readonly key: string } | null;
+}
+
+function commentBytes(c: CommentSigned): Uint8Array {
+  const file = c.file ? [c.file.id, c.file.name, c.file.size, c.file.type, c.file.key] : null;
+  return na().from_string(JSON.stringify(['dela/comment/v1', c.spaceId, c.id, c.taskId, c.author, c.createdAt, c.text, file]));
+}
+
+export function signComment(secretKey: Uint8Array, c: CommentSigned): string {
+  return toB64(na().crypto_sign_detached(commentBytes(c), secretKey));
+}
+
+export function verifyComment(publicKey: string, sig: string, c: CommentSigned): boolean {
+  try {
+    return na().crypto_sign_verify_detached(fromB64(sig), commentBytes(c), fromB64(publicKey));
+  } catch {
+    return false;
+  }
+}

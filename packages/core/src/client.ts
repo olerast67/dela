@@ -191,7 +191,16 @@ export class ApiClient {
     return this.call('POST', '/api/auth/logout', {});
   }
 
-  account(): Promise<{ userId: string; deviceId: string; email: string; isAdmin: boolean; totpEnabled: boolean; recoveryTotp?: boolean; bundle: AccountBundle }> {
+  account(): Promise<{
+    userId: string;
+    deviceId: string;
+    email: string;
+    isAdmin: boolean;
+    totpEnabled: boolean;
+    recoveryTotp?: boolean;
+    signPublicKey?: string | null;
+    bundle: AccountBundle;
+  }> {
     return this.call('GET', '/api/account');
   }
 
@@ -205,6 +214,10 @@ export class ApiClient {
 
   totpDisable(code: string): Promise<{ ok: true }> {
     return this.call('POST', '/api/account/totp/disable', { code });
+  }
+
+  setSignKey(input: { signPublicKey: string; authSecret?: string; totp?: string }): Promise<{ ok: true }> {
+    return this.call('PUT', '/api/account/sign-key', input);
   }
 
   setRecoveryTotp(input: { enabled: boolean; authSecret: string; totp?: string }): Promise<{ ok: true }> {
@@ -243,7 +256,9 @@ export class ApiClient {
     return this.call('GET', `/api/users/public-key?email=${encodeURIComponent(email)}`);
   }
 
-  spaceMembers(spaceId: string): Promise<{ members: Array<{ userId: string; role: 'owner' | 'editor' | 'viewer'; email: string; publicKey: string }> }> {
+  spaceMembers(spaceId: string): Promise<{
+    members: Array<{ userId: string; role: 'owner' | 'editor' | 'viewer'; email: string; publicKey: string; signPublicKey?: string | null }>;
+  }> {
     return this.call('GET', `/api/spaces/${spaceId}/members`);
   }
 

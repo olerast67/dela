@@ -248,6 +248,18 @@ test('общий проект: приглашение, правки с двух 
   await addTask(b, 'Заказать торт');
   await expect(a.locator('.content').getByText('Заказать торт')).toBeVisible({ timeout: 15_000 });
 
+  // Комментарий B подписан: у A он показывается с адресом B, без предупреждения о подписи.
+  await b.locator('.content .task', { hasText: 'Заказать торт' }).click();
+  await b.getByLabel('Новый комментарий').fill('Торт шоколадный');
+  await b.getByRole('button', { name: 'Отправить' }).click();
+  await expect(b.locator('.comment', { hasText: 'Торт шоколадный' })).toBeVisible();
+  await b.keyboard.press('Escape');
+  await a.locator('.content .task', { hasText: 'Заказать торт' }).click();
+  const comment = a.locator('.comment', { hasText: 'Торт шоколадный' });
+  await expect(comment).toBeVisible({ timeout: 15_000 });
+  await expect(comment.locator('.comment-head b')).toHaveText(`guest-${stamp}@dela.test`, { timeout: 10_000 });
+  await a.keyboard.press('Escape');
+
   // B выходит — проект пропадает у B.
   await b.getByRole('button', { name: 'Участники' }).click();
   b.once('dialog', (d) => d.accept());

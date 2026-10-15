@@ -161,6 +161,10 @@ const MIGRATIONS: readonly string[] = [
   -- Восстановление по ключу просит код TOTP, если владелец включил эту настройку.
   ALTER TABLE users ADD COLUMN recovery_totp INTEGER NOT NULL DEFAULT 0;
   `,
+  `
+  -- Открытый ключ подписи комментариев (Ed25519). Секрет выводится на устройствах из мастер-ключа.
+  ALTER TABLE users ADD COLUMN sign_key TEXT;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

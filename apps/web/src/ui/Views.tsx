@@ -511,6 +511,7 @@ export function SettingsView() {
         </button>
       </section>
       <ThemeSettings />
+      <SignKeyNotice />
       <section className="settings">
         <h2>{tr('Устройства')}</h2>
         {devices === null && <p className="muted">{tr('Загрузка…')}</p>}
@@ -1244,4 +1245,38 @@ export function Passkeys() {
 function filterError(message: string): string {
   const m = /^Лишнее: «(.*)»$/.exec(message);
   return m ? tr('Лишнее: «{n}»', { n: m[1]! }) : tr(message);
+}
+
+/** На сервере стоит чужой ключ подписи: комментарии этого пользователя у других не пройдут проверку. */
+export function SignKeyNotice() {
+  useDoc();
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  if (!controller.signKeyMismatch) return null;
+  return (
+    <section className="settings">
+      <h2>{tr('Ключ подписи')}</h2>
+      <p className="notice">
+        {tr('На сервере для вашего аккаунта стоит другой ключ подписи комментариев. Его могли поставить по украденной сессии. Пока он стоит, другие участники видят ваши новые комментарии как неподписанные вами.')}
+      </p>
+      <form
+        className="row wrap"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          try {
+            await controller.fixSignKey(password, code.replace(/\s/g, '') || undefined);
+            setMsg(tr('Ключ подписи восстановлен. Смените пароль, если не ставили ключ сами.'));
+          } catch (err) {
+            setMsg(err instanceof Error && err.message === 'invalid_credentials' ? tr('Пароль неверный.') : tr('Не получилось. Нужна связь с сервером.'));
+          }
+        }}
+      >
+        <input type="password" placeholder={tr('Пароль')} aria-label={tr('Пароль')} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <input inputMode="numeric" placeholder={tr('Код TOTP, если включён')} aria-label={tr('Код TOTP')} value={code} onChange={(e) => setCode(e.target.value)} />
+        <button>{tr('Вернуть свой ключ')}</button>
+      </form>
+      {msg && <p className="notice">{msg}</p>}
+    </section>
+  );
 }

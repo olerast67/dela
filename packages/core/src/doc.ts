@@ -6,6 +6,7 @@
  * пересобирается лениво после изменений.
  */
 import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
+import type { CommentSigned } from './crypto.ts';
 import { compareOrder, keyBetween } from './fractional.ts';
 import type { HybridClock } from './hlc.ts';
 import {
@@ -862,15 +863,23 @@ export class Doc {
 
   // ---------- комментарии ----------
 
-  addComment(taskId: string, input: { text: string; author: string | null; file?: Attachment | null }): string {
+  addComment(
+    taskId: string,
+    input: { text: string; author: string | null; file?: Attachment | null; sign?: (c: CommentSigned) => string },
+  ): string {
     const id = uuidv7(this.now());
+    const text = input.text.trim();
+    const createdAt = this.now();
     const changes: Change[] = [
       ['comment', id, 'task', taskId],
-      ['comment', id, 'text', input.text.trim()],
+      ['comment', id, 'text', text],
       ['comment', id, 'author', input.author],
-      ['comment', id, 'created_at', this.now()],
+      ['comment', id, 'created_at', createdAt],
     ];
     if (input.file) changes.push(['comment', id, 'file', { ...input.file }]);
+    if (input.sign) {
+      changes.push(['comment', id, 'sig', input.sign({ spaceId: this.spaceId, id, taskId, author: input.author, createdAt, text, file: input.file ?? null })]);
+    }
     this.write(changes);
     return id;
   }

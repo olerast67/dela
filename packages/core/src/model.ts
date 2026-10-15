@@ -188,6 +188,8 @@ export interface Comment {
   readonly file: Attachment | null;
   readonly createdAt: number;
   readonly deletedAt: number | null;
+  /** Подпись автора (Ed25519, base64); null у комментариев до подписей. */
+  readonly sig: string | null;
 }
 
 const FILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -210,6 +212,7 @@ export function toComment(id: string, r: Rec): Comment {
     file: attachment(r.file),
     createdAt: num(r.created_at) ?? 0,
     deletedAt: num(r.deleted_at),
+    sig: typeof r.sig === 'string' && r.sig.length <= 200 ? r.sig : null,
   };
 }
 

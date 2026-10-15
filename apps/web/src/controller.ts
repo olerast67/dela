@@ -54,6 +54,12 @@ import {
   type Op,
   type Session,
   type SyncStatus,
+  signingKeys,
+  signComment,
+  verifyComment,
+  type SigningKeys,
+  type CommentSigned,
+  type Comment,
 } from '#core';
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
@@ -350,6 +356,7 @@ export class Controller {
     const now = () => Date.now() + this.clockOffset;
     const lastHlc = await this.store.getMeta<string>('hlc');
     this.clock = new HybridClock(stored.node, now, lastHlc);
+    void this.ensureSignKey().catch(() => undefined);
     const doc = new Doc({ spaceId: stored.spaceId, clock: this.clock, now });
     doc.load(await this.store.loadCells(stored.spaceId));
     const ws = new Workspace(doc);
@@ -553,24 +560,91 @@ export class Controller {
   }
 
   /** Участники общих проектов: адреса для подписи комментариев и исполнителей. */
-  private readonly memberCache = new Map<string, ReadonlyArray<{ userId: string; email: string }>>();
+  private readonly memberCache = new Map<string, ReadonlyArray<{ userId: string; email: string; signKey: string | null }>>();
 
-  async loadMembers(spaceId: string): Promise<ReadonlyArray<{ userId: string; email: string }>> {
+  async loadMembers(spaceId: string): Promise<ReadonlyArray<{ userId: string; email: string; signKey: string | null }>> {
     const { members } = await this.api.spaceMembers(spaceId);
-    const list = members.map((m) => ({ userId: m.userId, email: m.email }));
+    const list = members.map((m) => ({ userId: m.userId, email: m.email, signKey: m.signPublicKey ?? null }));
     this.memberCache.set(spaceId, list);
+    // Ключ подписи участника закрепляется при первом появлении: подменённый позже ключ не пройдёт проверку.
+    for (const m of list) {
+      if (m.signKey && m.userId !== this.userId && this.pin(`sig:${m.userId}`) === undefined) this.setKeyPin(`sig:${m.userId}`, m.signKey);
+    }
     if (this.roles.get(spaceId) === 'owner') void this.rotateIfMemberLeft(spaceId, new Set(list.map((m) => m.userId)));
     this.docVersion++;
     for (const fn of this.docListeners) fn();
     return list;
   }
 
-  cachedMembers(spaceId: string): ReadonlyArray<{ userId: string; email: string }> {
+  cachedMembers(spaceId: string): ReadonlyArray<{ userId: string; email: string; signKey: string | null }> {
     return this.memberCache.get(spaceId) ?? [];
   }
 
   memberEmail(spaceId: string, userId: string): string | null {
     return this.memberCache.get(spaceId)?.find((m) => m.userId === userId)?.email ?? null;
+  }
+
+  // ---------- подписи комментариев ----------
+
+  private signCache: { master: Uint8Array; keys: SigningKeys } | null = null;
+
+  private signKeys(): SigningKeys {
+    const master = this.accountKeys().masterKey;
+    if (!this.signCache || this.signCache.master !== master) this.signCache = { master, keys: signingKeys(master) };
+    return this.signCache.keys;
+  }
+
+  /** Подпись нового комментария ключом этого пользователя. */
+  commentSigner(): (c: CommentSigned) => string {
+    return (c) => signComment(this.signKeys().secretKey, c);
+  }
+
+  /** На сервере стоит не тот ключ подписи, что выводится из мастер-ключа: его поставил кто-то другой. */
+  signKeyMismatch = false;
+
+  private async ensureSignKey(): Promise<void> {
+    if (!this.stored || this.stored.local) return;
+    const mine = toB64(this.signKeys().publicKey);
+    const account = await this.api.account();
+    if (account.signPublicKey === mine) return;
+    try {
+      await this.api.setSignKey({ signPublicKey: mine });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'sign_key_mismatch') {
+        this.signKeyMismatch = true;
+        this.docVersion++;
+        for (const fn of this.docListeners) fn();
+      }
+    }
+  }
+
+  /** Вернуть свой ключ подписи на сервер: нужен пароль (и код TOTP, если он включён). */
+  async fixSignKey(password: string, totp?: string): Promise<void> {
+    const authSecret = await passwordProof(this.api, password);
+    await this.api.setSignKey({ signPublicKey: toB64(this.signKeys().publicKey), authSecret, ...(totp ? { totp } : {}) });
+    this.signKeyMismatch = false;
+    this.docVersion++;
+    for (const fn of this.docListeners) fn();
+  }
+
+  /**
+   * Проверка подписи комментария. «unsigned»: комментарий без подписи (старая версия Dela);
+   * «unknown»: ключ автора ещё не загружен; «bad»: подпись не сходится или ключ автора сменился.
+   */
+  commentStatus(spaceId: string, c: Comment): 'ok' | 'unsigned' | 'unknown' | 'bad' {
+    if (!c.author) return 'unsigned';
+    let key: string | null;
+    if (c.author === this.userId) key = toB64(this.signKeys().publicKey);
+    else {
+      const pinned = this.pin(`sig:${c.author}`) ?? null;
+      const current = this.memberCache.get(spaceId)?.find((m) => m.userId === c.author)?.signKey ?? null;
+      if (pinned && current && pinned !== current) return 'bad';
+      key = pinned ?? current;
+    }
+    if (!c.sig) return 'unsigned';
+    if (!key) return 'unknown';
+    const signed: CommentSigned = { spaceId, id: c.id, taskId: c.taskId, author: c.author, createdAt: c.createdAt, text: c.text, file: c.file };
+    return verifyComment(key, c.sig, signed) ? 'ok' : 'bad';
   }
 
   // ---------- закреплённые ключи (против подмены сервером) ----------

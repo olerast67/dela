@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { Doc, HybridClock, initCrypto, openFile, sealFile } from '../src/index.ts';
+import { Doc, HybridClock, initCrypto, newKey, openFile, sealFile, signComment, signingKeys, toB64, verifyComment, type Comment } from '../src/index.ts';
 
 beforeAll(async () => {
   await initCrypto();
@@ -52,5 +52,25 @@ describe('комментарии и исполнитель', () => {
     expect(new TextDecoder().decode(openFile(blob, key, 'space-1', 'file-1'))).toBe('секретная смета');
     expect(() => openFile(blob, key, 'space-1', 'file-2')).toThrow();
     expect(() => openFile(blob, key, 'space-2', 'file-1')).toThrow();
+  });
+
+  it('подпись комментария: проверяется ключом автора, ломается при подмене текста, автора или файла', () => {
+    const doc = make();
+    const task = doc.createTask({ title: 'Ремонт' });
+    const alice = signingKeys(newKey());
+    const mallory = signingKeys(newKey());
+    const id = doc.addComment(task, { text: '  Смета готова ', author: 'alice', sign: (c) => signComment(alice.secretKey, c) });
+    const c = doc.comments(task).find((x) => x.id === id)!;
+    const check = (x: Comment, key = alice.publicKey) =>
+      verifyComment(toB64(key), x.sig!, { spaceId: doc.spaceId, id: x.id, taskId: x.taskId, author: x.author, createdAt: x.createdAt, text: x.text, file: x.file });
+    expect(c.text).toBe('Смета готова');
+    expect(check(c)).toBe(true);
+    expect(check(c, mallory.publicKey)).toBe(false);
+    expect(check({ ...c, text: 'Смета не нужна' })).toBe(false);
+    expect(check({ ...c, author: 'bob' })).toBe(false);
+    expect(check({ ...c, sig: 'не подпись' })).toBe(false);
+    // Ключ выводится из мастер-ключа и одинаков на всех устройствах.
+    const master = newKey();
+    expect(toB64(signingKeys(master).publicKey)).toBe(toB64(signingKeys(master).publicKey));
   });
 });

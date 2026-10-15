@@ -393,6 +393,22 @@ describe('двухфакторный вход', () => {
     expect((await login()).status).toBe(200);
   });
 
+  it('ключ подписи ставится по сессии один раз, заменить его можно только с паролем', async () => {
+    const s = makeServer();
+    const { acc, res } = await register(s, 'k@x.yz', 'p');
+    const token = res.json.token;
+    const key1 = toB64(newKey());
+    const key2 = toB64(newKey());
+    expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key1 }, token)).status).toBe(200);
+    expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key1 }, token)).status).toBe(200);
+    expect((await s.call('GET', '/api/account', undefined, token)).json.signPublicKey).toBe(key1);
+    // Украденной сессии мало, чтобы заменить ключ.
+    expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key2 }, token)).json.error).toBe('sign_key_mismatch');
+    expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key2, authSecret: toB64(new Uint8Array(32)) }, token)).status).toBe(401);
+    expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key2, authSecret: toB64(acc.authSecret) }, token)).status).toBe(200);
+    expect((await s.call('GET', '/api/account', undefined, token)).json.signPublicKey).toBe(key2);
+  });
+
   it('восстановление по ключу спрашивает код, если владелец это включил', async () => {
     const { hotp, base32Decode, totpCounter } = await import('../src/totp.ts');
     const s = makeServer();

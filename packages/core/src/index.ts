@@ -169,3 +169,4 @@ export { applyPinAttempt, failureDelayMs, isValidPin, lockAfterBackground, LOCK_
 export { widgetSnapshot, WIDGET_TASK_LIMIT, type WidgetSnapshot, type WidgetTask } from './widget.ts';
 export { applyTemplate, parseTemplate, projectToTemplate, BUILTIN_TEMPLATES, builtinTemplates, type ProjectTemplate, type TemplateTask } from './templates.ts';
 export type { ActivityEvent } from './doc.ts';
+export { signingKeys, signComment, verifyComment, type SigningKeys, type CommentSigned } from './crypto.ts';

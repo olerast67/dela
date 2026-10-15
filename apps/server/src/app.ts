@@ -545,12 +545,13 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
   app.get('/api/account', requireAuth, (c) => {
     const { userId, deviceId } = c.get('auth');
-    const row = db.prepare('SELECT email, bundle, is_admin, totp_enabled, recovery_totp FROM users WHERE id = ?').get(userId) as {
+    const row = db.prepare('SELECT email, bundle, is_admin, totp_enabled, recovery_totp, sign_key FROM users WHERE id = ?').get(userId) as {
       email: string;
       bundle: string;
       is_admin: number;
       totp_enabled: number;
       recovery_totp: number;
+      sign_key: string | null;
     };
     return c.json({
       userId,
@@ -559,6 +560,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
       isAdmin: row.is_admin === 1,
       totpEnabled: row.totp_enabled === 1,
       recoveryTotp: row.totp_enabled === 1 && row.recovery_totp === 1,
+      signPublicKey: row.sign_key,
       bundle: JSON.parse(row.bundle),
     });
   });
@@ -627,6 +629,24 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   app.post('/api/account/totp/disable', requireAuth, async (c) => {
     const userId = await checkTotp(c, true);
     db.prepare('UPDATE users SET totp_enabled = 0, recovery_totp = 0, totp_secret = NULL, totp_last = NULL WHERE id = ?').run(userId);
+    return c.json({ ok: true });
+  });
+
+  /**
+   * Открытый ключ подписи комментариев. Первый раз ставится по сессии; заменить уже стоящий ключ можно только с паролем,
+   * иначе украденная сессия позволила бы подписывать комментарии от имени владельца аккаунта.
+   */
+  app.put('/api/account/sign-key', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const b = await body(c);
+    const key = b64(b.signPublicKey, 'signPublicKey', { bytes: 32 });
+    const keyB64 = Buffer.from(key).toString('base64');
+    const row = db.prepare('SELECT sign_key FROM users WHERE id = ?').get(userId) as { sign_key: string | null };
+    if (row.sign_key !== null && row.sign_key !== keyB64) {
+      if (b.authSecret === undefined) fail(409, 'sign_key_mismatch');
+      await confirmPassword(userId, b);
+    }
+    db.prepare('UPDATE users SET sign_key = ? WHERE id = ?').run(keyB64, userId);
     return c.json({ ok: true });
   });
 
@@ -816,10 +836,16 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const spaceId = c.req.param('id') ?? '';
     membership(spaceId, userId);
     const rows = db
-      .prepare('SELECT m.user_id, m.role, u.email, u.bundle FROM members m JOIN users u ON u.id = m.user_id WHERE m.space_id = ? ORDER BY m.role, u.email')
-      .all(spaceId) as Array<{ user_id: string; role: string; email: string; bundle: string }>;
+      .prepare('SELECT m.user_id, m.role, u.email, u.bundle, u.sign_key FROM members m JOIN users u ON u.id = m.user_id WHERE m.space_id = ? ORDER BY m.role, u.email')
+      .all(spaceId) as Array<{ user_id: string; role: string; email: string; bundle: string; sign_key: string | null }>;
     return c.json({
-      members: rows.map((r) => ({ userId: r.user_id, role: r.role, email: r.email, publicKey: (JSON.parse(r.bundle) as AccountBundle).publicKey })),
+      members: rows.map((r) => ({
+        userId: r.user_id,
+        role: r.role,
+        email: r.email,
+        publicKey: (JSON.parse(r.bundle) as AccountBundle).publicKey,
+        signPublicKey: r.sign_key ?? null,
+      })),
     });
   });
 

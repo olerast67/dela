@@ -73,7 +73,9 @@ function FileView({ spaceId, file }: { spaceId: string; file: Attachment }) {
 function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
   const doc = useDoc();
   const mine = c.author !== null && c.author === controller.userId;
-  const who = mine ? tr('Вы') : c.author ? (controller.memberEmail(spaceId, c.author) ?? tr('Участник')) : tr('Участник');
+  const status = controller.commentStatus(spaceId, c);
+  const name = mine ? tr('Вы') : c.author ? (controller.memberEmail(spaceId, c.author) ?? tr('Участник')) : tr('Участник');
+  const who = status === 'bad' ? tr('Подпись не сходится') : name;
   const links = extractLinks(c.text);
   return (
     <div className="comment">
@@ -81,7 +83,10 @@ function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
         <span className="avatar" aria-hidden="true">
           {who[0]!.toUpperCase()}
         </span>
-        <b>{who}</b>
+        <b className={status === 'bad' ? 'comment-bad' : undefined} title={status === 'bad' ? tr('Комментарий изменён или написан не тем, кто указан автором.') : undefined}>
+          {who}
+        </b>
+        {status === 'unsigned' && !mine && c.author && <span className="muted">{tr('без подписи')}</span>}
         <span className="muted">{new Date(c.createdAt).toLocaleString(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
         {mine && (
           <button
@@ -145,7 +150,7 @@ export function Comments({ taskId }: { taskId: string }) {
         await controller.api.uploadFile(spaceId, id, sealed.blob);
         attachment = { id, name: file.name, size: file.size, type: file.type, key: sealed.key };
       }
-      doc.addComment(taskId, { text, author: controller.userId, file: attachment });
+      doc.addComment(taskId, { text, author: controller.userId, file: attachment, sign: controller.commentSigner() });
       setText('');
       setFile(null);
       if (picker.current) picker.current.value = '';
