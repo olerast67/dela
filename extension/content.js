@@ -10,15 +10,8 @@
     if (state === 'bad') banner(detail);
   };
 
-  // Страница не из Dela: проверять нечего.
-  let version;
-  try {
-    const res = await fetch('/api/health', { cache: 'no-store' });
-    version = (await res.json()).version;
-  } catch {
-    return;
-  }
-  if (typeof version !== 'string') return;
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  let version = '';
 
   try {
     const paths = new Set(['index.html']);
@@ -40,7 +33,20 @@
     const sw = navigator.serviceWorker?.controller?.scriptURL;
     if (sw) add(sw, true);
 
-    const result = await api.runtime.sendMessage({ type: 'check', origin: location.origin, version, paths: [...paths], unverified });
+    // Хеши копий, которые получила страница: файлы с хешем в имени берутся из кэша браузера.
+    const pageHashes = {};
+    for (const path of paths) {
+      if (path === 'index.html' || path === 'sw.js' || path === 'registerSW.js') continue;
+      try {
+        const res = await fetch(`/${path.split('/').map(encodeURIComponent).join('/')}`, { cache: 'force-cache' });
+        pageHashes[path] = `sha256-${b64(await crypto.subtle.digest('SHA-256', await res.arrayBuffer()))}`;
+      } catch {
+        pageHashes[path] = 'unreadable';
+      }
+    }
+    const result = await api.runtime.sendMessage({ type: 'check', origin: location.origin, paths: [...paths], pageHashes, unverified });
+    if (!result) return;
+    version = result.version ?? '';
     report(result.state, result.detail);
   } catch (err) {
     // Проверка не завершилась: это не повод считать страницу настоящей.

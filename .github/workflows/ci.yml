@@ -32,9 +32,10 @@ jobs:
           path: test-results
           retention-days: 7
 
+  # Образ выпуска по тегу собирает release.yml вместе с подписанным списком файлов веб-версии.
   image:
     needs: test
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -51,7 +52,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Тег v1.2.3 публикует версию 1.2.3 и latest (последний выпуск), ветка main публикует edge.
+      # Ветка main публикует edge и образ по коммиту.
       - id: tags
         env:
           REPO: ${{ github.repository }}
@@ -59,7 +60,7 @@ jobs:
           {
             echo 'list<<EOF'
             echo "ghcr.io/$REPO:$GITHUB_SHA"
-            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then echo "ghcr.io/$REPO:${GITHUB_REF_NAME#v}"; echo "ghcr.io/$REPO:latest"; else echo "ghcr.io/$REPO:edge"; fi
+            echo "ghcr.io/$REPO:edge"
             echo EOF
           } >> "$GITHUB_OUTPUT"
       # Образ публикуется без общего кэша сборки: отравленный кэш не попадёт в выпуск.

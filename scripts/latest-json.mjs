@@ -8,8 +8,10 @@ import { join } from 'node:path';
 const conf = JSON.parse(readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
 const version = conf.version;
 const target = process.env.CARGO_TARGET_DIR ?? join(homedir(), 'dev', 'cargo-target', 'dela');
+// В workflow выпуска установщик и подпись лежат в папке скачанных артефактов.
+const bundle = process.env.DELA_BUNDLE_DIR ?? join(target, 'release', 'bundle', 'nsis');
 const exe = `Dela_${version}_x64-setup.exe`;
-const signature = readFileSync(join(target, 'release', 'bundle', 'nsis', `${exe}.sig`), 'utf8').trim();
+const signature = readFileSync(join(bundle, `${exe}.sig`), 'utf8').trim();
 const notes = readFileSync('CHANGELOG.md', 'utf8').split(`## ${version}`)[1]?.split('\n## ')[0]?.trim() ?? '';
 process.stdout.write(
   JSON.stringify(

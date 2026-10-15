@@ -44,10 +44,24 @@ const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
  * Сверка страницы сервера с выпуском. Файлы скачиваются отсюда, из фоновой части: эти запросы не проходят через
  * service worker страницы, и подменённый service worker не может показать проверке другие файлы.
  */
-async function check({ origin, version, paths, unverified }) {
+async function check({ origin, paths, pageHashes, unverified }) {
   const ru = /^ru\b/i.test(navigator.language);
   const { servers = [] } = await api.storage.local.get('servers');
-  if (!servers.includes(origin)) return { state: 'unknown' };
+  if (!servers.includes(origin)) return null;
+
+  // Версию спрашивает фоновая часть: service worker страницы не может подсунуть удобную.
+  let version;
+  try {
+    version = (await (await fetch(`${origin}/api/health`, { cache: 'no-store', credentials: 'omit' })).json()).version;
+  } catch {
+    return null;
+  }
+  if (typeof version !== 'string') return null;
+  const result = await verify(origin, version, paths, pageHashes ?? {}, unverified ?? [], ru);
+  return { ...result, version };
+}
+
+async function verify(origin, version, paths, pageHashes, unverified, ru) {
 
   // Откат на старую версию тоже подозрителен: в старой версии могут быть исправленные с тех пор ошибки.
   const seenKey = `seen:${origin}`;
@@ -61,7 +75,10 @@ async function check({ origin, version, paths, unverified }) {
     if (got.reason === 'bad-signature' || got.reason === 'bad-manifest') {
       return { state: 'bad', detail: ru ? 'Список файлов выпуска не прошёл проверку подписи.' : 'The release file list failed the signature check.' };
     }
-    return { state: 'unknown', detail: ru ? `Нет подписанного выпуска ${version}.` : `No signed release ${version}.` };
+    // Сервер, который уже проходил проверку, без подписанного выпуска для своей версии подозрителен.
+    const noRelease = ru ? `Нет подписанного выпуска ${version}.` : `No signed release ${version}.`;
+    if (typeof seen === 'string' && got.reason !== 'network') return { state: 'bad', detail: noRelease };
+    return { state: 'unknown', detail: noRelease };
   }
   if (unverified.length) {
     return { state: 'bad', detail: `${ru ? 'Скрипты не из выпуска' : 'Scripts outside the release'}: ${unverified.slice(0, 3).join(', ')}` };
@@ -82,6 +99,8 @@ async function check({ origin, version, paths, unverified }) {
       continue;
     }
     if (`sha256-${b64(await crypto.subtle.digest('SHA-256', await res.arrayBuffer()))}` !== want) bad.push(path);
+    // Копия, которую получила сама страница, тоже должна совпасть с выпуском.
+    else if (pageHashes[path] !== undefined && pageHashes[path] !== want) bad.push(`${path} (${ru ? 'копия страницы' : 'page copy'})`);
   }
   if (bad.length) return { state: 'bad', detail: bad.slice(0, 5).join(', ') };
 

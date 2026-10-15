@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dela: code signing policy</title>
+  <meta name="description" content="How Dela releases are built and signed, who can approve a signature, and what the signed apps connect to.">
+  <link rel="icon" href="demo/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="wrap top">
+    <a class="logo" href="./"><img src="demo/icon.svg" width="30" height="30" alt=""> Dela</a>
+    <nav aria-label="Sections">
+      <a href="./">Home</a>
+      <a href="https://github.com/olerast67/dela">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="wrap">
+      <h1>Code signing policy</h1>
+      <p class="text">Free code signing provided by <a href="https://about.signpath.io/">SignPath.io</a>, certificate by <a href="https://signpath.org/">SignPath Foundation</a>.</p>
+    </section>
+
+    <section class="wrap">
+      <h2>What is signed</h2>
+      <p class="text">The Windows installer <code>Dela_&lt;version&gt;_x64-setup.exe</code>. It is built by the GitHub Actions workflow <a href="https://github.com/olerast67/dela/blob/main/.github/workflows/release.yml"><code>release.yml</code></a> from the tagged source of the public repository <a href="https://github.com/olerast67/dela">olerast67/dela</a>, with no files added outside the build. Every release file also has a build provenance attestation that can be checked with <code>gh attestation verify</code>.</p>
+      <p class="text">Dela is licensed under <a href="https://github.com/olerast67/dela/blob/main/LICENSE">AGPL-3.0</a>. All components are open source.</p>
+    </section>
+
+    <section class="wrap">
+      <h2>Team roles</h2>
+      <p class="text">Committers and reviewers: <a href="https://github.com/olerast67">olerast67</a>.</p>
+      <p class="text">Approvers: <a href="https://github.com/olerast67">olerast67</a>. Each signing request is started by a release workflow run on a version tag and approved by the approver.</p>
+      <p class="text">Contributions from other people go through pull requests reviewed by the committer, see <a href="https://github.com/olerast67/dela/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
+    </section>
+
+    <section class="wrap">
+      <h2>Privacy</h2>
+      <p class="text">This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.</p>
+      <p class="text">The Windows app connects to the Dela server whose address the user enters, and checks GitHub for a newer release of the app at startup. Task contents are encrypted on the device before they reach the server. Details are in the <a href="https://github.com/olerast67/dela/blob/main/PRIVACY.md">privacy policy</a>.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Dela, <span class="nw">AGPL-3.0</span></span>
+      <a href="https://github.com/olerast67/dela">GitHub</a>
+      <a href="https://github.com/olerast67/dela/blob/main/PRIVACY.md">Privacy</a>
+    </div>
+  </footer>
+</body>
+</html>

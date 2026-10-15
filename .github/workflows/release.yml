@@ -1,0 +1,302 @@
+# Выпуск по тегу: APK, установщик для Windows, Docker-образ и подписанный список файлов веб-версии
+# собираются здесь из исходников тега, к выпуску прикладывается заверенное происхождение сборки.
+#   git tag v0.6.0 && git push origin v0.6.0
+# Тег должен совпадать с версией в tauri.conf.json, apps/mobile/package.json, build.gradle и app.ts. См. RELEASING.md.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: check
+        name: Check the tag against the versions in the code
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          for found in \
+            "$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")" \
+            "$(node -p "require('./apps/mobile/package.json').version")" \
+            "$(sed -n 's/^[[:space:]]*versionName "\(.*\)"/\1/p' apps/mobile/android/app/build.gradle)" \
+            "$(sed -n "s/^export const VERSION = '\(.*\)';/\1/p" apps/server/src/app.ts)"; do
+            if [ "$found" != "$version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match version \"$found\" in the code"
+              exit 1
+            fi
+          done
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  android:
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      # SHA-256 сертификата подписи выпусков; APK, подписанный другим ключом, не публикуется.
+      EXPECTED_CERT_SHA256: 2cd1193e9c5636a920764f0053687e068b2f9371dc6da0a8ae114277bfb8cc52
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Без кэша: выпуск собирается только из исходников тега и свежих загрузок.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-disabled: true
+      - run: npm ci
+      - run: npm run build:web
+      - run: npx cap sync android
+        working-directory: apps/mobile
+      - name: Restore the signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.DELA_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.DELA_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.DELA_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.DELA_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::The DELA_KEYSTORE_BASE64 secret is not set (see RELEASING.md)"
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > "$RUNNER_TEMP/signing.properties"
+      - name: Build the release APK
+        working-directory: apps/mobile/android
+        env:
+          DELA_SIGNING: ${{ runner.temp }}/signing.properties
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace assembleRelease
+      - name: Delete the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/signing.properties"
+      - name: Check the signature
+        run: |
+          apk=apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)"
+          "$tools/apksigner" verify --print-certs "$apk" | tee certs.txt
+          if ! grep -qi "certificate SHA-256 digest: $EXPECTED_CERT_SHA256" certs.txt; then
+            echo "::error::The APK is not signed with the release key"
+            exit 1
+          fi
+          mkdir -p out
+          cp "$apk" "out/Dela-$VERSION-android.apk"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android
+          path: out/*.apk
+          if-no-files-found: error
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      # Подпись кода через SignPath Foundation включается после одобрения заявки: docs/code-signing.md.
+      SIGNPATH_ENABLED: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+      CARGO_TARGET_DIR: ${{ github.workspace }}/apps/desktop/src-tauri/target
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      - run: npm ci
+      - run: npm run build:web
+      - name: Build the installer (update signature with the project key)
+        working-directory: apps/desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build
+      - id: unsigned
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows-unsigned
+          path: apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+      - name: Sign with SignPath
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: dela
+          signing-policy-slug: release-signing
+          github-artifact-id: ${{ steps.unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+      - name: Re-sign the update after code signing
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          dir=apps/desktop/src-tauri/target/release/bundle/nsis
+          cp signed/*.exe "$dir/"
+          # Подпись кода меняет байты установщика: подпись обновления ставится заново на подписанный файл.
+          for f in "$dir"/*.exe; do npx tauri signer sign "$f"; done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: windows
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe.sig
+          if-no-files-found: error
+
+  image:
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      IMAGE: ghcr.io/${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Образ публикуется без общего кэша сборки: отравленный кэш не попадёт в выпуск.
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ env.VERSION }}
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+      - name: Smoke test
+        run: |
+          docker run -d --name dela -p 127.0.0.1:8080:8080 "$IMAGE:$VERSION"
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8080/api/health && break; sleep 1; done
+          curl -fs http://127.0.0.1:8080/api/health | grep -q "\"version\":\"$VERSION\""
+          curl -fs http://127.0.0.1:8080/ | grep -q '<div id="root">'
+          docker logs dela
+      # Список файлов берётся из опубликованного образа: расширение Dela Verify сверяет с ним страницу сервера.
+      - name: Sign the web file list
+        env:
+          DELA_WEB_SIGNING_KEY: ${{ secrets.DELA_WEB_SIGNING_KEY }}
+        run: |
+          if [ -z "$DELA_WEB_SIGNING_KEY" ]; then
+            echo "::error::The DELA_WEB_SIGNING_KEY secret is not set (see RELEASING.md)"
+            exit 1
+          fi
+          docker cp dela:/app/apps/web/dist ./web-dist
+          mkdir -p out
+          node scripts/web-manifest.mjs web-dist "$VERSION" --sign out/web-manifest.json
+          (cd extension && zip -qr "../out/Dela-Verify-$VERSION.zip" .)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web
+          path: out/*
+          if-no-files-found: error
+
+  publish:
+    needs: [version, android, windows, image]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write # create the release and upload the files
+      id-token: write # sign the provenance attestation (Sigstore)
+      attestations: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: '{android,windows,web}'
+          path: dist
+          merge-multiple: true
+      - name: Update manifest, checksums and release notes
+        run: |
+          DELA_BUNDLE_DIR=dist node scripts/latest-json.mjs > dist/latest.json
+          rm -f dist/*.exe.sig
+          (cd dist && sha256sum *.apk *.exe latest.json web-manifest.json web-manifest.json.sig Dela-Verify-*.zip > SHA256SUMS.txt)
+          awk -v v="$VERSION" '$0 == "## " v || index($0, "## " v " ") == 1 { f = 1; next } /^## / && f { exit } f' CHANGELOG.md > notes.md
+          cat >> notes.md <<'NOTES'
+
+          ---
+
+          **Verify the downloads:** every file is built by this repository's workflow from the tagged source.
+
+          ```
+          gh attestation verify Dela-@VERSION@-android.apk --repo @REPO@
+          gh attestation verify Dela_@VERSION@_x64-setup.exe --repo @REPO@
+          apksigner verify --print-certs Dela-@VERSION@-android.apk
+          ```
+
+          The APK is signed with the certificate `SHA-256 2C:D1:19:3E:9C:56:36:A9:20:76:4F:00:53:68:7E:06:8B:2F:93:71:DC:6D:A0:A8:AE:11:42:77:BF:B8:CC:52`. `web-manifest.json` lists the web app files of the Docker image `ghcr.io/@REPO@:@VERSION@`; the Dela Verify extension checks your server against it.
+          NOTES
+          sed -i "s|@VERSION@|$VERSION|g; s|@REPO@|$GITHUB_REPOSITORY|g" notes.md
+          cat notes.md
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.apk
+            dist/*.exe
+            dist/web-manifest.json
+            dist/Dela-Verify-*.zip
+      # Сначала черновик: при неизменяемых выпусках файлы нельзя добавить после публикации.
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          draft: true
+          name: Dela ${{ env.VERSION }}
+          body_path: notes.md
+          files: |
+            dist/*.apk
+            dist/*.exe
+            dist/latest.json
+            dist/web-manifest.json
+            dist/web-manifest.json.sig
+            dist/Dela-Verify-*.zip
+            dist/SHA256SUMS.txt
+          fail_on_unmatched_files: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

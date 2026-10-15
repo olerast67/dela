@@ -1,6 +1,6 @@
 # Подпись установщика для Windows
 
-Без подписи кода Windows SmartScreen предупреждает при запуске установщика. Для открытых проектов подпись бесплатно даёт SignPath Foundation: сертификат выпускается на SignPath Foundation, установщик собирается в GitHub Actions из исходников тега, подписывается там же. Сборка и подпись описаны в `.github/workflows/release-windows.yml`.
+Без подписи кода Windows SmartScreen предупреждает при запуске установщика. Для открытых проектов подпись бесплатно даёт SignPath Foundation: сертификат выпускается на SignPath Foundation, установщик собирается в GitHub Actions из исходников тега, подписывается там же. Сборка и подпись описаны в `.github/workflows/release.yml`, правила подписи для SignPath опубликованы на https://olerast67.github.io/dela/code-signing.html.
 
 ## Что сделать автору
 
@@ -32,6 +32,8 @@ License: AGPL-3.0
 
 Description: Dela is an open-source task manager with end-to-end encryption that people run on their own server. The Windows app (Tauri 2) keeps a full encrypted copy of the tasks, works offline and syncs through the user's server. Releases are built from tagged commits in GitHub Actions; the installer is an NSIS package produced by `tauri build`.
 
-What will be signed: `Dela_<version>_x64-setup.exe` from `.github/workflows/release-windows.yml`, built from the tagged source with no binaries added outside the build.
+What will be signed: `Dela_<version>_x64-setup.exe` from `.github/workflows/release.yml`, built from the tagged source with no binaries added outside the build.
+
+Code signing policy: https://olerast67.github.io/dela/code-signing.html
 
 Maintainer: olerast67 (https://olerast.com)
