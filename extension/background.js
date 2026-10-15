@@ -32,6 +32,63 @@ async function loadManifest(version) {
   return result;
 }
 
+const cmpVersion = (a, b) => {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  return 0;
+};
+const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+
+/**
+ * Сверка страницы сервера с выпуском. Файлы скачиваются отсюда, из фоновой части: эти запросы не проходят через
+ * service worker страницы, и подменённый service worker не может показать проверке другие файлы.
+ */
+async function check({ origin, version, paths, unverified }) {
+  const ru = /^ru\b/i.test(navigator.language);
+  const { servers = [] } = await api.storage.local.get('servers');
+  if (!servers.includes(origin)) return { state: 'unknown' };
+
+  // Откат на старую версию тоже подозрителен: в старой версии могут быть исправленные с тех пор ошибки.
+  const seenKey = `seen:${origin}`;
+  const seen = (await api.storage.local.get(seenKey))[seenKey];
+  if (typeof seen === 'string' && /^\d+\.\d+\.\d+$/.test(version) && cmpVersion(version, seen) < 0) {
+    return { state: 'bad', detail: ru ? `Версия сервера снизилась: была ${seen}, стала ${version}.` : `The server version went down from ${seen} to ${version}.` };
+  }
+
+  const got = await loadManifest(version);
+  if (!got.ok) {
+    if (got.reason === 'bad-signature' || got.reason === 'bad-manifest') {
+      return { state: 'bad', detail: ru ? 'Список файлов выпуска не прошёл проверку подписи.' : 'The release file list failed the signature check.' };
+    }
+    return { state: 'unknown', detail: ru ? `Нет подписанного выпуска ${version}.` : `No signed release ${version}.` };
+  }
+  if (unverified.length) {
+    return { state: 'bad', detail: `${ru ? 'Скрипты не из выпуска' : 'Scripts outside the release'}: ${unverified.slice(0, 3).join(', ')}` };
+  }
+
+  const files = got.manifest.files;
+  const bad = [];
+  for (const path of paths) {
+    const want = files[path];
+    if (!want) {
+      bad.push(`${path} (${ru ? 'нет в выпуске' : 'not in the release'})`);
+      continue;
+    }
+    const url = path === 'index.html' ? `${origin}/` : `${origin}/${path.split('/').map(encodeURIComponent).join('/')}`;
+    const res = await fetch(url, { cache: 'no-store', credentials: 'omit' });
+    if (!res.ok) {
+      bad.push(`${path} (HTTP ${res.status})`);
+      continue;
+    }
+    if (`sha256-${b64(await crypto.subtle.digest('SHA-256', await res.arrayBuffer()))}` !== want) bad.push(path);
+  }
+  if (bad.length) return { state: 'bad', detail: bad.slice(0, 5).join(', ') };
+
+  if (typeof seen !== 'string' || cmpVersion(version, seen) > 0) await api.storage.local.set({ [seenKey]: version });
+  return { state: 'ok', detail: ru ? `Версия ${version}, проверено файлов: ${paths.length}.` : `Version ${version}, files checked: ${paths.length}.` };
+}
+
 const BADGES = {
   ok: { text: '✓', color: '#2E7D5B', title: 'Dela Verify: files match the release' },
   bad: { text: '!', color: '#C8402F', title: 'Dela Verify: files do NOT match the release' },
@@ -39,8 +96,8 @@ const BADGES = {
 };
 
 api.runtime.onMessage.addListener((msg, sender, reply) => {
-  if (msg?.type === 'manifest') {
-    loadManifest(String(msg.version)).then(reply);
+  if (msg?.type === 'check') {
+    check(msg).then(reply, () => reply({ state: 'bad', detail: 'check failed' }));
     return true;
   }
   if (msg?.type === 'report' && sender.tab?.id !== undefined) {

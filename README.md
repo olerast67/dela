@@ -135,7 +135,7 @@ Known limitations: in the browser the data is stored decrypted in IndexedDB (the
 
 In a browser, the server delivers the code of the web app. A server taken over by someone else could change that code and capture your password at the next sign-in. The Windows and Android apps carry their own code, and their updates are signed by the project.
 
-For the browser there is the Dela Verify extension (`extension/` in this repository). Each release has `web-manifest.json` with SHA-256 hashes of every web app file, signed with the project key `y3Zkairxm+9yU65AqArxf1PUT63ygFlnRAs676WEZGs=` (Ed25519). The extension asks the server for its version, downloads the signed list for that version from GitHub and compares it with the files the page loaded. A green badge means they match; a red badge and a banner on the page mean they do not, and you should not enter your password there.
+For the browser there is the Dela Verify extension (`extension/` in this repository). Each release has `web-manifest.json` with SHA-256 hashes of every web app file, signed with the project key `y3Zkairxm+9yU65AqArxf1PUT63ygFlnRAs676WEZGs=` (Ed25519). The extension asks the server for its version, downloads the signed list for that version from GitHub and compares it with the files the page loaded. A green badge means they match; a red badge and a banner on the page mean they do not, and you should not enter your password there. The extension also warns when the server version goes down.
 
 To install, download `Dela-Verify-<version>.zip` from a release and unpack it. In Chrome or Edge open Extensions, turn on developer mode and choose "Load unpacked"; in Firefox use `about:debugging`. Then add your server address in the extension settings.
 

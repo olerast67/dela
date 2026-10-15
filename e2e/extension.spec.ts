@@ -25,6 +25,8 @@ function distManifest(version: string): string {
 }
 
 let releases: Server;
+let proxy: Server;
+let proxyOrigin: string;
 let extDir: string;
 let context: BrowserContext;
 
@@ -40,6 +42,17 @@ test.beforeAll(async () => {
   });
   await new Promise<void>((r) => releases.listen(0, '127.0.0.1', r));
   const port = (releases.address() as AddressInfo).port;
+
+  // Захваченный сервер: отдаёт всем изменённый index.html, остальное как есть.
+  proxy = createServer(async (req, res) => {
+    const upstream = await fetch(`${BASE}${req.url}`);
+    let body = Buffer.from(await upstream.arrayBuffer());
+    if (req.url === '/') body = Buffer.from(body.toString('utf8').replace('</head>', '<meta name="x-evil" content="1"></head>'));
+    res.writeHead(upstream.status, { 'content-type': upstream.headers.get('content-type') ?? 'application/octet-stream' });
+    res.end(body);
+  });
+  await new Promise<void>((r) => proxy.listen(0, '127.0.0.1', r));
+  proxyOrigin = `http://127.0.0.1:${(proxy.address() as AddressInfo).port}`;
 
   // Копия расширения: выпуски берутся с локального сервера и проверяются тестовым ключом.
   extDir = mkdtempSync(join(tmpdir(), 'dela-verify-'));
@@ -63,13 +76,14 @@ test.beforeAll(async () => {
     .launchPersistentContext('', { ...options, channel: 'chromium' })
     .catch(() => chromium.launchPersistentContext('', { ...options, channel: 'msedge' }));
   const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
-  await worker.evaluate((origin) => chrome.storage.local.set({ servers: [origin] }), BASE);
+  await worker.evaluate((origins) => chrome.storage.local.set({ servers: origins }), [BASE, proxyOrigin]);
   await expect.poll(() => worker.evaluate(async () => (await chrome.scripting.getRegisteredContentScripts()).length)).toBe(1);
 });
 
 test.afterAll(async () => {
   await context?.close();
   releases?.close();
+  proxy?.close();
   if (extDir) rmSync(extDir, { recursive: true, force: true });
 });
 
@@ -92,14 +106,19 @@ test('файлы совпадают с выпуском: зелёный знач
 
 test('подменённая страница: красный значок и плашка', async () => {
   const page = await context.newPage();
-  // Сервер отдаёт изменённый index.html: так выглядела бы подмена кода захваченным сервером.
-  await page.route(`${BASE}/`, async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, body: (await res.text()).replace('</head>', '<meta name="x-evil" content="1"></head>') });
-  });
-  await page.goto(`${BASE}/`);
+  await page.goto(`${proxyOrigin}/`);
   await expect.poll(() => badge(page), { timeout: 15_000 }).toBe('!');
   // Плашка «не вводите пароль» поверх страницы (текст в закрытом shadow DOM, страница его не прочитает).
   await expect(page.locator('div[style*="2147483647"]')).toHaveCount(1);
   await page.close();
+});
+
+test('откат сервера на старую версию: красный значок', async () => {
+  const worker = context.serviceWorkers()[0]!;
+  await worker.evaluate((origin) => chrome.storage.local.set({ [`seen:${origin}`]: '99.0.0' }), BASE);
+  const page = await context.newPage();
+  await page.goto(`${BASE}/`);
+  await expect.poll(() => badge(page), { timeout: 15_000 }).toBe('!');
+  await page.close();
+  await worker.evaluate((origin) => chrome.storage.local.remove(`seen:${origin}`), BASE);
 });
