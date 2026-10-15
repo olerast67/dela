@@ -4,10 +4,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    ignore:
-      # @hono/node-ws 1.x требует @hono/node-server 1.x; вторую версию берём, когда выйдет совместимый node-ws.
-      - dependency-name: '@hono/node-server'
-        update-types: ['version-update:semver-major']
     groups:
       dev:
         dependency-type: development

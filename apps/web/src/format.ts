@@ -50,7 +50,7 @@ export function dayHeading(date: string, today = todayDate()): string {
 
 export function dueLabel(due: DateSpec, today = todayDate()): string {
   const d = localDate(due, TZ);
-  const time = due.time ? ` ${due.time}` : '';
+  const time = due.time ? ` ${timeLabel(due.time)}` : '';
   return `${dateLabel(d, today)}${time}`;
 }
 
@@ -101,7 +101,26 @@ export function rangeTitle(from: string, to: string): string {
   return `${dayMonth(from, true)} - ${dayMonth(to, true)}`;
 }
 
-/** «09:30» из минут от полуночи. */
+/** «09:30» из минут от полуночи: значение для данных, не для показа. */
 export function clock(minute: number): string {
   return `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
+}
+
+/** Время для показа: «19:30» по-русски, «7:30 PM» по-английски. Вход в формате «HH:MM». */
+export function timeLabel(hhmm: string): string {
+  if (!EN) return hhmm;
+  const [h, m] = hhmm.split(':').map(Number) as [number, number];
+  const hour = h % 12 === 0 ? 12 : h % 12;
+  return `${hour}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/** Время для показа из минут от полуночи. */
+export function clockLabel(minute: number): string {
+  return timeLabel(clock(minute));
+}
+
+/** Подпись часа в сетке календаря: «09:00» или «9 AM». */
+export function hourLabel(h: number): string {
+  if (!EN) return `${String(h).padStart(2, '0')}:00`;
+  return `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? 'AM' : 'PM'}`;
 }

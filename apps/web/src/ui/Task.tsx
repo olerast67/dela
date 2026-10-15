@@ -2,7 +2,7 @@ import { useRef, useState, type MouseEvent } from 'react';
 import { haptic } from '../platform.ts';
 import { RescheduleSheet } from './Reschedule.tsx';
 import { type TaskNode, type TaskView, type Workspace } from '#core';
-import { dueLabel, dueTone, dateLabel, durationLabel } from '../format.ts';
+import { dueLabel, dueTone, dateLabel, durationLabel, timeLabel } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { IconChevron, IconComment, IconDeadline, IconRepeat, IconSubtasks, IconTag } from './icons.tsx';
 import { controller } from '../controller.ts';
@@ -248,7 +248,7 @@ export function TaskRow({
               {task.recurrence && <IconRepeat />}
             </span>
           )}
-          {!showDate && task.due?.time && <span className="due">{task.due.time}</span>}
+          {!showDate && task.due?.time && <span className="due">{timeLabel(task.due.time)}</span>}
           {!showDate && task.recurrence && (
             <span className="due">
               <IconRepeat />

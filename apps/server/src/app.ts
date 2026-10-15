@@ -7,7 +7,9 @@ import {
   type RegistrationResponseJSON,
 } from '@simplewebauthn/server';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { createNodeWebSocket } from '@hono/node-ws';
+import type { IncomingMessage } from 'node:http';
+import type { Duplex } from 'node:stream';
+import { WebSocketServer, type WebSocket } from 'ws';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { cors } from 'hono/cors';
@@ -19,7 +21,7 @@ import { exceedsDrift, isTimestamp, uuidv7, type AccountBundle, type Envelope } 
 import { RateLimiter, fakeSalt, hashAuthSecret, newToken, safeEqual, sha256 } from './auth.ts';
 import type { Config } from './config.ts';
 import { tx, type Db } from './db.ts';
-import { Hub, type HubSocket } from './hub.ts';
+import { Hub } from './hub.ts';
 import { SqliteRelay } from './relay.ts';
 import { generateVapid, isAllowedEndpoint, loadVapid, sendPush } from './webpush.ts';
 import { newTotpSecret, otpauthUri, verifyTotp } from './totp.ts';
@@ -87,7 +89,6 @@ const SCHEDULE_HORIZON = 15 * 24 * 3600 * 1000;
 
 export function createApp(db: Db, config: Config, now: () => number = Date.now, pushFetcher: typeof fetch = (i, init) => fetch(i, init)) {
   const app = new Hono<AppEnv>();
-  const { upgradeWebSocket, injectWebSocket } = createNodeWebSocket({ app });
   const relay = new SqliteRelay(db);
   const hub = new Hub();
   const loginLimiter = new RateLimiter(10, 15 * 60_000, now);
@@ -1134,44 +1135,51 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
   // ---------- WebSocket: сигнал «есть новое» ----------
 
-  app.get(
-    '/api/ws',
-    upgradeWebSocket(() => {
-      let authed = false;
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      let socket: HubSocket | undefined;
-      return {
-        onOpen(_evt, ws) {
-          socket = ws;
-          // Токен приходит первым сообщением, а не в адресе: адреса попадают в логи прокси.
-          timer = setTimeout(() => ws.close(4000, 'auth timeout'), 10_000);
-        },
-        onMessage(evt, ws) {
-          if (authed) return;
-          let msg: { type?: unknown; token?: unknown };
-          try {
-            msg = JSON.parse(String(evt.data));
-          } catch {
-            ws.close(4000, 'bad message');
-            return;
-          }
-          const auth = msg.type === 'auth' && typeof msg.token === 'string' ? authenticate(msg.token) : undefined;
-          if (!auth) {
-            ws.close(4001, 'unauthorized');
-            return;
-          }
-          authed = true;
-          clearTimeout(timer);
-          hub.add(auth.userId, auth.deviceId, ws);
-          ws.send(JSON.stringify({ type: 'ready', serverTime: now() }));
-        },
-        onClose() {
-          clearTimeout(timer);
-          if (socket) hub.remove(socket);
-        },
-      };
-    }),
-  );
+  // Сокеты принимает сама библиотека ws: сигналу нужны только открытие, первое сообщение с токеном и закрытие.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
+
+  function onSocket(ws: WebSocket): void {
+    let authed = false;
+    // Токен приходит первым сообщением, а не в адресе: адреса попадают в логи прокси.
+    const timer = setTimeout(() => ws.close(4000, 'auth timeout'), 10_000);
+    ws.on('message', (data) => {
+      if (authed) return;
+      let msg: { type?: unknown; token?: unknown };
+      try {
+        msg = JSON.parse(String(data));
+      } catch {
+        ws.close(4000, 'bad message');
+        return;
+      }
+      const auth = msg.type === 'auth' && typeof msg.token === 'string' ? authenticate(msg.token) : undefined;
+      if (!auth) {
+        ws.close(4001, 'unauthorized');
+        return;
+      }
+      authed = true;
+      clearTimeout(timer);
+      hub.add(auth.userId, auth.deviceId, ws);
+      ws.send(JSON.stringify({ type: 'ready', serverTime: now() }));
+    });
+    ws.on('close', () => {
+      clearTimeout(timer);
+      hub.remove(ws);
+    });
+    ws.on('error', () => ws.terminate());
+  }
+
+  /** Подключает приём WebSocket на `/api/ws` к HTTP-серверу из `serve()`. */
+  function injectWebSocket(server: { on(event: 'upgrade', fn: (req: IncomingMessage, socket: Duplex, head: Buffer) => void): unknown }): void {
+    server.on('upgrade', (req, socket, head) => {
+      if (new URL(req.url ?? '/', 'http://localhost').pathname !== '/api/ws') {
+        socket.destroy();
+        return;
+      }
+      wss.handleUpgrade(req, socket, head, onSocket);
+    });
+  }
+
+  app.get('/api/ws', (c) => c.json({ error: 'upgrade_required' }, 426));
 
   // ---------- веб-клиент ----------
 

@@ -27,6 +27,8 @@ export interface WidgetSnapshot {
   readonly v: 1;
   /** Включена блокировка PIN-кодом: виджет может скрыть задачи. */
   readonly lock: boolean;
+  /** Язык интерфейса приложения: виджет показывает строки и время на нём, а не на языке телефона. */
+  readonly lang?: 'ru' | 'en';
   readonly projects: ReadonlyArray<{ readonly id: string; readonly name: string; readonly color: string; readonly inbox: boolean }>;
   /** В порядке проекта; задачи со сроком дальше недели и без проекта в списке не нужны. */
   readonly tasks: readonly WidgetTask[];
@@ -34,7 +36,15 @@ export interface WidgetSnapshot {
 
 export const WIDGET_TASK_LIMIT = 500;
 
-export function widgetSnapshot(ws: Workspace, today: string, tz: string, lock: boolean, limit = WIDGET_TASK_LIMIT, inboxName = 'Входящие'): WidgetSnapshot {
+export function widgetSnapshot(
+  ws: Workspace,
+  today: string,
+  tz: string,
+  lock: boolean,
+  limit = WIDGET_TASK_LIMIT,
+  inboxName = 'Входящие',
+  lang: 'ru' | 'en' = 'ru',
+): WidgetSnapshot {
   const horizon = addDays(today, 8);
   const projects = [ws.project(ws.inboxId), ...ws.projects().map((n) => n.project)].filter((p) => p !== undefined);
   const tasks: WidgetTask[] = [];
@@ -61,6 +71,7 @@ export function widgetSnapshot(ws: Workspace, today: string, tz: string, lock: b
   return {
     v: 1,
     lock,
+    lang,
     projects: projects.map((p) => ({ id: p.id, name: p.isInbox ? inboxName : p.name, color: p.color, inbox: p.isInbox })),
     tasks: [...near, ...rest].slice(0, limit),
   };

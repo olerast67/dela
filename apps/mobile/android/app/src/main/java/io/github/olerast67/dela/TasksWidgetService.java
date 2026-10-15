@@ -102,6 +102,9 @@ public class TasksWidgetService extends RemoteViewsService {
         private final List<Item> items = new ArrayList<>();
         private final Map<String, JSONObject> projects = new HashMap<>();
         private WidgetStore.Config cfg;
+        /** Контекст со строками на языке приложения и сам язык для формата времени. */
+        private Context res;
+        private String lang;
         private boolean dark;
 
         Factory(Context context, int widgetId) {
@@ -121,6 +124,8 @@ public class TasksWidgetService extends RemoteViewsService {
             projects.clear();
             cfg = WidgetStore.config(context, widgetId);
             dark = WidgetStore.dark(context, cfg);
+            res = WidgetStore.localized(context);
+            lang = WidgetStore.lang(context);
             JSONObject snap = WidgetStore.snapshot(context);
             if (snap == null || (snap.optBoolean("lock") && cfg.hideWhenLocked)) return;
             JSONArray ps = snap.optJSONArray("projects");
@@ -150,13 +155,13 @@ public class TasksWidgetService extends RemoteViewsService {
                 Collections.sort(overdue, (a, b) -> key(a).compareTo(key(b)));
                 Collections.sort(dated, (a, b) -> key(a).compareTo(key(b)));
                 if (!overdue.isEmpty()) {
-                    items.add(new Item(context.getString(R.string.overdue), null, false));
+                    items.add(new Item(res.getString(R.string.overdue), null, false));
                     for (JSONObject t : overdue) items.add(new Item(null, t, true));
                 }
                 String current = null;
                 for (JSONObject t : dated) {
                     String d = t.optString("d");
-                    if (!d.equals(current) && (days > 1 || !overdue.isEmpty())) items.add(new Item(dayHeading(context, d), null, false));
+                    if (!d.equals(current) && (days > 1 || !overdue.isEmpty())) items.add(new Item(dayHeading(res, d), null, false));
                     current = d;
                     items.add(new Item(null, t, false));
                 }
@@ -192,7 +197,7 @@ public class TasksWidgetService extends RemoteViewsService {
             }
             JSONObject t = item.task;
             RemoteViews r = new RemoteViews(context.getPackageName(), cfg.compact ? R.layout.widget_row_compact : R.layout.widget_row);
-            r.setTextViewText(R.id.row_title, t.optString("t").isEmpty() ? context.getString(R.string.untitled) : t.optString("t"));
+            r.setTextViewText(R.id.row_title, t.optString("t").isEmpty() ? res.getString(R.string.untitled) : t.optString("t"));
             r.setTextColor(R.id.row_title, text);
             r.setTextViewTextSize(R.id.row_title, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 17.5f : 15.5f);
             int pr = t.optInt("pr", 4);
@@ -203,11 +208,11 @@ public class TasksWidgetService extends RemoteViewsService {
 
             // Срок: в «Сегодня» только время, иначе дата и время; просроченное красным.
             String d = t.isNull("d") ? "" : t.optString("d", "");
-            String time = t.isNull("tm") ? "" : t.optString("tm", "");
+            String time = t.isNull("tm") ? "" : WidgetStore.time(lang, t.optString("tm", ""));
             String due;
             if (d.isEmpty()) due = "";
             else if ("today".equals(cfg.list) && d.equals(day(0))) due = time;
-            else due = (dateLabel(context, d) + " " + time).trim();
+            else due = (dateLabel(res, d) + " " + time).trim();
             if (t.optBoolean("r") && !due.isEmpty()) due = due + " ↻";
             r.setTextViewText(R.id.row_due, due);
             r.setTextColor(R.id.row_due, item.overdue ? (dark ? 0xFFF07A68 : 0xFFC8402F) : (dark ? 0xFF6FCF9B : 0xFF2E7D5B));

@@ -15,7 +15,7 @@ test('английский интерфейс и смена языка', async (
   await page.getByLabel('New task').press('Enter');
   await page.getByLabel('New task').press('Escape');
   await page.goto('/#/upcoming');
-  await expect(page.locator('.task', { hasText: 'Buy flowers' })).toContainText('19:00');
+  await expect(page.locator('.task', { hasText: 'Buy flowers' })).toContainText('7:00 PM');
 
   // Ни на одном экране не осталось русских строк интерфейса.
   for (const route of ['today', 'upcoming', 'calendar', 'inbox', 'completed', 'trash', 'templates', 'activity', 'settings']) {

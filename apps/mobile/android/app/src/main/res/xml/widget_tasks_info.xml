@@ -9,6 +9,7 @@
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_tasks"
+    android:previewLayout="@layout/widget_preview"
     android:configure="io.github.olerast67.dela.WidgetConfigActivity"
     android:widgetFeatures="reconfigurable|configuration_optional"
     android:widgetCategory="home_screen"

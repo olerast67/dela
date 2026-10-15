@@ -63,7 +63,8 @@ public class DelaPushService extends PushService {
             show(r.optString("t", getString(R.string.notify_task)), r.optString("b", ""), r.optString("id", null), r.optString("k", "dela"));
         } catch (Exception err) {
             // Без ключа или с чужим ключом показываем общее напоминание: текст на сервере не виден.
-            show(getString(R.string.notify_generic_title), getString(R.string.notify_generic_text), null, "dela");
+            Context res = WidgetStore.localized(this);
+            show(res.getString(R.string.notify_generic_title), res.getString(R.string.notify_generic_text), null, "dela");
         }
     }
 

@@ -1,6 +1,7 @@
 package io.github.olerast67.dela;
 
 import android.appwidget.AppWidgetManager;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ArrayAdapter;
@@ -19,6 +20,12 @@ import org.json.JSONObject;
 /** Настройки виджета: какой список показывать, тема, прозрачность фона, размер шрифта, компактный режим. */
 public class WidgetConfigActivity extends AppCompatActivity {
     private int widgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
+
+    /** Экран настроек на языке приложения, как и сам виджет. */
+    @Override
+    protected void attachBaseContext(Context base) {
+        super.attachBaseContext(WidgetStore.localized(base));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

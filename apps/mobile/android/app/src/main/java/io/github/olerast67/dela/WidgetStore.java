@@ -39,6 +39,33 @@ final class WidgetStore {
         }
     }
 
+    /** Язык приложения из последнего снимка: «ru», «en» или null, если приложение его ещё не передало. */
+    static String lang(Context c) {
+        JSONObject snap = snapshot(c);
+        String lang = snap == null ? null : snap.optString("lang", null);
+        return "ru".equals(lang) || "en".equals(lang) ? lang : null;
+    }
+
+    /**
+     * Контекст со строками на языке приложения. Виджет и экран его настроек показывают тот же язык,
+     * что выбран в Dela, даже если у телефона другой.
+     */
+    static Context localized(Context c) {
+        String lang = lang(c);
+        if (lang == null) return c;
+        android.content.res.Configuration conf = new android.content.res.Configuration(c.getResources().getConfiguration());
+        conf.setLocale(new java.util.Locale(lang));
+        return c.createConfigurationContext(conf);
+    }
+
+    /** Время «HH:MM» для показа: по-английски в 12-часовом формате, «7:30 PM». */
+    static String time(String lang, String hhmm) {
+        if (!"en".equals(lang) || hhmm == null || hhmm.length() < 5) return hhmm;
+        int h = Integer.parseInt(hhmm.substring(0, 2));
+        String m = hhmm.substring(3, 5);
+        return (h % 12 == 0 ? 12 : h % 12) + ":" + m + (h < 12 ? " AM" : " PM");
+    }
+
     static Set<String> completed(Context c) {
         return new HashSet<>(prefs(c).getStringSet("completed", new HashSet<>()));
     }

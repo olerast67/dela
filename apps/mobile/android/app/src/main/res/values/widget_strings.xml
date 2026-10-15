@@ -57,4 +57,12 @@
     <string name="notify_generic_title">Dela reminder</string>
     <string name="notify_generic_text">Open the app</string>
     <string name="push_instance">Dela reminders</string>
+
+    <string name="preview_title">Today  ▾</string>
+    <string name="preview_task_1">Write the script</string>
+    <string name="preview_task_2">Buy groceries</string>
+    <string name="preview_task_3">Book a dentist appointment</string>
+    <string name="preview_project_1">● Video</string>
+    <string name="preview_project_2">● Home</string>
+    <string name="preview_project_3">● Inbox</string>
 </resources>

@@ -46,6 +46,7 @@ public class TasksWidgetProvider extends AppWidgetProvider {
     }
 
     static void update(Context c, AppWidgetManager manager, int widgetId) {
+        Context res = WidgetStore.localized(c);
         WidgetStore.Config cfg = WidgetStore.config(c, widgetId);
         boolean dark = WidgetStore.dark(c, cfg);
         RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget_tasks);
@@ -55,18 +56,18 @@ public class TasksWidgetProvider extends AppWidgetProvider {
         int text = dark ? 0xFFEFEAE0 : 0xFF25221C;
         int accent = dark ? 0xFF6FCF9B : 0xFF2E7D5B;
         v.setTextColor(R.id.widget_title, accent);
-        v.setTextViewText(R.id.widget_title, WidgetStore.listTitle(c, cfg.list) + "  ▾");
+        v.setTextViewText(R.id.widget_title, WidgetStore.listTitle(res, cfg.list) + "  ▾");
         v.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 19 : 17);
         v.setTextColor(R.id.widget_empty, dark ? 0xFFA49D8F : 0xFF766F63);
         v.setInt(R.id.widget_add, "setColorFilter", accent);
 
         JSONObject snap = WidgetStore.snapshot(c);
         String empty;
-        if (snap == null) empty = c.getString(R.string.empty_no_snapshot);
-        else if (snap.optBoolean("lock") && cfg.hideWhenLocked) empty = c.getString(R.string.empty_locked);
-        else if ("today".equals(cfg.list)) empty = c.getString(R.string.empty_today);
-        else if ("week".equals(cfg.list)) empty = c.getString(R.string.empty_week);
-        else empty = c.getString(R.string.empty_list);
+        if (snap == null) empty = res.getString(R.string.empty_no_snapshot);
+        else if (snap.optBoolean("lock") && cfg.hideWhenLocked) empty = res.getString(R.string.empty_locked);
+        else if ("today".equals(cfg.list)) empty = res.getString(R.string.empty_today);
+        else if ("week".equals(cfg.list)) empty = res.getString(R.string.empty_week);
+        else empty = res.getString(R.string.empty_list);
         v.setTextViewText(R.id.widget_empty, empty);
         v.setTextColor(R.id.widget_empty, text);
 

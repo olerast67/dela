@@ -55,4 +55,12 @@
     <string name="notify_generic_title">Напоминание Dela</string>
     <string name="notify_generic_text">Откройте приложение</string>
     <string name="push_instance">Напоминания Dela</string>
+
+    <string name="preview_title">Сегодня  ▾</string>
+    <string name="preview_task_1">Написать сценарий</string>
+    <string name="preview_task_2">Купить продукты</string>
+    <string name="preview_task_3">Записаться к стоматологу</string>
+    <string name="preview_project_1">● Видео</string>
+    <string name="preview_project_2">● Дом</string>
+    <string name="preview_project_3">● Входящие</string>
 </resources>

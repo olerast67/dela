@@ -5,7 +5,7 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { addDays, addMonths, layoutDay, monthGrid, monthStart, moveDue, slotOf, snapMinute, weekDates, type DateSpec, type TaskView } from '#core';
-import { TZ, clock, monthTitle, rangeTitle, todayDate, weekdayShort } from '../format.ts';
+import { TZ, clock, clockLabel, hourLabel, monthTitle, rangeTitle, todayDate, weekdayShort } from '../format.ts';
 import { navigate, useDoc, useMedia } from '../hooks.ts';
 import { DRAG_TYPE, setDragged } from './dnd.ts';
 import type { QuickAddDefaults } from './QuickAdd.tsx';
@@ -172,7 +172,7 @@ function Chip({ task, onOpen, selected, showTime }: { task: Overdue; onOpen: (id
           completeWithUndo(doc, task);
         }}
       />
-      {showTime && slot && <span className="cal-time">{clock(slot.minute)}</span>}
+      {showTime && slot && <span className="cal-time">{clockLabel(slot.minute)}</span>}
       <span className="cal-title">{task.title}</span>
     </div>
   );
@@ -369,7 +369,7 @@ function TimeGrid(props: {
           <div className="cal-gutter">
             {Array.from({ length: 24 }, (_, h) => (
               <div key={h} className="cal-hour-label" style={{ top: h * HOUR }}>
-                {h === 0 ? '' : `${String(h).padStart(2, '0')}:00`}
+                {h === 0 ? '' : hourLabel(h)}
               </div>
             ))}
           </div>
@@ -424,13 +424,13 @@ function TimeGrid(props: {
                   >
                     <span className="cal-title">{t.title}</span>
                     <span className="cal-time">
-                      {clock(p.start)}-{clock(p.end)}
+                      {clockLabel(p.start)}-{clockLabel(p.end)}
                     </span>
                     {!t.projected && <div className="cal-resize" onPointerDown={(e) => startResize(e, t, p.start)} aria-hidden="true" />}
                   </div>
                 );
               })}
-              {indicator?.date === d && <div className="cal-indicator" style={{ top: (indicator.minute / 60) * HOUR }} data-time={clock(indicator.minute)} />}
+              {indicator?.date === d && <div className="cal-indicator" style={{ top: (indicator.minute / 60) * HOUR }} data-time={clockLabel(indicator.minute)} />}
               {d === today && <div className="cal-now" style={{ top: (now / 60) * HOUR }} />}
             </div>
           ))}

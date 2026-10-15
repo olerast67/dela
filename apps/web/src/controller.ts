@@ -1023,7 +1023,7 @@ export class Controller {
   private syncWidget(): void {
     if (!this.doc) return;
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
-    void updateWidget(widgetSnapshot(this.doc, today, TZ, this.lock !== null, WIDGET_TASK_LIMIT, tr('Входящие'))).catch((err) => console.error('widget update failed', err));
+    void updateWidget(widgetSnapshot(this.doc, today, TZ, this.lock !== null, WIDGET_TASK_LIMIT, tr('Входящие'), LANG)).catch((err) => console.error('widget update failed', err));
   }
 
   /** Отметки «выполнено» с виджета: применяются как обычное выполнение (повторы переносятся). */
@@ -1208,7 +1208,7 @@ export class Controller {
     await this.store.clear();
     // Телефон: снять напоминания и очистить виджет, чтобы названия задач не остались после выхода.
     await syncNativeReminders([]).catch(() => undefined);
-    await updateWidget({ v: 1, lock: false, projects: [], tasks: [] } satisfies WidgetSnapshot).catch(() => undefined);
+    await updateWidget({ v: 1, lock: false, lang: LANG, projects: [], tasks: [] } satisfies WidgetSnapshot).catch(() => undefined);
     this.channel?.postMessage({ type: 'logout' } satisfies ChannelMessage);
     this.leader = false;
     this.lock = null;
