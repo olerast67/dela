@@ -43,6 +43,8 @@ jobs:
   android:
     needs: version
     runs-on: ubuntu-24.04
+    # Ключи подписи лежат в окружении release: задание ждёт подтверждения автора на GitHub.
+    environment: release
     timeout-minutes: 45
     env:
       VERSION: ${{ needs.version.outputs.version }}
@@ -116,6 +118,7 @@ jobs:
   windows:
     needs: version
     runs-on: windows-latest
+    environment: release
     timeout-minutes: 60
     env:
       # Подпись кода через SignPath Foundation включается после одобрения заявки: docs/code-signing.md.
@@ -176,6 +179,7 @@ jobs:
   image:
     needs: version
     runs-on: ubuntu-24.04
+    environment: release
     timeout-minutes: 40
     permissions:
       contents: read

@@ -6,16 +6,11 @@
 
 1. Подать заявку на https://signpath.org/apply с аккаунта GitHub, которому принадлежит репозиторий. Текст для формы ниже.
 2. После одобрения SignPath создаёт организацию и проект. Проект назвать `dela`, политику подписи `release-signing`, источник артефактов GitHub Actions этого репозитория.
-3. Добавить секреты репозитория (Settings → Secrets and variables → Actions):
-   - `SIGNPATH_API_TOKEN` и `SIGNPATH_ORGANIZATION_ID` из кабинета SignPath;
-   - `TAURI_SIGNING_PRIVATE_KEY`: содержимое `~/dev/keys/dela-updater.key`;
-   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: содержимое `~/dev/keys/dela-updater.password`.
-
-   Команды для терминала, ключ не попадает в историю команд и в чат:
+3. Добавить секреты `SIGNPATH_API_TOKEN` и `SIGNPATH_ORGANIZATION_ID` из кабинета SignPath в окружение `release` (Settings → Environments → release), там же лежат остальные ключи выпуска. Из терминала значение вставляется в запрос `gh` и не попадает в историю команд:
 
    ```bash
-   gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/dev/keys/dela-updater.key
-   gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD < ~/dev/keys/dela-updater.password
+   gh secret set SIGNPATH_API_TOKEN --env release
+   gh secret set SIGNPATH_ORGANIZATION_ID --env release
    ```
 
 4. Выпуск идёт по тегу (`RELEASING.md`): workflow Release соберёт установщик, отправит его в SignPath, дождётся подписи, заново подпишет файл обновления и приложит к выпуску установщик, `latest.json` и контрольные суммы.
