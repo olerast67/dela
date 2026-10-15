@@ -147,7 +147,7 @@ I make videos about the projects I build and test on myself: [YouTube](https://w
 
 ## Roadmap
 
-Next on the [roadmap](ROADMAP.md): code signing for the Windows installer, iOS app, REST API and an MCP server for AI assistants.
+Next on the [roadmap](ROADMAP.md): release builds in GitHub Actions with build provenance, code signing for the Windows installer, a browser extension that checks the web client against the release, signed comments in shared projects, F-Droid and one-click installs for home server panels, then habits and a Pomodoro timer, calendar events next to tasks, location reminders, a Wear OS app and a local MCP server for AI assistants.
 
 ## Development
 
