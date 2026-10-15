@@ -647,8 +647,9 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const key = b64(b.signPublicKey, 'signPublicKey', { bytes: 32 });
     const keyB64 = Buffer.from(key).toString('base64');
     const row = db.prepare('SELECT sign_key FROM users WHERE id = ?').get(userId) as { sign_key: string | null };
+    // Свежая сессия ставит только первый ключ. Заменить уже стоящий можно лишь с паролем.
     const fresh = now() - sessionCreatedAt < FRESH_SESSION_MS;
-    if (row.sign_key !== keyB64 && !fresh) {
+    if (row.sign_key !== keyB64 && (row.sign_key !== null || !fresh)) {
       if (b.authSecret === undefined) fail(409, row.sign_key === null ? 'sign_key_password' : 'sign_key_mismatch');
       await confirmPassword(userId, b);
     }

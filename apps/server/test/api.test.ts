@@ -410,6 +410,8 @@ describe('двухфакторный вход', () => {
     const key2 = toB64(newKey());
     // Сразу после входа ключ ставится без пароля.
     expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key1 }, token)).status).toBe(200);
+    // Но заменить уже стоящий ключ и свежая сессия без пароля не может.
+    expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key2 }, token)).json.error).toBe('sign_key_mismatch');
     // Через 10 минут сессия уже не свежая.
     s.advance(11 * 60_000);
     expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key1 }, token)).status).toBe(200);
