@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Dela Verify</title>
+    <style>
+      body {
+        font: 15px/1.5 system-ui, sans-serif;
+        max-width: 560px;
+        margin: 32px auto;
+        padding: 0 16px;
+        color: #25221c;
+        background: #f6f3ec;
+      }
+      h1 {
+        font-size: 22px;
+      }
+      form {
+        display: flex;
+        gap: 8px;
+        margin: 16px 0;
+      }
+      input {
+        flex: 1;
+        padding: 8px 10px;
+        border: 1px solid #c9c1b2;
+        border-radius: 8px;
+        font: inherit;
+      }
+      button {
+        padding: 8px 14px;
+        border: 0;
+        border-radius: 8px;
+        background: #2e7d5b;
+        color: #fff;
+        font: inherit;
+        cursor: pointer;
+      }
+      li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        border-bottom: 1px solid #e6dfd1;
+      }
+      li button {
+        background: none;
+        color: #c8402f;
+        padding: 4px 8px;
+      }
+      .muted {
+        color: #766f63;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Dela Verify</h1>
+    <p id="intro" class="muted"></p>
+    <form id="add">
+      <input id="origin" placeholder="https://tasks.example.com" required />
+      <button id="addButton"></button>
+    </form>
+    <ul id="list"></ul>
+    <p id="msg" class="muted"></p>
+    <script src="options.js"></script>
+  </body>
+</html>

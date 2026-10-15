@@ -192,6 +192,14 @@ export function AuthScreen() {
             {tr('Попробовать без сервера: задачи останутся только в этом браузере')}
           </button>
         )}
+        {!isNative() && (
+          <p className="muted auth-note">
+            {tr('В браузере код этой страницы отдаёт сервер. Приложения для Windows и Android несут свой код, а в браузере файлы с выпуском сверяет расширение Dela Verify.')}{' '}
+            <a href="https://github.com/olerast67/dela#check-the-web-app" target="_blank" rel="noopener noreferrer">
+              {tr('Подробнее')}
+            </a>
+          </p>
+        )}
       </form>
     </main>
   );

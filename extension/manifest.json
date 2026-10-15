@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "Dela Verify",
+  "version": "1.0.0",
+  "description": "Checks that the Dela web app served by your server matches the signed release on GitHub.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_title": "Dela Verify",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "permissions": ["storage", "scripting"],
+  "host_permissions": [
+    "https://github.com/olerast67/dela/releases/download/*",
+    "https://objects.githubusercontent.com/*",
+    "https://release-assets.githubusercontent.com/*"
+  ],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "dela-verify@olerast67.github.io",
+      "strict_min_version": "129.0"
+    }
+  }
+}

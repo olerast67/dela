@@ -131,6 +131,16 @@ The server sees email addresses, devices, members of shared projects, change tim
 
 Known limitations: in the browser the data is stored decrypted in IndexedDB (the account keys are wrapped by a non-extractable WebCrypto key); a member removed from a shared project keeps what they already saw, and the project gets a new key, so they cannot read later changes; the PIN lock closes the app screen and does not add another layer of encryption to the data on the device; comments are signed by their authors (Ed25519), task edits in shared projects are not signed, so members trust each other for them; the recovery key opens the account without the TOTP code unless Settings → Two-factor sign-in asks for it there too; the Android widget keeps the tasks it shows unencrypted in the app's private folder; voice input on Android uses the system speech recognizer, and the recognition service (usually Google) may send the audio online even though Dela asks for on-device recognition. Details are in [docs/architecture.md](docs/architecture.md), the report process is in [SECURITY.md](SECURITY.md).
 
+### Check the web app
+
+In a browser, the server delivers the code of the web app. A server taken over by someone else could change that code and capture your password at the next sign-in. The Windows and Android apps carry their own code, and their updates are signed by the project.
+
+For the browser there is the Dela Verify extension (`extension/` in this repository). Each release has `web-manifest.json` with SHA-256 hashes of every web app file, signed with the project key `y3Zkairxm+9yU65AqArxf1PUT63ygFlnRAs676WEZGs=` (Ed25519). The extension asks the server for its version, downloads the signed list for that version from GitHub and compares it with the files the page loaded. A green badge means they match; a red badge and a banner on the page mean they do not, and you should not enter your password there.
+
+To install, download `Dela-Verify-<version>.zip` from a release and unpack it. In Chrome or Edge open Extensions, turn on developer mode and choose "Load unpacked"; in Firefox use `about:debugging`. Then add your server address in the extension settings.
+
+The check works with the official image `ghcr.io/olerast67/dela`. An image built elsewhere may differ in file hashes. The extension compares the files the page loaded with what the server returns to it, so a server that answers the extension differently from the page can still pass the check.
+
 ## Support the project
 
 Dela is free and has no paid features. Donations pay for the time spent on new platforms and on an external security audit.

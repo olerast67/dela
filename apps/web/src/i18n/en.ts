@@ -243,6 +243,9 @@ export const EN: Readonly<Record<string, string>> = {
   'Распечатать': 'Print',
   'Ключ сохранён в надёжном месте': 'I saved the key in a safe place',
   'Продолжить': 'Continue',
+  'В браузере код этой страницы отдаёт сервер. Приложения для Windows и Android несут свой код, а в браузере файлы с выпуском сверяет расширение Dela Verify.':
+    'In a browser, the server delivers the code of this page. The Windows and Android apps carry their own code, and in a browser the Dela Verify extension checks the files against the release.',
+  'Подробнее': 'Learn more',
 
   // ---------- боковая панель, вкладки, календарь ----------
   'Задачи хранятся только в этом браузере': 'Tasks are stored only in this browser',

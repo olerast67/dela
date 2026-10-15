@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Dela Verify, a browser extension that checks the web app served by your server against the signed release on GitHub. The sign-in screen in a browser points to it and to the apps.
 - Comments are signed by their authors. A comment whose signature does not match shows a warning instead of the author name.
 - Two-factor sign-in can also be required for the recovery key (Settings → Two-factor sign-in). Off by default.
 - English interface shows time in the 12-hour format (7:30 PM): lists, calendar, the Android widget.
