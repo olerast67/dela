@@ -60,7 +60,7 @@ final class WidgetStore {
 
     /** Время «HH:MM» для показа: по-английски в 12-часовом формате, «7:30 PM». */
     static String time(String lang, String hhmm) {
-        if (!"en".equals(lang) || hhmm == null || hhmm.length() < 5) return hhmm;
+        if (!"en".equals(lang) || hhmm == null || !hhmm.matches("[0-9]{2}:[0-9]{2}")) return hhmm;
         int h = Integer.parseInt(hhmm.substring(0, 2));
         String m = hhmm.substring(3, 5);
         return (h % 12 == 0 ? 12 : h % 12) + ":" + m + (h < 12 ? " AM" : " PM");

@@ -256,8 +256,8 @@ export class Controller {
   }
 
   /** Забыт пароль: вход по ключу восстановления с новым паролем. */
-  async recover(email: string, recoveryKey: string, newPassword: string): Promise<void> {
-    const session = await recoverAccount(this.api, { email, recoveryKey, newPassword, deviceName: deviceName() });
+  async recover(email: string, recoveryKey: string, newPassword: string, totp?: string): Promise<void> {
+    const session = await recoverAccount(this.api, { email, recoveryKey, newPassword, deviceName: deviceName(), ...(totp ? { totp } : {}) });
     await this.persistAndStart(session);
   }
 

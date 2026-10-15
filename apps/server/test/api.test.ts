@@ -392,6 +392,39 @@ describe('двухфакторный вход', () => {
     expect((await s.call('POST', '/api/account/totp/disable', { code: code(60_000) }, token)).status).toBe(200);
     expect((await login()).status).toBe(200);
   });
+
+  it('восстановление по ключу спрашивает код, если владелец это включил', async () => {
+    const { hotp, base32Decode, totpCounter } = await import('../src/totp.ts');
+    const s = makeServer();
+    const { acc, res } = await register(s, 'r@x.yz', 'p');
+    const token = res.json.token;
+    const setup = await s.call('POST', '/api/account/totp/setup', { authSecret: toB64(acc.authSecret) }, token);
+    const code = (dt: number) => hotp(base32Decode(setup.json.secret), totpCounter(NOW + dt));
+    expect((await s.call('POST', '/api/account/totp/enable', { code: code(0) }, token)).status).toBe(200);
+    const recover = (path: string, totp?: string) =>
+      s.call('POST', `/api/auth/recover/${path}`, { email: 'r@x.yz', recoveryAuth: toB64(acc.recoveryAuth), ...(totp ? { totp } : {}) });
+
+    // По умолчанию ключ восстановления кода не требует.
+    expect((await recover('start')).status).toBe(200);
+
+    // Включить настройку можно только с паролем и кодом.
+    s.advance(30_000);
+    expect((await s.call('PUT', '/api/account/recovery-totp', { enabled: true, authSecret: toB64(acc.authSecret) }, token)).json.error).toBe('totp_required');
+    expect((await s.call('PUT', '/api/account/recovery-totp', { enabled: true, authSecret: toB64(acc.authSecret), totp: code(30_000) }, token)).status).toBe(200);
+    expect((await s.call('GET', '/api/account', undefined, token)).json.recoveryTotp).toBe(true);
+
+    s.advance(30_000);
+    expect((await recover('start')).json.error).toBe('totp_required');
+    expect((await recover('start', '000000')).json.error).toBe('invalid_totp');
+    expect((await recover('start', code(60_000))).status).toBe(200);
+    // Второй шаг тоже проверяет код: без него новый пароль не задать.
+    expect((await recover('finish')).json.error).toBe('totp_required');
+
+    // Отключение TOTP снимает и эту настройку.
+    s.advance(30_000);
+    expect((await s.call('POST', '/api/account/totp/disable', { code: code(90_000) }, token)).status).toBe(200);
+    expect((await recover('start')).status).toBe(200);
+  });
 });
 
 describe('защита сервера за прокси', () => {

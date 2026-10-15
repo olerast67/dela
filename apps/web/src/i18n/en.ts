@@ -500,8 +500,13 @@ export const EN: Readonly<Record<string, string>> = {
   'Код не подошёл. Введите новый код из приложения.': 'The code did not work. Enter a new code from the app.',
   'Не получилось. Нужна связь с сервером.': 'That did not work. A connection to the server is needed.',
   'Двухфакторный вход': 'Two-factor sign-in',
-  'При входе на новом устройстве кроме пароля понадобится код из приложения-аутентификатора (Aegis, Google Authenticator, 2FAS). Вход по ключу восстановления кода не требует.':
-    'Signing in on a new device will need a code from an authenticator app (Aegis, Google Authenticator, 2FAS) in addition to the password. Signing in with the recovery key does not need the code.',
+  'При входе на новом устройстве кроме пароля понадобится код из приложения-аутентификатора (Aegis, Google Authenticator, 2FAS). Вход по ключу восстановления кода не требует, если не включить это ниже.':
+    'Signing in on a new device will need a code from an authenticator app (Aegis, Google Authenticator, 2FAS) in addition to the password. Signing in with the recovery key does not need the code unless you turn it on below.',
+  'Спрашивать код и при входе по ключу восстановления': 'Ask for the code when signing in with the recovery key too',
+  'Тогда без телефона с приложением-аутентификатором ключ восстановления аккаунт не откроет. Сохраните резервные коды в самом приложении-аутентификаторе.':
+    'Then the recovery key will not open the account without the phone with your authenticator app. Keep backup codes in the authenticator app itself.',
+  'Теперь ключ восстановления тоже спрашивает код.': 'The recovery key now asks for the code too.',
+  'Ключ восстановления больше не спрашивает код.': 'The recovery key no longer asks for the code.',
   'Двухфакторный вход отключён.': 'Two-factor sign-in is off.',
   'Включён.': 'On.',
   'Код для отключения': 'Code to turn it off',

@@ -927,11 +927,19 @@ export function TwoFactor() {
   const [setup, setSetup] = useState<{ secret: string; uri: string } | null>(null);
   const [code, setCode] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState(false);
+  const [recoveryWant, setRecoveryWant] = useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
 
   useEffect(() => {
     controller.api
       .account()
-      .then((a) => setEnabled(a.totpEnabled))
+      .then((a) => {
+        setEnabled(a.totpEnabled);
+        setRecovery(a.recoveryTotp === true);
+        setRecoveryWant(a.recoveryTotp === true);
+      })
       .catch(() => setEnabled(null));
   }, []);
 
@@ -942,7 +950,7 @@ export function TwoFactor() {
     <section className="settings">
       <h2>{tr('Двухфакторный вход')}</h2>
       <p className="muted">
-        {tr('При входе на новом устройстве кроме пароля понадобится код из приложения-аутентификатора (Aegis, Google Authenticator, 2FAS). Вход по ключу восстановления кода не требует.')}
+        {tr('При входе на новом устройстве кроме пароля понадобится код из приложения-аутентификатора (Aegis, Google Authenticator, 2FAS). Вход по ключу восстановления кода не требует, если не включить это ниже.')}
       </p>
       {enabled === true && (
         <form
@@ -962,6 +970,38 @@ export function TwoFactor() {
           <span>{tr('Включён.')}</span>
           <input inputMode="numeric" placeholder={tr('Код для отключения')} value={code} onChange={(e) => setCode(e.target.value)} required aria-label={tr('Код')} />
           <button>{tr('Отключить')}</button>
+        </form>
+      )}
+      {enabled === true && (
+        <form
+          className="stack"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              const authSecret = await passwordProof(controller.api, recoveryPassword);
+              await controller.api.setRecoveryTotp({ enabled: recoveryWant, authSecret, totp: recoveryCode.replace(/\s/g, '') });
+              setRecovery(recoveryWant);
+              setRecoveryPassword('');
+              setRecoveryCode('');
+              setMsg(recoveryWant ? tr('Теперь ключ восстановления тоже спрашивает код.') : tr('Ключ восстановления больше не спрашивает код.'));
+            } catch (err) {
+              if (err instanceof Error && err.message === 'invalid_credentials') setMsg(tr('Пароль неверный.'));
+              else fail(err);
+            }
+          }}
+        >
+          <label className="checkline">
+            <input type="checkbox" checked={recoveryWant} onChange={(e) => setRecoveryWant(e.target.checked)} />
+            {tr('Спрашивать код и при входе по ключу восстановления')}
+          </label>
+          <p className="muted">{tr('Тогда без телефона с приложением-аутентификатором ключ восстановления аккаунт не откроет. Сохраните резервные коды в самом приложении-аутентификаторе.')}</p>
+          {recoveryWant !== recovery && (
+            <div className="row wrap">
+              <input type="password" placeholder={tr('Пароль')} aria-label={tr('Пароль')} autoComplete="current-password" value={recoveryPassword} onChange={(e) => setRecoveryPassword(e.target.value)} required />
+              <input inputMode="numeric" placeholder={tr('Код из приложения')} aria-label={tr('Код из приложения')} value={recoveryCode} onChange={(e) => setRecoveryCode(e.target.value)} required />
+              <button>{tr('Сохранить')}</button>
+            </div>
+          )}
         </form>
       )}
       {enabled === false && !setup && (

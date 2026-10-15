@@ -460,29 +460,53 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   // ---------- восстановление по ключу ----------
 
   /** Проверить секрет восстановления. Для несуществующего адреса время ответа то же. */
-  async function checkRecovery(c: Context, b: Record<string, unknown>) {
+  /**
+   * Проверка секрета восстановления. Если владелец включил настройку «код и при восстановлении», нужен ещё код TOTP.
+   * Код проверяется только после секрета, иначе по ответу можно было бы перебирать коды без ключа.
+   * На первом шаге код только проверяется, на втором проверяется и сгорает.
+   */
+  async function checkRecovery(c: Context, b: Record<string, unknown>, consumeTotp: boolean) {
     const email = normEmail(b.email);
     const recoveryAuth = b64(b.recoveryAuth, 'recoveryAuth', { bytes: 32 });
     if (!ipLimiter.hit(`ip:${clientIp(c, config.trustProxy)}`) || !loginLimiter.hit(`recover:${email}`)) fail(429, 'rate_limited');
-    const row = db.prepare('SELECT id, bundle, is_admin, recovery_salt, recovery_hash FROM users WHERE email = ?').get(email) as
-      | { id: string; bundle: string; is_admin: number; recovery_salt: Uint8Array | null; recovery_hash: Uint8Array | null }
+    const row = db
+      .prepare('SELECT id, bundle, is_admin, recovery_salt, recovery_hash, recovery_totp, totp_secret, totp_enabled, totp_last FROM users WHERE email = ?')
+      .get(email) as
+      | {
+          id: string;
+          bundle: string;
+          is_admin: number;
+          recovery_salt: Uint8Array | null;
+          recovery_hash: Uint8Array | null;
+          recovery_totp: number;
+          totp_secret: string | null;
+          totp_enabled: number;
+          totp_last: number | null;
+        }
       | undefined;
     const hash = await hashAuthSecret(recoveryAuth, row?.recovery_salt ?? serverSecret.subarray(0, 16));
     if (!row || !row.recovery_hash || !safeEqual(hash, row.recovery_hash)) fail(401, 'invalid_credentials');
+    if (row.recovery_totp === 1 && row.totp_enabled === 1 && row.totp_secret) {
+      const code = typeof b.totp === 'string' ? b.totp.replace(/\s/g, '') : '';
+      if (!code) fail(401, 'totp_required');
+      const step = verifyTotp(row.totp_secret, code, now(), row.totp_last === null ? null : Number(row.totp_last));
+      if (step === null) fail(401, 'invalid_totp');
+      if (consumeTotp) db.prepare('UPDATE users SET totp_last = ? WHERE id = ?').run(step, row.id);
+    }
     return { row, bundle: JSON.parse(row.bundle) as AccountBundle };
   }
 
   // Шаг 1: пакет ключей отдаётся только после проверки секрета восстановления,
   // иначе его можно было бы скачать по адресу почты и перебирать пароль офлайн.
   app.post('/api/auth/recover/start', async (c) => {
-    const { bundle } = await checkRecovery(c, await body(c));
+    const { bundle } = await checkRecovery(c, await body(c), false);
     return c.json({ bundle });
   });
 
   // Шаг 2: новый пароль. Все прежние сессии закрываются.
   app.post('/api/auth/recover/finish', async (c) => {
     const b = await body(c);
-    const { row, bundle: old } = await checkRecovery(c, b);
+    const { row, bundle: old } = await checkRecovery(c, b, true);
     const next = b64(b.newAuthSecret, 'newAuthSecret', { bytes: 32 });
     const bundle = parseBundle(b.bundle);
     const deviceName = str(b.deviceName, 'deviceName', { max: 100 });
@@ -521,11 +545,12 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
   app.get('/api/account', requireAuth, (c) => {
     const { userId, deviceId } = c.get('auth');
-    const row = db.prepare('SELECT email, bundle, is_admin, totp_enabled FROM users WHERE id = ?').get(userId) as {
+    const row = db.prepare('SELECT email, bundle, is_admin, totp_enabled, recovery_totp FROM users WHERE id = ?').get(userId) as {
       email: string;
       bundle: string;
       is_admin: number;
       totp_enabled: number;
+      recovery_totp: number;
     };
     return c.json({
       userId,
@@ -533,13 +558,13 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
       email: row.email,
       isAdmin: row.is_admin === 1,
       totpEnabled: row.totp_enabled === 1,
+      recoveryTotp: row.totp_enabled === 1 && row.recovery_totp === 1,
       bundle: JSON.parse(row.bundle),
     });
   });
 
   // ---------- двухфакторный вход (TOTP) ----------
 
-  /** Новый секрет. Включается только после подтверждения кодом. */
   /**
    * Подтверждение паролем (и кодом TOTP, если он включён) для действий, которые дают долгий доступ:
    * украденной сессии для них мало.
@@ -564,6 +589,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     }
   }
 
+  /** Новый секрет. Включается только после подтверждения кодом. */
   app.post('/api/account/totp/setup', requireAuth, async (c) => {
     const { userId } = c.get('auth');
     // Включить TOTP чужому аккаунту по украденной сессии нельзя: нужен пароль.
@@ -600,7 +626,19 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
   app.post('/api/account/totp/disable', requireAuth, async (c) => {
     const userId = await checkTotp(c, true);
-    db.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL, totp_last = NULL WHERE id = ?').run(userId);
+    db.prepare('UPDATE users SET totp_enabled = 0, recovery_totp = 0, totp_secret = NULL, totp_last = NULL WHERE id = ?').run(userId);
+    return c.json({ ok: true });
+  });
+
+  /** Спрашивать код TOTP и при восстановлении по ключу. Нужны пароль и код: украденной сессии мало. */
+  app.put('/api/account/recovery-totp', requireAuth, async (c) => {
+    const { userId } = c.get('auth');
+    const b = await body(c);
+    if (typeof b.enabled !== 'boolean') bad('enabled must be a boolean');
+    await confirmPassword(userId, b);
+    const row = db.prepare('SELECT totp_enabled FROM users WHERE id = ?').get(userId) as { totp_enabled: number };
+    if (b.enabled && row.totp_enabled !== 1) fail(409, 'totp_not_enabled');
+    db.prepare('UPDATE users SET recovery_totp = ? WHERE id = ?').run(b.enabled ? 1 : 0, userId);
     return c.json({ ok: true });
   });
 
@@ -1171,7 +1209,9 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   /** Подключает приём WebSocket на `/api/ws` к HTTP-серверу из `serve()`. */
   function injectWebSocket(server: { on(event: 'upgrade', fn: (req: IncomingMessage, socket: Duplex, head: Buffer) => void): unknown }): void {
     server.on('upgrade', (req, socket, head) => {
-      if (new URL(req.url ?? '/', 'http://localhost').pathname !== '/api/ws') {
+      // Путь сравнивается строкой: разбор URL бросает исключение на кривом адресе, а оно внутри события
+      // upgrade остановило бы весь процесс сервера.
+      if ((req.url ?? '/').split('?')[0] !== '/api/ws') {
         socket.destroy();
         return;
       }

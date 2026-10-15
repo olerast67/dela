@@ -172,7 +172,7 @@ export class ApiClient {
     return this.call('POST', '/api/auth/login', input);
   }
 
-  recoverStart(input: { email: string; recoveryAuth: string }): Promise<{ bundle: AccountBundle }> {
+  recoverStart(input: { email: string; recoveryAuth: string; totp?: string }): Promise<{ bundle: AccountBundle }> {
     return this.call('POST', '/api/auth/recover/start', input);
   }
 
@@ -182,6 +182,7 @@ export class ApiClient {
     newAuthSecret: string;
     bundle: AccountBundle;
     deviceName: string;
+    totp?: string;
   }): Promise<SessionInfo & { bundle: AccountBundle }> {
     return this.call('POST', '/api/auth/recover/finish', input);
   }
@@ -190,7 +191,7 @@ export class ApiClient {
     return this.call('POST', '/api/auth/logout', {});
   }
 
-  account(): Promise<{ userId: string; deviceId: string; email: string; isAdmin: boolean; totpEnabled: boolean; bundle: AccountBundle }> {
+  account(): Promise<{ userId: string; deviceId: string; email: string; isAdmin: boolean; totpEnabled: boolean; recoveryTotp?: boolean; bundle: AccountBundle }> {
     return this.call('GET', '/api/account');
   }
 
@@ -204,6 +205,10 @@ export class ApiClient {
 
   totpDisable(code: string): Promise<{ ok: true }> {
     return this.call('POST', '/api/account/totp/disable', { code });
+  }
+
+  setRecoveryTotp(input: { enabled: boolean; authSecret: string; totp?: string }): Promise<{ ok: true }> {
+    return this.call('PUT', '/api/account/recovery-totp', input);
   }
 
   changePassword(input: { authSecret: string; newAuthSecret: string; bundle: AccountBundle }): Promise<{ ok: true }> {

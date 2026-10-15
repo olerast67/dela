@@ -70,7 +70,7 @@ export function AuthScreen() {
     await new Promise((r) => setTimeout(r, 30));
     try {
       if (mode === 'login') await controller.login(email, password, needTotp ? totp : undefined);
-      else if (mode === 'recover') await controller.recover(email, recoveryKey, password);
+      else if (mode === 'recover') await controller.recover(email, recoveryKey, password, needTotp ? totp : undefined);
       else await controller.register(email, password, invite.trim() || undefined);
     } catch (err) {
       if (err instanceof ApiError && (err.code === 'totp_required' || err.code === 'invalid_totp')) setNeedTotp(true);
@@ -118,7 +118,7 @@ export function AuthScreen() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
-        {mode === 'login' && needTotp && (
+        {mode !== 'register' && needTotp && (
           <label>
             {tr('Код из приложения-аутентификатора')}
             <input inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" required value={totp} onChange={(e) => setTotp(e.target.value)} autoFocus />

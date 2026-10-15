@@ -85,11 +85,12 @@ export async function ensurePersonalSpace(api: ApiClient, keys: AccountKeys): Pr
 /** Вход по ключу восстановления с новым паролем. Все прежние сессии закрываются. */
 export async function recoverAccount(
   api: ApiClient,
-  input: { email: string; recoveryKey: string; newPassword: string; deviceName: string; kdf?: KdfParams },
+  input: { email: string; recoveryKey: string; newPassword: string; deviceName: string; kdf?: KdfParams; totp?: string },
 ): Promise<Session> {
   const email = normalizeEmail(input.email);
   const recoveryAuth = toB64(recoveryAuthSecret(parseRecoveryKey(input.recoveryKey)));
-  const { bundle } = await api.recoverStart({ email, recoveryAuth });
+  const totp = input.totp ? { totp: input.totp } : {};
+  const { bundle } = await api.recoverStart({ email, recoveryAuth, ...totp });
   const keys = openAccountWithRecovery(bundle, input.recoveryKey);
   const changed = changePassword(bundle, keys, input.newPassword, input.kdf ?? DEFAULT_KDF);
   const res = await api.recoverFinish({
@@ -98,6 +99,7 @@ export async function recoverAccount(
     newAuthSecret: toB64(changed.authSecret),
     bundle: changed.bundle,
     deviceName: input.deviceName,
+    ...totp,
   });
   api.token = res.token;
   const { bundle: _b, ...info } = res;

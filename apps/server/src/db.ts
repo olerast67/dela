@@ -157,6 +157,10 @@ const MIGRATIONS: readonly string[] = [
   ALTER TABLE invites ADD COLUMN used_at INTEGER;
   UPDATE invites SET used_at = created_at WHERE used_by IS NOT NULL;
   `,
+  `
+  -- Восстановление по ключу просит код TOTP, если владелец включил эту настройку.
+  ALTER TABLE users ADD COLUMN recovery_totp INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

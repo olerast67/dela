@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Two-factor sign-in can also be required for the recovery key (Settings → Two-factor sign-in). Off by default.
 - English interface shows time in the 12-hour format (7:30 PM): lists, calendar, the Android widget.
 - The Android widget and its settings follow the app language, not the phone language.
 - The widget picker shows a preview with sample tasks (Android 12 and newer).
