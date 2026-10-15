@@ -32,6 +32,11 @@
     for (const entry of performance.getEntriesByType('resource')) add(entry.name, entry.initiatorType === 'script');
     const sw = navigator.serviceWorker?.controller?.scriptURL;
     if (sw) add(sw, true);
+    // Проверка самой живой страницы, без повторной загрузки: в Dela нет встроенных скриптов,
+    // весь код подключается файлами из выпуска. Встроенный <script> в документе значит подмену.
+    for (const el of document.querySelectorAll('script:not([src])')) {
+      if (el.textContent.trim() && !/json/i.test(el.type)) unverified.push(ru ? 'встроенный <script> в странице' : 'inline <script> in the page');
+    }
 
     // Хеши копий, которые получила страница: файлы с хешем в имени берутся из кэша браузера.
     const pageHashes = {};

@@ -54,9 +54,15 @@ async function check({ origin, paths, pageHashes, unverified }) {
   try {
     version = (await (await fetch(`${origin}/api/health`, { cache: 'no-store', credentials: 'omit' })).json()).version;
   } catch {
-    return null;
+    version = undefined;
   }
-  if (typeof version !== 'string') return null;
+  if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version)) {
+    // Сервер, который уже проходил проверку, не назвал свою версию: это тоже повод не вводить пароль.
+    const seenKey = `seen:${origin}`;
+    const seen = (await api.storage.local.get(seenKey))[seenKey];
+    const detail = ru ? 'Сервер не назвал свою версию.' : 'The server did not report its version.';
+    return { state: typeof seen === 'string' ? 'bad' : 'unknown', detail, version: '' };
+  }
   const result = await verify(origin, version, paths, pageHashes ?? {}, unverified ?? [], ru);
   return { ...result, version };
 }

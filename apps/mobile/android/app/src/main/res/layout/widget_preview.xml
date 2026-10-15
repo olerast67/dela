@@ -43,6 +43,7 @@
                 android:layout_height="32dp"
                 android:padding="6dp"
                 android:src="@drawable/widget_add"
+                android:tint="#2E7D5B"
                 android:importantForAccessibility="no" />
         </LinearLayout>
 
