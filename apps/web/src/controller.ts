@@ -599,8 +599,11 @@ export class Controller {
     return (c) => signComment(this.signKeys().secretKey, c);
   }
 
-  /** На сервере стоит не тот ключ подписи, что выводится из мастер-ключа: его поставил кто-то другой. */
-  signKeyMismatch = false;
+  /**
+   * Ключ подписи на сервере не совпадает с выведенным из мастер-ключа: «missing», если его ещё нет и сессия старая,
+   * «other», если там чужой ключ. В обоих случаях нужен пароль.
+   */
+  signKeyMismatch: false | 'missing' | 'other' = false;
 
   private async ensureSignKey(): Promise<void> {
     if (!this.stored || this.stored.local) return;
@@ -610,8 +613,8 @@ export class Controller {
     try {
       await this.api.setSignKey({ signPublicKey: mine });
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'sign_key_mismatch') {
-        this.signKeyMismatch = true;
+      if (err instanceof ApiError && (err.code === 'sign_key_mismatch' || err.code === 'sign_key_password')) {
+        this.signKeyMismatch = err.code === 'sign_key_mismatch' ? 'other' : 'missing';
         this.docVersion++;
         for (const fn of this.docListeners) fn();
       }
@@ -634,6 +637,8 @@ export class Controller {
   commentStatus(spaceId: string, c: Comment): 'ok' | 'unsigned' | 'unknown' | 'bad' {
     if (!c.author) return 'unsigned';
     let key: string | null;
+    // Этот клиент подписывает каждый свой комментарий: «мой» комментарий без подписи написал кто-то другой.
+    if (c.author === this.userId && !c.sig) return 'bad';
     if (c.author === this.userId) key = toB64(this.signKeys().publicKey);
     else {
       const pinned = this.pin(`sig:${c.author}`) ?? null;

@@ -72,8 +72,8 @@ function FileView({ spaceId, file }: { spaceId: string; file: Attachment }) {
 
 function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
   const doc = useDoc();
-  const mine = c.author !== null && c.author === controller.userId;
   const status = controller.commentStatus(spaceId, c);
+  const mine = c.author !== null && c.author === controller.userId && status === 'ok';
   const name = mine ? tr('Вы') : c.author ? (controller.memberEmail(spaceId, c.author) ?? tr('Участник')) : tr('Участник');
   const who = status === 'bad' ? tr('Подпись не сходится') : name;
   const links = extractLinks(c.text);
@@ -86,7 +86,8 @@ function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
         <b className={status === 'bad' ? 'comment-bad' : undefined} title={status === 'bad' ? tr('Комментарий изменён или написан не тем, кто указан автором.') : undefined}>
           {who}
         </b>
-        {status === 'unsigned' && !mine && c.author && <span className="muted">{tr('без подписи')}</span>}
+        {status === 'unsigned' && <span className="muted">{tr('без подписи')}</span>}
+        {status === 'unknown' && <span className="muted">{tr('подпись не проверена')}</span>}
         <span className="muted">{new Date(c.createdAt).toLocaleString(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
         {mine && (
           <button

@@ -33,7 +33,12 @@ interface Auth {
   readonly userId: string;
   readonly deviceId: string;
   readonly isAdmin: boolean;
+  /** Когда создана сессия: в первые минуты после входа по паролю или passkey часть действий не требует пароля снова. */
+  readonly sessionCreatedAt: number;
 }
+
+/** Сколько сессия считается свежей после входа. */
+const FRESH_SESSION_MS = 10 * 60_000;
 
 type AppEnv = { Variables: { auth: Auth } };
 
@@ -137,19 +142,19 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   function authenticate(token: string): Auth | undefined {
     const row = db
       .prepare(
-        `SELECT s.user_id, s.device_id, s.expires_at, d.revoked_at, d.last_seen_at, u.is_admin
+        `SELECT s.user_id, s.device_id, s.created_at, s.expires_at, d.revoked_at, d.last_seen_at, u.is_admin
          FROM sessions s JOIN devices d ON d.id = s.device_id JOIN users u ON u.id = s.user_id
          WHERE s.token_hash = ?`,
       )
       .get(sha256(token)) as
-      | { user_id: string; device_id: string; expires_at: number; revoked_at: number | null; last_seen_at: number; is_admin: number }
+      | { user_id: string; device_id: string; created_at: number; expires_at: number; revoked_at: number | null; last_seen_at: number; is_admin: number }
       | undefined;
     const t = now();
     if (!row || row.revoked_at !== null || Number(row.expires_at) <= t) return undefined;
     if (t - Number(row.last_seen_at) > 60_000) {
       db.prepare('UPDATE devices SET last_seen_at = ? WHERE id = ?').run(t, row.device_id);
     }
-    return { userId: row.user_id, deviceId: row.device_id, isAdmin: row.is_admin === 1 };
+    return { userId: row.user_id, deviceId: row.device_id, isAdmin: row.is_admin === 1, sessionCreatedAt: Number(row.created_at) };
   }
 
   function membership(spaceId: string, userId: string): { role: string } {
@@ -633,17 +638,18 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   });
 
   /**
-   * Открытый ключ подписи комментариев. Первый раз ставится по сессии; заменить уже стоящий ключ можно только с паролем,
-   * иначе украденная сессия позволила бы подписывать комментарии от имени владельца аккаунта.
+   * Открытый ключ подписи комментариев. Без пароля его можно поставить только из свежей сессии, в первые минуты
+   * после входа по паролю или passkey. Иначе украденная сессия позволила бы подписывать комментарии от имени владельца.
    */
   app.put('/api/account/sign-key', requireAuth, async (c) => {
-    const { userId } = c.get('auth');
+    const { userId, sessionCreatedAt } = c.get('auth');
     const b = await body(c);
     const key = b64(b.signPublicKey, 'signPublicKey', { bytes: 32 });
     const keyB64 = Buffer.from(key).toString('base64');
     const row = db.prepare('SELECT sign_key FROM users WHERE id = ?').get(userId) as { sign_key: string | null };
-    if (row.sign_key !== null && row.sign_key !== keyB64) {
-      if (b.authSecret === undefined) fail(409, 'sign_key_mismatch');
+    const fresh = now() - sessionCreatedAt < FRESH_SESSION_MS;
+    if (row.sign_key !== keyB64 && !fresh) {
+      if (b.authSecret === undefined) fail(409, row.sign_key === null ? 'sign_key_password' : 'sign_key_mismatch');
       await confirmPassword(userId, b);
     }
     db.prepare('UPDATE users SET sign_key = ? WHERE id = ?').run(keyB64, userId);

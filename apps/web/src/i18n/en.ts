@@ -38,6 +38,9 @@ export const EN: Readonly<Record<string, string>> = {
   'Подпись не сходится': 'Signature does not match',
   'Комментарий изменён или написан не тем, кто указан автором.': 'The comment was changed or written by someone other than the stated author.',
   'без подписи': 'unsigned',
+  'подпись не проверена': 'signature not verified',
+  'Комментарии теперь подписываются. Чтобы участники общих проектов могли проверить вашу подпись, подтвердите пароль один раз.':
+    'Comments are signed now. Confirm your password once so members of shared projects can verify your signature.',
   'Ключ подписи': 'Signing key',
   'На сервере для вашего аккаунта стоит другой ключ подписи комментариев. Его могли поставить по украденной сессии. Пока он стоит, другие участники видят ваши новые комментарии как неподписанные вами.':
     'The server has a different comment signing key for your account. It may have been set through a stolen session. While it stays, other members see your new comments as not signed by you.',

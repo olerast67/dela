@@ -393,13 +393,25 @@ describe('двухфакторный вход', () => {
     expect((await login()).status).toBe(200);
   });
 
-  it('ключ подписи ставится по сессии один раз, заменить его можно только с паролем', async () => {
+  it('ключ подписи без пароля ставится только из свежей сессии', async () => {
     const s = makeServer();
+    {
+      // Старая сессия без ключа: нужен пароль.
+      const other = makeServer();
+      const { acc: old, res: oldRes } = await register(other, 'old@x.yz', 'p');
+      other.advance(11 * 60_000);
+      const k = toB64(newKey());
+      expect((await other.call('PUT', '/api/account/sign-key', { signPublicKey: k }, oldRes.json.token)).json.error).toBe('sign_key_password');
+      expect((await other.call('PUT', '/api/account/sign-key', { signPublicKey: k, authSecret: toB64(old.authSecret) }, oldRes.json.token)).status).toBe(200);
+    }
     const { acc, res } = await register(s, 'k@x.yz', 'p');
     const token = res.json.token;
     const key1 = toB64(newKey());
     const key2 = toB64(newKey());
+    // Сразу после входа ключ ставится без пароля.
     expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key1 }, token)).status).toBe(200);
+    // Через 10 минут сессия уже не свежая.
+    s.advance(11 * 60_000);
     expect((await s.call('PUT', '/api/account/sign-key', { signPublicKey: key1 }, token)).status).toBe(200);
     expect((await s.call('GET', '/api/account', undefined, token)).json.signPublicKey).toBe(key1);
     // Украденной сессии мало, чтобы заменить ключ.
