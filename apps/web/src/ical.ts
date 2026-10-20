@@ -15,8 +15,15 @@ type Time = InstanceType<typeof ICAL.Time>;
 
 /** Больше этого файл календаря не разбирается: защита от зависания на огромном ответе. */
 export const MAX_ICS_BYTES = 20 * 1024 * 1024;
+/** Больше стольких VEVENT из файла не берётся: остальные отбрасываются. */
+export const MAX_EVENTS = 10_000;
 /** Сколько экземпляров одного повтора перебирается до конца окна. */
-const MAX_STEPS = 50_000;
+const MAX_EVENT_STEPS = 20_000;
+/**
+ * Общий бюджет шагов развёртки на весь вызов: файл из тысяч повторов не подвесит экран.
+ * Перескочить сразу к окну ical.js не умеет: iterator(start) сдвигает начало серии, а с ним COUNT и шаг INTERVAL.
+ */
+export const MAX_TOTAL_STEPS = 50_000;
 
 export interface ParsedCalendar {
   readonly events: readonly Event[];
@@ -78,6 +85,7 @@ export function parseCalendar(ics: string): ParsedCalendar {
   const jcal = ICAL.parse(ics);
   const roots = (Array.isArray(jcal[0]) ? jcal : [jcal]) as unknown[];
   const events: Event[] = [];
+  let taken = 0;
   for (const root of roots) {
     const comp: Component = new ICAL.Component(root as never);
     if (comp.name !== 'vcalendar') throw new Error('not a calendar');
@@ -85,6 +93,8 @@ export function parseCalendar(ics: string): ParsedCalendar {
     const masters = new Map<string, Event>();
     const exceptions: Event[] = [];
     for (const v of vevents) {
+      if (taken >= MAX_EVENTS) break;
+      taken++;
       if (!v.getFirstProperty('dtstart')) continue;
       const e = new ICAL.Event(v);
       if (v.hasProperty('recurrence-id')) exceptions.push(e);
@@ -101,6 +111,21 @@ export function parseCalendar(ics: string): ParsedCalendar {
     }
   }
   return { events };
+}
+
+/**
+ * Повтор чаще, чем может понадобиться в списке дел: каждую секунду или минуту — всегда,
+ * каждый час — если до конца окна больше MAX_EVENT_STEPS шагов. Такое событие показывается только первым экземпляром.
+ */
+function tooFrequent(event: Event, stop: number): boolean {
+  const start = event.startDate.toUnixTime() * 1000;
+  for (const p of event.component.getAllProperties('rrule')) {
+    const r = p.getFirstValue() as { freq?: string; interval?: number } | null;
+    const freq = String(r?.freq ?? '').toUpperCase();
+    if (freq === 'SECONDLY' || freq === 'MINUTELY') return true;
+    if (freq === 'HOURLY' && (stop - start) / (Math.max(1, r?.interval ?? 1) * 3_600_000) > MAX_EVENT_STEPS) return true;
+  }
+  return false;
 }
 
 export interface ExpandOptions {
@@ -150,17 +175,25 @@ export function expandCalendar(cal: ParsedCalendar, o: ExpandOptions): CalEvent[
     out.push({ ...base, allDay: false, start: s, end: e });
   };
 
+  // Запас в двое суток: время экземпляра здесь грубое, пояс ещё не учтён.
+  const stop = o.to + 2 * 86_400_000;
+  let budget = MAX_TOTAL_STEPS;
+  const recurring: Array<{ event: Event; uid: string; start: number }> = [];
   cal.events.forEach((event, index) => {
     const uid = event.uid || `#${index}`;
-    if (!event.isRecurring() || event.isRecurrenceException()) {
+    if (!event.isRecurring() || event.isRecurrenceException() || tooFrequent(event, stop)) {
       const key = event.isRecurrenceException() ? `${uid}:${event.recurrenceId.toString()}` : uid;
       push(event, event.startDate, event.endDate, key, false);
       return;
     }
+    recurring.push({ event, uid, start: event.startDate.toUnixTime() });
+  });
+  // Сначала повторы, начатые позже: им до окна меньше шагов, и древняя серия не съест бюджет остальных.
+  recurring.sort((x, y) => y.start - x.start);
+  for (const { event, uid } of recurring) {
     const it = event.iterator();
-    // Запас в двое суток: время экземпляра здесь грубое, пояс ещё не учтён.
-    const stop = o.to + 2 * 86_400_000;
-    for (let i = 0; i < MAX_STEPS; i++) {
+    for (let i = 0; i < MAX_EVENT_STEPS && budget > 0; i++) {
+      budget--;
       const occ = it.next();
       if (!occ) break;
       if (occ.toUnixTime() * 1000 > stop) break;
@@ -169,6 +202,6 @@ export function expandCalendar(cal: ParsedCalendar, o: ExpandOptions): CalEvent[
       // У экземпляра основного события конец посчитан от начала: он в поясе начала.
       push(d.item, d.startDate, d.endDate, `${uid}:${occ.toString()}`, !exception);
     }
-  });
+  }
   return out;
 }

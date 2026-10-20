@@ -130,7 +130,10 @@ export class IdbStore implements SyncStore {
 
 // ---------- ключи на устройстве ----------
 
-async function deviceKey(store: IdbStore): Promise<CryptoKey> {
+/** Где лежит ключ устройства: хранилище приложения (в тестах — подмена в памяти). */
+export type DeviceKeyStore = Pick<IdbStore, 'getMeta' | 'setMeta'>;
+
+async function deviceKey(store: DeviceKeyStore): Promise<CryptoKey> {
   const existing = await store.getMeta<CryptoKey>('deviceKey');
   if (existing) return existing;
   const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
@@ -138,21 +141,21 @@ async function deviceKey(store: IdbStore): Promise<CryptoKey> {
   return key;
 }
 
-export async function sealLocal(store: IdbStore, data: unknown): Promise<{ iv: Uint8Array<ArrayBuffer>; data: ArrayBuffer }> {
+export async function sealLocal(store: DeviceKeyStore, data: unknown): Promise<{ iv: Uint8Array<ArrayBuffer>; data: ArrayBuffer }> {
   const key = await deviceKey(store);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const plain = new TextEncoder().encode(JSON.stringify(data));
   return { iv, data: await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, plain) };
 }
 
-export async function openLocal<T>(store: IdbStore, sealed: { iv: Uint8Array<ArrayBuffer>; data: ArrayBuffer }): Promise<T> {
+export async function openLocal<T>(store: DeviceKeyStore, sealed: { iv: Uint8Array<ArrayBuffer>; data: ArrayBuffer }): Promise<T> {
   const key = await deviceKey(store);
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: sealed.iv }, key, sealed.data);
   return JSON.parse(new TextDecoder().decode(plain)) as T;
 }
 
 /** Зашифровать ключом устройства в одну строку base64 (iv ‖ шифротекст): для push-напоминаний. */
-export async function sealLocalB64(store: IdbStore, data: unknown): Promise<string> {
+export async function sealLocalB64(store: DeviceKeyStore, data: unknown): Promise<string> {
   const { iv, data: ct } = await sealLocal(store, data);
   const out = new Uint8Array(iv.length + ct.byteLength);
   out.set(iv, 0);

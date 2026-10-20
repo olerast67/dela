@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { expandCalendar, parseCalendar, plainText } from '../src/ical.ts';
+import { expandCalendar, MAX_EVENTS, parseCalendar, plainText } from '../src/ical.ts';
 import type { CalEvent } from '#core';
 
 const TZ = 'Europe/Moscow';
@@ -147,4 +147,40 @@ describe('разбор iCal', () => {
   it('не календарь — ошибка', () => {
     expect(() => parseCalendar('<html>Sign in</html>')).toThrow();
   });
+
+  it('повтор каждую минуту или секунду — только первый экземпляр', () => {
+    const list = expand(
+      ics(
+        vevent('UID:m', 'SUMMARY:Минутный', 'DTSTART:20261015T090000Z', 'DTEND:20261015T090030Z', 'RRULE:FREQ=MINUTELY'),
+        vevent('UID:s', 'SUMMARY:Секундный', 'DTSTART:20261015T100000Z', 'RRULE:FREQ=SECONDLY;INTERVAL=5'),
+      ),
+      '2026-10-15',
+      '2026-10-16',
+    );
+    expect(list.map((e) => [e.title, ...iso(e)])).toEqual([
+      ['Минутный', '2026-10-15T09:00:00.000Z', '2026-10-15T09:00:30.000Z'],
+      ['Секундный', '2026-10-15T10:00:00.000Z', '2026-10-15T10:00:00.000Z'],
+    ]);
+  });
+
+  it('ежечасный повтор с давних времён не перебирается', () => {
+    const list = expand(ics(vevent('UID:h', 'SUMMARY:Часы', 'DTSTART:19700101T000000Z', 'RRULE:FREQ=HOURLY')), '2026-10-15', '2026-10-16');
+    expect(list).toEqual([]);
+  });
+
+  it('бюджет шагов общий на весь календарь, свежие серии идут первыми', () => {
+    // Каждая давняя серия укладывается в предел на событие (~19 тысяч дней), но вместе они больше общего бюджета.
+    const old = Array.from({ length: 4 }, (_, i) => vevent(`UID:old${i}`, 'SUMMARY:Старый', 'DTSTART;VALUE=DATE:19750101', 'RRULE:FREQ=DAILY'));
+    const list = expand(ics(...old, vevent('UID:new', 'SUMMARY:Новый', 'DTSTART;VALUE=DATE:20260901', 'RRULE:FREQ=DAILY')), '2026-10-15', '2026-10-16');
+    const series = (title: string) => new Set(list.filter((e) => e.title === title).map((e) => e.id.split(':')[1])).size;
+    expect(list.some((e) => e.title === 'Новый')).toBe(true);
+    // Бюджета хватает на две давние серии из четырёх.
+    expect(series('Старый')).toBe(2);
+  });
+
+  it('больше MAX_EVENTS событий не берётся', () => {
+    const many = Array.from({ length: MAX_EVENTS + 5 }, (_, i) => vevent(`UID:e${i}`, 'DTSTART;VALUE=DATE:20261015'));
+    expect(parseCalendar(ics(...many)).events).toHaveLength(MAX_EVENTS);
+  });
 });
+

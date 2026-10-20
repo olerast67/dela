@@ -2,13 +2,14 @@
  * События внешних календарей на этом устройстве: подписки iCal и календари телефона.
  *
  * Подписки (название, ссылка, цвет) лежат зашифрованными в личном пространстве и синхронизируются.
- * Файлы календарей каждое устройство скачивает само, прямо с сервера календаря, и хранит в IndexedDB;
- * на сервер Dela ни ссылки, ни события открыто не попадают. Ссылка — секрет: она не пишется в журнал
+ * Файлы календарей каждое устройство скачивает само, прямо с сервера календаря, и хранит в IndexedDB
+ * зашифрованными ключом устройства (как и задачи); на сервер Dela ни ссылки, ни события открыто не попадают. Ссылка — секрет: она не пишется в журнал
  * и не хранится в кеше (кеш узнаёт её по хешу). События календарей телефона не покидают телефон вовсе.
  */
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import { useSyncExternalStore } from 'react';
 import { windowBounds, type CalEvent, type CalendarSub } from '#core';
+import { FeedTooLargeError, declaredTooLarge, MAX_CALENDAR_BYTES, openFeed, readCapped, sealFeed, type SealedFeed } from './calendarFeed.ts';
 import { controller } from './controller.ts';
 import { TZ } from './format.ts';
 import type { ParsedCalendar } from './ical.ts';
@@ -43,18 +44,39 @@ class CalendarFetchError extends Error {
 // ---------- кеш файлов в IndexedDB ----------
 
 interface CacheSchema extends DBSchema {
-  feeds: { key: string; value: { hash: string; text: string; fetchedAt: number } };
+  feeds: { key: string; value: SealedFeed };
 }
 
 let dbPromise: Promise<IDBPDatabase<CacheSchema>> | null = null;
 
 function db(): Promise<IDBPDatabase<CacheSchema>> {
-  dbPromise ??= openDB<CacheSchema>('dela-calendars', 1, {
-    upgrade(d) {
-      d.createObjectStore('feeds');
+  // Версия 2: текст файла зашифрован. Открытые записи версии 1 стираются, файлы скачаются заново.
+  dbPromise ??= openDB<CacheSchema>('dela-calendars', 2, {
+    upgrade(d, _old, _new, tx) {
+      if (!d.objectStoreNames.contains('feeds')) d.createObjectStore('feeds');
+      else void tx.objectStore('feeds').clear();
     },
   });
   return dbPromise;
+}
+
+/** Кеш с прошлого запуска. Только при открытой сессии: ключ устройства живёт в хранилище приложения. */
+async function readCache(id: string): Promise<{ hash: string; text: string; fetchedAt: number } | null> {
+  if (!controller.doc) return null;
+  const rec = await db()
+    .then((d) => d.get('feeds', id))
+    .catch(() => undefined);
+  return openFeed(controller.store, rec);
+}
+
+async function writeCache(id: string, hash: string, text: string, fetchedAt: number): Promise<void> {
+  if (!controller.doc) return;
+  try {
+    const rec = await sealFeed(controller.store, hash, text, fetchedAt);
+    await (await db()).put('feeds', rec, id);
+  } catch {
+    // кеш не обязателен: без него события просто скачаются при следующем запуске
+  }
 }
 
 async function urlHash(url: string): Promise<string> {
@@ -89,7 +111,11 @@ async function download(url: string): Promise<string> {
       throw new CalendarFetchError('network');
     }
     if (r.status < 200 || r.status >= 300) throw new CalendarFetchError('http', r.status);
-    return typeof r.data === 'string' ? r.data : String(r.data ?? '');
+    // CapacitorHttp отдаёт ответ целиком, потока нет: предел проверяется уже после загрузки, до разбора.
+    const length = Object.entries(r.headers ?? {}).find(([k]) => k.toLowerCase() === 'content-length')?.[1];
+    const body = typeof r.data === 'string' ? r.data : String(r.data ?? '');
+    if (declaredTooLarge(length) || body.length > MAX_CALENDAR_BYTES) throw new CalendarFetchError('large');
+    return body;
   }
   let r: Response;
   try {
@@ -99,7 +125,11 @@ async function download(url: string): Promise<string> {
     throw new CalendarFetchError(navigator.onLine === false ? 'network' : 'cors');
   }
   if (!r.ok) throw new CalendarFetchError('http', r.status);
-  return await r.text();
+  try {
+    return await readCapped(r);
+  } catch (err) {
+    throw new CalendarFetchError(err instanceof FeedTooLargeError ? 'large' : 'network');
+  }
 }
 
 // ---------- состояние ----------
@@ -164,9 +194,7 @@ async function refreshOne(sub: CalendarSub, force: boolean): Promise<void> {
     feed = undefined;
     feeds.delete(sub.id);
     // Кеш с прошлого запуска: события видны сразу, даже без сети.
-    const cached = await db()
-      .then((d) => d.get('feeds', sub.id))
-      .catch(() => undefined);
+    const cached = await readCache(sub.id);
     if (cached && cached.hash === hash && (await accept(sub, hash, cached.text, cached.fetchedAt))) {
       feed = feeds.get(sub.id);
       changed();
@@ -179,10 +207,7 @@ async function refreshOne(sub: CalendarSub, force: boolean): Promise<void> {
   try {
     const text = await download(sub.url);
     const now = Date.now();
-    if (await accept(sub, hash, text, now))
-      await db()
-        .then((d) => d.put('feeds', { hash, text, fetchedAt: now }, sub.id))
-        .catch(() => undefined);
+    if (await accept(sub, hash, text, now)) await writeCache(sub.id, hash, text, now);
   } catch (err) {
     const e = err instanceof CalendarFetchError ? err : new CalendarFetchError('network');
     setStatus(sub.id, { error: e.kind, ...(e.code !== undefined ? { code: e.code } : {}) });
