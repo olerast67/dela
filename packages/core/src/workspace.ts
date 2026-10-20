@@ -54,6 +54,11 @@ export class Workspace {
     );
   }
 
+  /** Несколько изменений как одна запись отмены: действия над выделенными задачами. */
+  group<T>(fn: () => T): T {
+    return this.batch(fn);
+  }
+
   /** Выполнить действие как одну запись отмены, даже если оно пишет в несколько пространств. */
   private batch<T>(fn: () => T): T {
     const outer = this.recording === null;

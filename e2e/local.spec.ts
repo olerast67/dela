@@ -54,3 +54,33 @@ test('экран при запуске из настроек', async ({ page }) 
   await page.reload();
   await expect(page).toHaveURL(/#\/inbox$/);
 });
+
+test('выделение нескольких задач: выполнить разом и отменить одной кнопкой', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.keyboard.press('q');
+  await page.getByLabel('Новая задача').evaluate((el, text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, 'Первая пачка сегодня\nВторая пачка сегодня\nТретья пачка сегодня');
+  await page.getByRole('button', { name: 'Добавить все' }).click();
+  const row = (text: string) => page.locator('.task', { hasText: text });
+  await row('Первая пачка').click({ modifiers: ['Control'] });
+  // Пока что-то выделено, обычный щелчок тоже выделяет, а не открывает карточку.
+  await row('Вторая пачка').click();
+  await expect(page.getByText('Выбрано: 2')).toBeVisible();
+  await page.getByRole('toolbar').getByRole('button', { name: 'Выполнить' }).click();
+  await expect(row('Первая пачка')).toHaveCount(0);
+  await expect(row('Вторая пачка')).toHaveCount(0);
+  await expect(row('Третья пачка')).toBeVisible();
+  await page.getByRole('button', { name: 'Отменить' }).click();
+  await expect(row('Первая пачка')).toBeVisible();
+  await expect(row('Вторая пачка')).toBeVisible();
+  // Esc снимает выделение.
+  await row('Третья пачка').click({ modifiers: ['Control'] });
+  await expect(page.getByRole('toolbar')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('toolbar')).toHaveCount(0);
+});

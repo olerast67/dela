@@ -45,7 +45,8 @@ export function registerTouchTask(el: Element | null, task: TaskView, drop: Drop
  * Начать перетаскивание пальцем: копия строки едет за пальцем, под ней подсвечивается место.
  * Прокрутка страницы на время жеста выключена, у краёв экрана список прокручивается сам.
  */
-export function startTouchDrag(taskId: string, source: HTMLElement, x: number, y: number, onEnd: () => void): void {
+/** onEnd(moved): moved false, если палец отпустили на месте, не перетаскивая. */
+export function startTouchDrag(taskId: string, source: HTMLElement, x: number, y: number, onEnd: (moved: boolean) => void): void {
   const rect = source.getBoundingClientRect();
   const ghost = source.cloneNode(true) as HTMLElement;
   ghost.classList.add('drag-ghost');
@@ -100,7 +101,9 @@ export function startTouchDrag(taskId: string, source: HTMLElement, x: number, y
       zone.classList.add(markClass);
     }
   };
+  let moved = false;
   const move = (e: PointerEvent) => {
+    if (Math.abs(e.clientX - x) > 10 || Math.abs(e.clientY - y) > 10) moved = true;
     ghost.style.transform = `translateY(${e.clientY - dy0 - rect.top}px) scale(1.03)`;
     if (scroller) {
       if (e.clientY < 90) scroller.scrollTop -= 12;
@@ -126,7 +129,7 @@ export function startTouchDrag(taskId: string, source: HTMLElement, x: number, y
         info.drop(taskId, info.task, t.where);
       } else touchZones.get(t.el)!(taskId);
     }
-    onEnd();
+    onEnd(moved);
   };
   const up = () => finish(true);
   const cancel = () => finish(false);

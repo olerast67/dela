@@ -8,6 +8,7 @@ import { IconChevron, IconComment, IconDeadline, IconRepeat, IconSubtasks, IconT
 import { controller } from '../controller.ts';
 import { DRAG_TYPE, draggedId, registerTouchTask, setDragged, startTouchDrag, useDropOnTask, type DropWhere } from './dnd.ts';
 import { showToast } from './toast.tsx';
+import { pickedIds, togglePicked, usePicked } from './selection.ts';
 import { tr } from '../i18n.ts';
 
 /** Порог смахивания, пикселей: дальше него отпускание выполняет действие. */
@@ -147,7 +148,11 @@ export function TaskRow({
     !task.projected && !done
       ? ({ x, y, el, done }) => {
           haptic('medium');
-          startTouchDrag(task.id, el, x, y, done);
+          // Отпустили на месте, не перетаскивая: задача выделяется, как в Todoist.
+          startTouchDrag(task.id, el, x, y, (moved) => {
+            done();
+            if (!moved) togglePicked(task.id);
+          });
         }
       : undefined,
   );
@@ -166,6 +171,7 @@ export function TaskRow({
   }
 
   const labels = task.labels.map((id) => doc.label(id)).filter((l) => l && l.deletedAt === null);
+  const isPicked = usePicked().has(task.id);
 
   return (
     <div className="task-wrap" style={depth ? { marginLeft: `${depth * 24}px` } : undefined}>
@@ -179,7 +185,7 @@ export function TaskRow({
       {...swipe.handlers}
       ref={(el) => registerTouchTask(el, task, onDropTask)}
       onContextMenu={(e) => coarse && e.preventDefault()}
-      className={`task${selected ? ' selected' : ''}${leaving ? ' leaving' : ''}${done ? ' done' : ''}${task.projected ? ' projected' : ''}${dropPos ? ` drop-${dropPos}` : ''}`}
+      className={`task${selected ? ' selected' : ''}${isPicked ? ' picked' : ''}${leaving ? ' leaving' : ''}${done ? ' done' : ''}${task.projected ? ' projected' : ''}${dropPos ? ` drop-${dropPos}` : ''}`}
       style={swipe.dx ? { transform: `translateX(${swipe.dx}px)`, transition: swipe.dragging ? 'none' : undefined } : undefined}
       data-id={task.id}
       draggable={!task.projected && !done && !coarse}
@@ -207,7 +213,15 @@ export function TaskRow({
         e.stopPropagation();
         onDropTask(id, task, where);
       }}
-      onClick={() => onOpen(task.id)}
+      onClick={(e) => {
+        // Ctrl или Cmd с щелчком выделяет задачу; пока что-то выделено, щелчок добавляет или снимает задачу.
+        if (e.ctrlKey || e.metaKey || pickedIds().size > 0) {
+          if (!task.projected) togglePicked(task.id);
+          return;
+        }
+        onOpen(task.id);
+      }}
+      aria-pressed={isPicked || undefined}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {

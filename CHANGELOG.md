@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Select several tasks and act on all of them: complete, today, tomorrow, no date, priority, project, label, delete. Ctrl or Cmd click on a computer, a long press without dragging on a phone; while something is selected, a click adds or removes a task. One "Undo" reverts the whole action, Esc clears the selection.
 - Settings → Start screen: Today, Inbox, Upcoming, Calendar, a project or a filter. A link to a specific screen still opens that screen.
 - Quick add: paste a list and get a task per line. Markers like "-", "1." and "[ ]" are removed, checked "[x]" items are skipped, an indented line becomes a subtask. Each line is read as a phrase, with its own date, project and labels. A multi-line text shared to Dela on Android works the same way.
 - Reminders on the phone for tasks added on another device while Dela on the phone is closed. Before, the phone's push schedule only had the tasks the phone had seen, so such a task stayed silent. Now any device of the account updates the phone's schedule; the text is encrypted with a key the server does not have. Phones with push already on switch to the new key at the next start.

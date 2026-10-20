@@ -8,6 +8,8 @@ import { QuickAdd } from './ui/QuickAdd.tsx';
 import { Sidebar } from './ui/Sidebar.tsx';
 import { TaskPanel } from './ui/TaskPanel.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
+import { SelectionBar } from './ui/SelectionBar.tsx';
+import { clearPicked, pickedIds } from './ui/selection.ts';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
 import { checkDesktopUpdate, onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch } from './platform.ts';
@@ -147,6 +149,10 @@ function Shell() {
           else document.getElementById('search')?.focus();
           return;
         case 'Escape':
+          if (pickedIds().size > 0) {
+            clearPicked();
+            return;
+          }
           setQuickAdd(false);
           setSelected(null);
           return;
@@ -158,6 +164,7 @@ function Shell() {
   }, [doc, selected]);
 
   useEffect(() => setMenu(false), [route]);
+  useEffect(() => clearPicked(), [route]);
 
   // Телефон: тап по уведомлению и кнопка «Назад».
   const backState = useRef({ quickAdd, selected, palette, help, menu });
@@ -340,6 +347,7 @@ function Shell() {
       </button>
       {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} />}
       {help && <ShortcutsHelp onClose={() => setHelp(false)} />}
+      <SelectionBar />
       <ToastHost />
     </div>
   );

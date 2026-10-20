@@ -2618,3 +2618,49 @@ kbd {
   text-align: center;
   margin: 4px 0 0;
 }
+
+/* Выделенные задачи и панель действий над ними. */
+.task.picked {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.selection-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 14;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgb(0 0 0 / 0.12);
+}
+
+.selection-count {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.selection-bar select {
+  width: auto;
+}
+
+.selection-bar .icon {
+  min-width: 36px;
+  font-size: 20px;
+  border: 1px solid var(--border);
+}
+
+/* Пока открыта панель, кнопка добавления не выглядывает из-под неё, а последняя задача не прячется. */
+body:has(.selection-bar) .fab {
+  display: none;
+}
+
+body:has(.selection-bar) .content {
+  padding-bottom: 200px;
+}
