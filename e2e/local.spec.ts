@@ -21,3 +21,22 @@ test('попробовать без сервера', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Без сервера' })).toBeVisible();
   expect(api).toEqual([]);
 });
+
+test('вставленный список становится задачами, отступ даёт подзадачу', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.keyboard.press('q');
+  const list = '- [ ] Ремонт сегодня\n  - [x] купить краску\n  - [ ] покрасить стену сегодня\n- Забрать посылку сегодня в 19';
+  await page.getByLabel('Новая задача').evaluate((el, text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, list);
+  await expect(page.getByText('Вставлен список: 3 задачи')).toBeVisible();
+  await expect(page.locator('.qa-batch li.sub', { hasText: 'покрасить стену' })).toBeVisible();
+  await page.getByRole('button', { name: 'Добавить все' }).click();
+  await expect(page.locator('.task', { hasText: 'Забрать посылку' })).toBeVisible();
+  await expect(page.locator('.task', { hasText: 'покрасить стену' })).toBeVisible();
+  await expect(page.locator('.task', { hasText: 'купить краску' })).toHaveCount(0);
+});

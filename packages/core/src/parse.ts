@@ -668,3 +668,35 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
     tokens,
   };
 }
+
+/** Строка вставленного списка: текст без маркера и уровень вложенности (0 или 1). */
+export interface ListLine {
+  readonly text: string;
+  readonly depth: 0 | 1;
+}
+
+/**
+ * Вставленный текст из нескольких строк как список задач: маркеры «-», «*», «•», «1.» и «[ ]» убираются,
+ * отмеченные «[x]» пропускаются, строка с отступом под другой строкой становится подзадачей.
+ * null, если непустая строка одна: тогда это обычная фраза.
+ */
+export function splitTaskList(text: string): ListLine[] | null {
+  const out: ListLine[] = [];
+  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => l.trim());
+  const indentOf = (l: string) => /^[ \t]*/.exec(l)![0].replace(/\t/g, '    ').length;
+  // Отступ считается от самой левой строки: список, скопированный целиком с отступом, остаётся плоским.
+  const base = Math.min(...lines.map(indentOf));
+  for (const raw of lines) {
+    const indent = indentOf(raw) - base;
+    let line = raw.trim().replace(/^(?:[-*+•]|\d{1,3}[.)])\s+/, '');
+    const box = /^\[([ xX])\]\s*/.exec(line);
+    if (box) {
+      if (box[1] !== ' ') continue;
+      line = line.slice(box[0].length);
+    }
+    line = line.trim();
+    if (!line) continue;
+    out.push({ text: line, depth: indent >= 2 && out.length > 0 ? 1 : 0 });
+  }
+  return out.length > 1 ? out : null;
+}

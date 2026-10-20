@@ -3,7 +3,7 @@
  * «Сейчас» — вторник 13 октября 2026, 12:00 по Москве.
  */
 import { describe, expect, it } from 'vitest';
-import { parseTask, type ParseContext, type ParsedTask } from '../src/index.ts';
+import { parseTask, splitTaskList, type ParseContext, type ParsedTask } from '../src/index.ts';
 
 const ctx: ParseContext = {
   now: Date.UTC(2026, 9, 13, 9, 0),
@@ -148,5 +148,30 @@ describe('токены и игнорирование', () => {
 
   it('повтор хранит исходную фразу', () => {
     expect(parseTask('бассейн по понедельникам и средам в 8', ctx).recurrence?.text).toBe('по понедельникам и средам');
+  });
+});
+
+describe('splitTaskList', () => {
+  it('одна строка остаётся фразой', () => {
+    expect(splitTaskList('купить хлеб завтра')).toBeNull();
+    expect(splitTaskList('купить хлеб\n\n  \n')).toBeNull();
+  });
+
+  it('маркеры убираются, отмеченные пункты пропускаются, отступ даёт подзадачу', () => {
+    const text = '- [ ] Ремонт #Дом\n  - [x] купить краску\n  - [ ] покрасить стену завтра\n1. Позвонить маме в 19\r\n\n* [X] старое\n• Отчёт !1';
+    expect(splitTaskList(text)).toEqual([
+      { text: 'Ремонт #Дом', depth: 0 },
+      { text: 'покрасить стену завтра', depth: 1 },
+      { text: 'Позвонить маме в 19', depth: 0 },
+      { text: 'Отчёт !1', depth: 0 },
+    ]);
+  });
+
+  it('общий отступ всего списка не делает подзадач', () => {
+    expect(splitTaskList('    первая\n    вторая\n      третья')).toEqual([
+      { text: 'первая', depth: 0 },
+      { text: 'вторая', depth: 0 },
+      { text: 'третья', depth: 1 },
+    ]);
   });
 });

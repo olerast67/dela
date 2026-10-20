@@ -1,12 +1,12 @@
 import { listenVoice, voiceAvailable } from '../platform.ts';
 import { IconMic } from './icons.tsx';
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { parseTask, type DateSpec, type ParsedTask, type Priority, type Token, type Workspace } from '#core';
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
+import { parseTask, splitTaskList, type DateSpec, type ListLine, type ParsedTask, type Priority, type Token, type Workspace } from '#core';
 import { controller } from '../controller.ts';
 import { useDoc } from '../hooks.ts';
 import { TZ, dueLabel, durationLabel, dateLabel } from '../format.ts';
 import { showToast } from './toast.tsx';
-import { tr } from '../i18n.ts';
+import { tn, tr } from '../i18n.ts';
 
 export interface QuickAddDefaults {
   readonly projectId?: string;
@@ -74,7 +74,9 @@ export function QuickAdd({
   autoVoice?: boolean;
 }) {
   const doc = useDoc();
-  const [text, setText] = useState(initialText);
+  // Вставленный или присланный через «Поделиться» список: по задаче на строку.
+  const [batch, setBatch] = useState<ListLine[] | null>(() => splitTaskList(initialText));
+  const [text, setText] = useState(() => (splitTaskList(initialText) ? '' : initialText));
   const [ignored, setIgnored] = useState<Ignored[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const mirror = useRef<HTMLDivElement>(null);
@@ -130,6 +132,34 @@ export function QuickAdd({
     if (compact) showToast(tr('Задача добавлена'));
   }
 
+  function addBatch(lines: readonly ListLine[]) {
+    let parent: string | null = null;
+    let added = 0;
+    for (const line of lines) {
+      const p = parseTask(line.text, ctx);
+      if (!p.title) continue;
+      const top = parent ? doc.task(parent) : undefined;
+      if (line.depth === 1 && top) {
+        createFromParsed(doc, p, { ...defaults, projectId: top.projectId, sectionId: top.sectionId, parentId: top.id });
+      } else {
+        parent = createFromParsed(doc, p, defaults);
+      }
+      added++;
+    }
+    setBatch(null);
+    showToast(tr('Добавлено: {n}', { n: tn(added, 'задача', 'задачи', 'задач') }));
+    onClose?.();
+  }
+
+  function onPaste(e: ClipboardEvent<HTMLInputElement>) {
+    const lines = splitTaskList(e.clipboardData.getData('text/plain'));
+    if (!lines) return;
+    e.preventDefault();
+    // Уже набранная фраза становится первой задачей списка.
+    setBatch(text.trim() ? [{ text: text.trim(), depth: 0 }, ...lines] : lines);
+    setText('');
+  }
+
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       e.preventDefault();
@@ -165,6 +195,46 @@ export function QuickAdd({
   }
   for (const t of parsed.tokens.filter((x) => x.kind === 'label')) chips.push({ key: `l${t.start}`, label: t.text, token: t });
 
+  if (batch) {
+    return (
+      <div className={compact ? 'quick-add compact' : 'quick-add'}>
+        <p className="qa-batch-title">{tr('Вставлен список: {n}', { n: tn(batch.length, 'задача', 'задачи', 'задач') })}</p>
+        <ul className="qa-batch">
+          {batch.map((line, i) => {
+            const p = parseTask(line.text, ctx);
+            return (
+              <li key={i} className={line.depth ? 'sub' : undefined}>
+                <span>{p.title || line.text}</span>
+                {p.due && <span className="qa-batch-due">{dueLabel(p.due)}</span>}
+              </li>
+            );
+          })}
+        </ul>
+        <div className="qa-bar">
+          <span />
+          <div className="qa-actions">
+            <button
+              type="button"
+              onClick={() => {
+                setText(batch.map((l) => l.text).join(' '));
+                setBatch(null);
+                input.current?.focus();
+              }}
+            >
+              {tr('Одной задачей')}
+            </button>
+            <button type="button" onClick={() => (onClose ? onClose() : setBatch(null))}>
+              {tr('Отмена')}
+            </button>
+            <button type="button" className="primary" onClick={() => addBatch(batch)}>
+              {tr('Добавить все')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={compact ? 'quick-add compact' : 'quick-add'}>
       <div className="qa-field">
@@ -187,6 +257,7 @@ export function QuickAdd({
           aria-label={tr('Новая задача')}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}
+          onPaste={onPaste}
           onScroll={(e) => {
             if (mirror.current) mirror.current.scrollLeft = e.currentTarget.scrollLeft;
           }}

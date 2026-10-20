@@ -123,7 +123,7 @@ export {
   type Rule,
   type WeekdayNum,
 } from './recurrence.ts';
-export { parseTask, resolveDate, type ParseContext, type ParsedTask, type Token, type TokenKind } from './parse.ts';
+export { parseTask, resolveDate, splitTaskList, type ListLine, type ParseContext, type ParsedTask, type Token, type TokenKind } from './parse.ts';
 export { ApiClient, ApiError, NetworkError, type DeviceInfo, type Fetcher, type SessionInfo, type SpaceInfo } from './client.ts';
 export {
   signUp,
