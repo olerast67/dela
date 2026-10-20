@@ -910,6 +910,16 @@ svg.c-gray, svg.c-red, svg.c-orange, svg.c-yellow, svg.c-green, svg.c-teal, svg.
   font-weight: 600;
 }
 
+/* Текст, распознанный с картинки: правится целиком, по задаче на строку. */
+.qa-draft {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  line-height: 1.45;
+  padding: 8px 10px;
+}
+
 .qa-batch {
   list-style: none;
   margin: 0;
@@ -2991,6 +3001,44 @@ kbd {
 .file-progress button {
   padding: 2px 10px;
   font-size: 13px;
+}
+
+/* Плашка распознавания присланной картинки или голосового: вверху, чтобы не спорить с тостом и кнопкой «+». */
+.recognize-bar {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 31;
+  width: min(480px, calc(100vw - 32px));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+}
+
+.recognize-bar .file-progress {
+  max-width: none;
+}
+
+.recognize-bar-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.recognize-bar-head span {
+  flex: 1;
+}
+
+.model-row .file-progress {
+  max-width: 220px;
 }
 
 /* ---------- перетаскивание пальцем ---------- */

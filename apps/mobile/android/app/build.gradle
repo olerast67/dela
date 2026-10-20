@@ -16,6 +16,11 @@ android {
         versionCode 11
         versionName "0.8.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Распознавание на устройстве (Tesseract, sherpa-onnx) — нативные библиотеки только для телефонов ARM.
+        // Эмуляторы x86_64 с Android 11+ запускают их через трансляцию ARM.
+        ndk {
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -44,6 +49,20 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    packaging {
+        jniLibs {
+            // Библиотеки лежат в APK сжатыми: файл меньше на 15 МБ, Android распаковывает их при установке.
+            useLegacyPackaging = true
+            excludes += [
+                // Обёртка JNI sherpa-onnx связана только с onnxruntime, его C и C++ API не нужны.
+                '**/libsherpa-onnx-c-api.so',
+                '**/libsherpa-onnx-cxx-api.so',
+                // Распознавание речи только на 64-битных телефонах: для armeabi-v7a это ещё 9 МБ APK.
+                '**/armeabi-v7a/libonnxruntime.so',
+                '**/armeabi-v7a/libsherpa-onnx-jni.so',
+            ]
+        }
+    }
 }
 
 repositories {
@@ -60,6 +79,9 @@ dependencies {
     implementation project(':capacitor-android')
     // Push без сервисов Google: распространитель UnifiedPush (ntfy и другие) доставляет Web Push сервера.
     implementation 'org.unifiedpush.android:connector:3.3.5'
+    // Распознавание текста на картинке и голосовых сообщений на устройстве; AAR скачивает fetchRecognitionLibs.
+    implementation files('libs/tesseract4android-4.9.0.aar')
+    implementation files('libs/sherpa-onnx-1.13.8.aar')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
@@ -67,5 +89,58 @@ dependencies {
 }
 
 apply from: 'capacitor.build.gradle'
+
+// ---- Библиотеки распознавания ----
+// Не лежат в git (*.aar в .gitignore): скачиваются один раз из официальных выпусков, закреплены за версией
+// и сверяются по SHA-256. Обе открытые: Tesseract4Android — Apache-2.0 (Tesseract, Leptonica, libjpeg, libpng
+// внутри — Apache-2.0, BSD-2, IJG, libpng), sherpa-onnx — Apache-2.0 (onnxruntime — MIT).
+// Модели и языковые данные в APK не входят: их скачивает приложение по кнопке в настройках (ModelPacks.java).
+def recognitionLibs = [
+    [
+        file: 'libs/tesseract4android-4.9.0.aar',
+        // JitPack собирает выпуск 4.9.0 из исходников github.com/adaptech-cz/Tesseract4Android.
+        url: 'https://jitpack.io/cz/adaptech/tesseract4android/tesseract4android/4.9.0/tesseract4android-4.9.0.aar',
+        sha256: 'bce5d6413a1a5ae3d7240033fbbc851ba3217d0a08d9769400e17a077f42cb2a',
+    ],
+    [
+        file: 'libs/sherpa-onnx-1.13.8.aar',
+        url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-1.13.8.aar',
+        sha256: '633c24321e06b1fe79feafa03ea16cbc0f8a286641e2da3559bac91bdb13bd96',
+    ],
+]
+
+def sha256Of = { File f ->
+    def md = java.security.MessageDigest.getInstance('SHA-256')
+    f.withInputStream { input ->
+        byte[] buf = new byte[1 << 16]
+        int n
+        while ((n = input.read(buf)) > 0) md.update(buf, 0, n)
+    }
+    md.digest().encodeHex().toString()
+}
+
+tasks.register('fetchRecognitionLibs') {
+    group = 'build setup'
+    description = 'Downloads Tesseract4Android and sherpa-onnx (not stored in git) and checks their SHA-256.'
+    def dir = projectDir
+    doLast {
+        recognitionLibs.each { lib ->
+            def target = new File(dir, lib.file)
+            if (target.exists() && sha256Of(target) == lib.sha256) return
+            target.parentFile.mkdirs()
+            logger.lifecycle("Downloading ${lib.url}")
+            def part = new File(target.parentFile, target.name + '.part')
+            new URL(lib.url).withInputStream { input -> part.withOutputStream { it << input } }
+            def got = sha256Of(part)
+            if (got != lib.sha256) {
+                part.delete()
+                throw new GradleException("Checksum mismatch for ${lib.file}: expected ${lib.sha256}, got ${got}")
+            }
+            java.nio.file.Files.move(part.toPath(), target.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+}
+
+tasks.named('preBuild') { dependsOn 'fetchRecognitionLibs' }
 
 // Сервисы Google не подключаются: push идёт через UnifiedPush, сборка годится для F-Droid.

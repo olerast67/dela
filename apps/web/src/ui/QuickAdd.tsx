@@ -67,6 +67,7 @@ export function QuickAdd({
   placeholder = tr('Например: позвонить маме завтра в 19 №Дом !1'),
   compact = false,
   initialText = '',
+  initialEdit = false,
   autoVoice = false,
 }: {
   defaults?: QuickAddDefaults;
@@ -74,6 +75,8 @@ export function QuickAdd({
   placeholder?: string;
   compact?: boolean;
   initialText?: string;
+  /** Сначала показать initialText целиком для правки (текст, распознанный с картинки). */
+  initialEdit?: boolean;
   /** Сразу открыть голосовой ввод (кнопка микрофона на виджете). */
   autoVoice?: boolean;
 }) {
@@ -81,11 +84,16 @@ export function QuickAdd({
   // Вставленный или присланный через «Поделиться» список: по задаче на строку.
   const [batch, setBatch] = useState<ListLine[] | null>(() => splitTaskList(initialText));
   const [text, setText] = useState(() => (splitTaskList(initialText) ? '' : initialText));
+  // Правка текста целиком, по задаче на строку; null — обычный ввод или список.
+  const [draft, setDraft] = useState<string | null>(() => (initialEdit && initialText.trim() ? initialText : null));
   const [ignored, setIgnored] = useState<Ignored[]>([]);
   const input = useRef<HTMLInputElement>(null);
   const mirror = useRef<HTMLDivElement>(null);
 
-  useEffect(() => input.current?.focus(), []);
+  // Фокус в поле при открытии и после правки текста целиком.
+  useEffect(() => {
+    if (draft === null) input.current?.focus();
+  }, [draft === null]);
 
   // Голосовой ввод на телефоне: фраза попадает в поле и разбирается так же, как набранная.
   const [voice, setVoice] = useState(false);
@@ -206,6 +214,52 @@ export function QuickAdd({
   }
   for (const t of parsed.tokens.filter((x) => x.kind === 'label')) chips.push({ key: `l${t.start}`, label: t.text, token: t });
 
+  function applyDraft(value: string) {
+    const lines = splitTaskList(value);
+    setBatch(lines);
+    setText(lines ? '' : value.replace(/\s+/g, ' ').trim());
+    setDraft(null);
+  }
+
+  if (draft !== null) {
+    return (
+      <div className={compact ? 'quick-add compact' : 'quick-add'}>
+        <p className="qa-batch-title">{tr('Проверьте текст: каждая строка станет задачей')}</p>
+        <textarea
+          className="qa-draft"
+          value={draft}
+          rows={Math.min(10, Math.max(3, draft.split('\n').length))}
+          aria-label={tr('Текст задач')}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter переносит строку; Ctrl+Enter — готово, Esc — закрыть.
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && draft.trim()) {
+              e.preventDefault();
+              applyDraft(draft);
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              if (onClose) onClose();
+              else setDraft(null);
+            }
+          }}
+          autoFocus
+          spellCheck
+        />
+        <div className="qa-bar">
+          <span />
+          <div className="qa-actions">
+            <button type="button" onClick={() => (onClose ? onClose() : setDraft(null))}>
+              {tr('Отмена')}
+            </button>
+            <button type="button" className="primary" disabled={!draft.trim()} onClick={() => applyDraft(draft)}>
+              {tr('Готово')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (batch) {
     return (
       <div className={compact ? 'quick-add compact' : 'quick-add'}>
@@ -224,6 +278,9 @@ export function QuickAdd({
         <div className="qa-bar">
           <span />
           <div className="qa-actions">
+            <button type="button" onClick={() => setDraft(batch.map((l) => (l.depth ? '  ' : '') + l.text).join('\n'))}>
+              {tr('Изменить')}
+            </button>
             <button
               type="button"
               onClick={() => {
