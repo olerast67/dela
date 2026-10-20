@@ -1,4 +1,4 @@
-/* Страница проекта Dela. Токены из приложения (стиль «Бумага»): .web/DESIGN.md */
+/* Страница проекта Dela. Токены из приложения (стиль «Бумага», apps/web/src/styles.css): .web/DESIGN.md */
 @font-face {
   font-family: 'Manrope Variable';
   font-style: normal;
@@ -20,11 +20,19 @@
 :root {
   --bg: #f6f3ec;
   --surface: #fffdf8;
+  --surface-2: #efe9dd;
   --text: #25221c;
   --muted: #6c655a;
   --border: #e6dfd1;
   --accent: #2e7d5b;
+  --accent-soft: #e2eee5;
   --on-accent: #ffffff;
+  /* точки платформ: акцент, --p2 и --p3 приложения, текст и вторичный текст */
+  --dot-all: #2e7d5b;
+  --dot-android: #e07b1a;
+  --dot-windows: #3b6fd8;
+  --dot-wear: #25221c;
+  --dot-mcp: #6c655a;
   --shadow: 0 1px 2px rgb(60 50 30 / 0.06), 0 4px 14px rgb(60 50 30 / 0.05);
   --radius: 10px;
   --radius-card: 14px;
@@ -35,11 +43,18 @@
   :root {
     --bg: #1a1916;
     --surface: #24221e;
+    --surface-2: #2d2a25;
     --text: #efeae0;
     --muted: #bcb5a7;
     --border: #36332d;
     --accent: #6fcf9b;
+    --accent-soft: #263a2e;
     --on-accent: #10201a;
+    --dot-all: #6fcf9b;
+    --dot-android: #f2a65a;
+    --dot-windows: #7fa4f0;
+    --dot-wear: #efeae0;
+    --dot-mcp: #bcb5a7;
     --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset;
     color-scheme: dark;
   }
@@ -51,6 +66,7 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-padding-top: 16px;
 }
 
 body {
@@ -68,8 +84,12 @@ a {
   text-underline-offset: 3px;
 }
 
+img {
+  max-width: 100%;
+}
+
 .wrap {
-  max-width: 1120px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px;
 }
@@ -80,6 +100,20 @@ a {
 
 .nw {
   white-space: nowrap;
+}
+
+.skip {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  z-index: 10;
+}
+
+.skip:focus {
+  top: 12px;
 }
 
 /* шапка */
@@ -104,36 +138,48 @@ a {
 .top nav {
   margin-left: auto;
   display: flex;
-  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px 20px;
   font-size: 16px;
 }
 
 .top nav a {
   color: var(--muted);
   text-decoration: none;
+  padding: 6px 0;
 }
 
 .top nav a:hover {
   color: var(--text);
 }
 
+.top nav .lang {
+  color: var(--text);
+  font-weight: 700;
+}
+
 /* первый экран */
 .hero {
-  padding-top: 40px;
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 48px;
+  align-items: center;
+  padding-top: 32px;
   padding-bottom: 24px;
 }
 
 h1 {
-  font-size: clamp(40px, 6.4vw, 72px);
+  font-size: clamp(34px, 2.4vw + 22px, 56px);
   line-height: 1.05;
   font-weight: 800;
   letter-spacing: -0.03em;
-  margin: 0 0 20px;
+  margin: 0 0 22px;
   max-width: 15ch;
 }
 
 .lead {
-  font-size: clamp(18px, 2vw, 21px);
+  font-size: clamp(18px, 1.6vw, 20px);
   color: var(--muted);
   margin: 0 0 28px;
 }
@@ -142,7 +188,12 @@ h1 {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
-  margin-bottom: 36px;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 16px;
+  margin: 14px 0 0;
 }
 
 .btn {
@@ -151,11 +202,17 @@ h1 {
   min-height: 52px;
   padding: 0 24px;
   border-radius: var(--radius);
+  font: inherit;
   font-weight: 700;
   text-decoration: none;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+  cursor: pointer;
+}
+
+.btn:hover {
+  border-color: var(--muted);
 }
 
 .btn.primary {
@@ -164,8 +221,13 @@ h1 {
   color: var(--on-accent);
 }
 
+.btn.primary:hover {
+  filter: brightness(1.08);
+}
+
 .btn:focus-visible,
-a:focus-visible {
+a:focus-visible,
+button:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 3px;
 }
@@ -174,82 +236,233 @@ a:focus-visible {
   display: block;
   width: 100%;
   height: auto;
+  border-radius: 16px;
+  box-shadow: 0 2px 4px rgb(60 50 30 / 0.06), 0 8px 24px rgb(60 50 30 / 0.1);
+}
+
+.hero .shot {
   border-radius: 18px;
-  box-shadow: 0 2px 4px rgb(60 50 30 / 0.06), 0 8px 20px rgb(60 50 30 / 0.08);
 }
 
 /* секции */
 section.wrap {
-  padding-top: 64px;
-  padding-bottom: 8px;
+  padding-top: 72px;
 }
 
 h2 {
-  font-size: clamp(28px, 3.4vw, 38px);
-  line-height: 1.15;
+  font-size: clamp(30px, 3.4vw, 42px);
+  line-height: 1.12;
   font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0 0 18px;
+  margin: 0 0 16px;
+  max-width: 24ch;
+}
+
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
 }
 
 h3 {
   font-size: 19px;
-  margin: 0 0 4px;
+  line-height: 1.3;
+  margin: 0 0 6px;
 }
 
-.features {
+.intro {
+  color: var(--muted);
+  margin: 0 0 28px;
+}
+
+/* что видит сервер */
+.split {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
+  gap: 14px;
+  margin: 8px 0 24px;
 }
 
-.features li {
-  display: grid;
-  grid-template-columns: 24px 1fr;
-  gap: 2px 14px;
+.panel {
   background: var(--surface);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow);
-  padding: 16px 20px 16px 16px;
+  padding: 22px 24px;
 }
 
-/* Как выполненная задача в приложении: зелёный кружок с галочкой. */
-.features li::before {
-  content: '';
-  grid-row: span 2;
-  width: 22px;
-  height: 22px;
-  margin-top: 3px;
-  border-radius: 50%;
-  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 12.5l3.6 3.6 7.4-7.6'/%3E%3C/svg%3E") center / 14px no-repeat;
+.panel.locked {
+  background: var(--accent-soft);
+  box-shadow: none;
 }
 
-.features p {
+.panel ul {
   margin: 0;
+  padding-left: 20px;
+}
+
+.panel li {
+  margin: 4px 0;
+}
+
+.panel li::marker {
   color: var(--muted);
-  font-size: 16.5px;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 16.5px;
+/* новое: группы как в «Предстоящих», возможности как строки задач */
+.group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px 40px;
+  align-items: start;
+  margin-top: 40px;
 }
 
-th,
-td {
-  text-align: left;
-  padding: 12px 10px 12px 0;
-  border-bottom: 1px solid var(--border);
-  vertical-align: top;
+.group.flip .shot-col {
+  order: -1;
 }
 
-th {
-  color: var(--muted);
+.group h3 {
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0 0 12px;
+  padding-left: 4px;
+}
+
+.tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.task {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 0 14px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow);
+  padding: 14px 18px 12px 16px;
+}
+
+/* Пустой кружок задачи, как в списке приложения. */
+.task::before {
+  content: '';
+  grid-row: span 3;
+  width: 20px;
+  height: 20px;
+  margin-top: 3px;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+}
+
+.task b {
   font-weight: 600;
+  font-size: 17.5px;
+  line-height: 1.4;
+}
+
+.task p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.tag {
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.tag::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dot-all);
+}
+
+.tag.android::before {
+  background: var(--dot-android);
+}
+
+.tag.windows::before {
+  background: var(--dot-windows);
+}
+
+.tag.wear::before {
+  background: var(--dot-wear);
+}
+
+.tag.mcp::before {
+  background: var(--dot-mcp);
+}
+
+.shot-col {
+  margin: 36px 0 0;
+}
+
+.shot-col figcaption {
+  color: var(--muted);
+  font-size: 15px;
+  margin-top: 10px;
+}
+
+/* остальное */
+.basics {
+  columns: 2;
+  column-gap: 40px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.basics li {
+  break-inside: avoid;
+  margin: 0 0 10px;
+}
+
+.basics li::marker {
+  color: var(--accent);
+}
+
+/* скачать */
+.platforms {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  border-top: 1px solid var(--border);
+}
+
+.platforms li {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 4fr) minmax(0, 6fr);
+  gap: 4px 24px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.platforms .name {
+  font-weight: 700;
+}
+
+.platforms .file code {
+  overflow-wrap: anywhere;
+}
+
+.platforms .what {
+  color: var(--muted);
+  font-size: 16.5px;
 }
 
 code,
@@ -258,13 +471,94 @@ pre {
   font-size: 15px;
 }
 
+:not(pre) > code {
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+.code {
+  position: relative;
+  margin: 18px 0;
+}
+
 pre {
+  margin: 0;
   background: var(--surface);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow);
-  padding: 16px 18px;
+  padding: 18px 20px;
   overflow-x: auto;
-  line-height: 1.5;
+  line-height: 1.6;
+}
+
+.copy {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 15px;
+}
+
+a > code {
+  color: inherit;
+}
+
+:not(pre) > a > code {
+  background: none;
+  padding: 0;
+}
+
+/* сравнение */
+.compare-wrap {
+  overflow-x: auto;
+}
+
+table {
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16.5px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 12px 16px 12px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+thead th {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+table {
+  table-layout: fixed;
+  max-width: 980px;
+}
+
+thead td,
+tbody th {
+  width: 34%;
+}
+
+tbody th {
+  font-weight: 600;
+}
+
+.shot-col a {
+  display: block;
+  border-radius: 16px;
+}
+
+.small {
+  color: var(--muted);
+  font-size: 15.5px;
 }
 
 .support {
@@ -275,7 +569,7 @@ pre {
 }
 
 footer {
-  margin-top: 64px;
+  margin-top: 80px;
   padding: 28px 0 40px;
   border-top: 1px solid var(--border);
   color: var(--muted);
@@ -288,31 +582,67 @@ footer .wrap {
   gap: 8px 22px;
 }
 
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .group {
+    grid-template-columns: 1fr;
+  }
+
+  .group.flip .shot-col {
+    order: 0;
+  }
+
+  .shot-col {
+    margin-top: 4px;
+  }
+
+  .platforms li {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 760px) {
   body {
     font-size: 17px;
   }
 
-  .top nav {
+  .top nav .sec {
     display: none;
   }
 
   .hero {
-    padding-top: 16px;
+    padding-top: 8px;
   }
 
-  .features {
-    grid-template-columns: 1fr;
-  }
-
-  .shot {
+  .hero .shot {
     width: min(300px, 80vw);
     margin: 0 auto;
     border-radius: 26px;
   }
 
-  th:nth-child(3),
-  td:nth-child(3) {
-    display: none;
+  section.wrap {
+    padding-top: 56px;
+  }
+
+  .split {
+    grid-template-columns: 1fr;
+  }
+
+  .basics {
+    columns: 1;
+  }
+
+  .actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
+  .copy {
+    position: static;
+    margin-top: 10px;
   }
 }
