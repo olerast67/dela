@@ -54,6 +54,7 @@ import {
   type Op,
   type Session,
   type SyncStatus,
+  phonePushKey,
   signingKeys,
   signComment,
   verifyComment,
@@ -357,6 +358,7 @@ export class Controller {
     const lastHlc = await this.store.getMeta<string>('hlc');
     this.clock = new HybridClock(stored.node, now, lastHlc);
     void this.ensureSignKey().catch(() => undefined);
+    void this.refreshPhonePushKey().catch(() => undefined);
     const doc = new Doc({ spaceId: stored.spaceId, clock: this.clock, now });
     doc.load(await this.store.loadCells(stored.spaceId));
     const ws = new Workspace(doc);
@@ -946,6 +948,8 @@ export class Controller {
       // без localStorage настройка действует до перезагрузки
     }
     this.scheduleReminders();
+    // Минуты до срока этого телефона нужны и другим устройствам: они составляют для него расписание.
+    this.schedulePushSoon();
   }
 
   private remindersDebounce: ReturnType<typeof setTimeout> | undefined;
@@ -967,19 +971,36 @@ export class Controller {
     }
   }
 
-  /** Ключ текста напоминаний для телефона: его знают веб-часть и нативная служба push, но не сервер. */
-  private async nativePushKey(): Promise<Uint8Array> {
-    let key = await this.store.getMeta<string>('nativePushKey');
-    if (!key) {
-      key = toB64(newKey());
-      await this.store.setMeta('nativePushKey', key);
+  /**
+   * Ключ текста напоминаний для телефона: его знают веб-часть, нативная служба push и другие устройства аккаунта
+   * (выводят из главного ключа), но не сервер.
+   */
+  private phoneKey(deviceId: string): Uint8Array {
+    return phonePushKey(this.accountKeys().masterKey, deviceId);
+  }
+
+  /**
+   * Телефон с push, включённым до 0.6.0, хранил случайный ключ текста. Ключ меняется на выведенный из главного,
+   * а подписка помечается как телефонная: так другие устройства могут класть напоминания в её расписание.
+   */
+  private async refreshPhonePushKey(): Promise<void> {
+    if (platform() !== 'capacitor' || !this.pushEnabled() || !this.stored || this.stored.local) return;
+    try {
+      if (localStorage.getItem('pushKey') === '2') return;
+    } catch {
+      return;
     }
-    return fromB64(key);
+    const { publicKey } = await this.api.pushKey();
+    const sub = await nativePushSubscribe(publicKey, toB64(this.phoneKey(this.stored.deviceId)));
+    if (!sub) return;
+    await this.api.pushSubscribe({ ...sub, kind: 'phone' });
+    localStorage.setItem('pushKey', '2');
+    await this.uploadPushSchedule();
   }
 
   /** base64(iv ‖ AES-GCM) ключом телефона: так текст расшифровывает нативная служба UnifiedPush. */
-  private async sealForPhone(value: unknown): Promise<string> {
-    const key = await crypto.subtle.importKey('raw', (await this.nativePushKey()) as BufferSource, 'AES-GCM', false, ['encrypt']);
+  private async sealForPhone(raw: Uint8Array, value: unknown): Promise<string> {
+    const key = await crypto.subtle.importKey('raw', raw as BufferSource, 'AES-GCM', false, ['encrypt']);
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(value))));
     const all = new Uint8Array(iv.length + ct.length);
@@ -991,11 +1012,12 @@ export class Controller {
   async enablePush(): Promise<'ok' | 'denied' | 'unsupported' | 'no_distributor'> {
     if (platform() === 'capacitor') {
       const { publicKey } = await this.api.pushKey();
-      const sub = await nativePushSubscribe(publicKey, toB64(await this.nativePushKey()));
+      const sub = await nativePushSubscribe(publicKey, toB64(this.phoneKey(this.stored!.deviceId)));
       if (!sub) return 'no_distributor';
-      await this.api.pushSubscribe(sub);
+      await this.api.pushSubscribe({ ...sub, kind: 'phone' });
       try {
         localStorage.setItem('push', '1');
+        localStorage.setItem('pushKey', '2');
       } catch {
         // без localStorage расписание всё равно отправится в этот раз
       }
@@ -1038,27 +1060,56 @@ export class Controller {
   private pushDebounce: ReturnType<typeof setTimeout> | undefined;
 
   private schedulePushSoon(): void {
-    if (!this.pushEnabled() || this.stored?.local) return;
+    if (!this.stored || this.stored.local) return;
     clearTimeout(this.pushDebounce);
     this.pushDebounce = setTimeout(() => void this.uploadPushSchedule().catch(() => undefined), 3000);
   }
 
-  /** Расписание на неделю: время открыто, текст зашифрован ключом этого устройства. */
+  /**
+   * Расписание на неделю: время открыто, текст зашифрован. Своё расписание отправляет устройство с включённым push,
+   * а расписание телефонов аккаунта обновляет любое устройство: задача, добавленная на компьютере,
+   * напомнит о себе на телефоне, даже если приложение там закрыто.
+   */
   async uploadPushSchedule(): Promise<void> {
-    if (!this.doc || !this.leader || !this.pushEnabled()) return;
+    if (!this.doc || !this.leader || !this.stored || this.stored.local) return;
+    const self = this.stored.deviceId;
+    if (this.pushEnabled()) {
+      const offsets = this.reminderDefaults();
+      const seal = platform() === 'capacitor' ? (c: unknown) => this.sealForPhone(this.phoneKey(self), c) : (c: unknown) => sealLocalB64(this.store, c);
+      await this.api.pushSchedule(await this.pushEntries(offsets, seal), { offsets });
+    }
+    for (const phone of await this.pushPhones()) {
+      if (phone.deviceId === self) continue;
+      const key = this.phoneKey(phone.deviceId);
+      const entries = await this.pushEntries(phone.offsets ?? [0], (c) => this.sealForPhone(key, c));
+      await this.api.pushSchedule(entries, { device: phone.deviceId }).catch(() => undefined);
+    }
+  }
+
+  private async pushEntries(offsets: number[], seal: (content: unknown) => Promise<string>): Promise<Array<{ id: string; fireAt: number; payload: string }>> {
+    if (!this.doc) return [];
     const now = Date.now();
-    const list = remindersBetween(this.doc, now, now + 7 * 24 * 3600_000, TZ, this.reminderDefaults()).slice(0, 300);
-    const entries = await Promise.all(
+    const list = remindersBetween(this.doc, now, now + 7 * 24 * 3600_000, TZ, offsets).slice(0, 300);
+    return Promise.all(
       list.map(async (r) => {
         const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(r.key)));
         const id = [...digest.subarray(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
         const body = r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
         // Сервер принимает до 1 КБ на напоминание: длинное название обрезается, иначе отклонилось бы всё расписание.
         const content = { t: (r.title || tr('Задача')).slice(0, 200), b: body, k: r.key, id: r.taskId };
-        return { id, fireAt: r.at, payload: platform() === 'capacitor' ? await this.sealForPhone(content) : await sealLocalB64(this.store, content) };
+        return { id, fireAt: r.at, payload: await seal(content) };
       }),
     );
-    await this.api.pushSchedule(entries);
+  }
+
+  private phonesCache: { at: number; list: Array<{ deviceId: string; offsets: number[] | null }> } | null = null;
+
+  /** Телефоны аккаунта с push; список обновляется раз в 10 минут. */
+  private async pushPhones(): Promise<Array<{ deviceId: string; offsets: number[] | null }>> {
+    if (this.phonesCache && Date.now() - this.phonesCache.at < 10 * 60_000) return this.phonesCache.list;
+    const list = await this.api.pushDevices().then((r) => r.devices, () => this.phonesCache?.list ?? []);
+    this.phonesCache = { at: Date.now(), list };
+    return list;
   }
 
   /**

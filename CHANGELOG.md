@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Reminders on the phone for tasks added on another device while Dela on the phone is closed. Before, the phone's push schedule only had the tasks the phone had seen, so such a task stayed silent. Now any device of the account updates the phone's schedule; the text is encrypted with a key the server does not have. Phones with push already on switch to the new key at the next start.
 - Dela Verify, a browser extension that checks the web app served by your server against the signed release on GitHub. The sign-in screen in a browser points to it and to the apps.
 - Comments are signed by their authors. A comment whose signature does not match shows a warning instead of the author name.
 - Two-factor sign-in can also be required for the recovery key (Settings → Two-factor sign-in). Off by default.

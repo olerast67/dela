@@ -1130,11 +1130,29 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const p256dh = str(keys.p256dh, 'keys.p256dh', { max: 200, re: /^[A-Za-z0-9_-]+$/ });
     const auth = str(keys.auth, 'keys.auth', { max: 100, re: /^[A-Za-z0-9_-]+$/ });
     if (Buffer.from(p256dh, 'base64url').length !== 65 || Buffer.from(auth, 'base64url').length !== 16) bad('invalid subscription keys');
+    const kind = b.kind === 'phone' ? 'phone' : 'web';
     db.prepare(
-      `INSERT INTO push_subscriptions (device_id, endpoint, p256dh, auth, created_at) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT (device_id) DO UPDATE SET endpoint = excluded.endpoint, p256dh = excluded.p256dh, auth = excluded.auth`,
-    ).run(deviceId, endpoint, p256dh, auth, now());
+      `INSERT INTO push_subscriptions (device_id, endpoint, p256dh, auth, created_at, kind) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (device_id) DO UPDATE SET endpoint = excluded.endpoint, p256dh = excluded.p256dh, auth = excluded.auth, kind = excluded.kind`,
+    ).run(deviceId, endpoint, p256dh, auth, now(), kind);
     return c.json({ ok: true });
+  });
+
+  /**
+   * Телефоны аккаунта с включённым push. Ключ текста напоминаний для телефона любое устройство аккаунта выводит
+   * из главного ключа, поэтому задача, добавленная на компьютере, попадает в расписание телефона, пока тот закрыт.
+   */
+  app.get('/api/push/devices', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const rows = db
+      .prepare(
+        `SELECT p.device_id, p.offsets FROM push_subscriptions p JOIN devices d ON d.id = p.device_id
+         WHERE d.user_id = ? AND d.revoked_at IS NULL AND p.kind = 'phone'`,
+      )
+      .all(userId) as Array<{ device_id: string; offsets: string | null }>;
+    return c.json({
+      devices: rows.map((r) => ({ deviceId: r.device_id, offsets: r.offsets === null ? null : (JSON.parse(r.offsets) as number[]) })),
+    });
   });
 
   app.delete('/api/push/subscription', requireAuth, (c) => {
@@ -1144,10 +1162,29 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     return c.json({ ok: true });
   });
 
-  /** Заменить расписание напоминаний устройства целиком. */
+  /**
+   * Заменить расписание напоминаний устройства целиком: своего или, с полем device, телефона того же аккаунта.
+   * Поле offsets запоминает минуты до срока, выбранные на этом устройстве, их читают другие устройства.
+   */
   app.put('/api/push/schedule', requireAuth, async (c) => {
-    const { deviceId } = c.get('auth');
+    const auth = c.get('auth');
     const b = await body(c);
+    let deviceId = auth.deviceId;
+    if (b.device !== undefined && b.device !== auth.deviceId) {
+      const target = str(b.device, 'device', { max: 64 });
+      const ok = db
+        .prepare(
+          `SELECT 1 FROM push_subscriptions p JOIN devices d ON d.id = p.device_id
+           WHERE p.device_id = ? AND d.user_id = ? AND d.revoked_at IS NULL AND p.kind = 'phone'`,
+        )
+        .get(target, auth.userId);
+      if (!ok) fail(404, 'not_found');
+      deviceId = target;
+    } else if (b.offsets !== undefined) {
+      if (!Array.isArray(b.offsets) || b.offsets.length > 10) bad('offsets must be an array of at most 10 numbers');
+      const offsets = b.offsets.map((o, i) => int(o, `offsets[${i}]`, 0, 7 * 24 * 60));
+      db.prepare('UPDATE push_subscriptions SET offsets = ? WHERE device_id = ?').run(JSON.stringify(offsets), deviceId);
+    }
     if (!Array.isArray(b.entries)) bad('entries must be an array');
     if (b.entries.length > MAX_SCHEDULE) bad(`at most ${MAX_SCHEDULE} entries`);
     const t = now();

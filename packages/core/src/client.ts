@@ -298,7 +298,7 @@ export class ApiClient {
     return this.call('GET', '/api/push/key');
   }
 
-  pushSubscribe(subscription: { endpoint: string; keys: { p256dh: string; auth: string } }): Promise<{ ok: true }> {
+  pushSubscribe(subscription: { endpoint: string; keys: { p256dh: string; auth: string }; kind?: 'phone' | 'web' }): Promise<{ ok: true }> {
     return this.call('PUT', '/api/push/subscription', subscription);
   }
 
@@ -306,8 +306,17 @@ export class ApiClient {
     return this.call('DELETE', '/api/push/subscription');
   }
 
-  pushSchedule(entries: ReadonlyArray<{ id: string; fireAt: number; payload: string }>): Promise<{ ok: true; count: number }> {
-    return this.call('PUT', '/api/push/schedule', { entries });
+  /** Расписание своего устройства (с offsets) или телефона того же аккаунта (device). */
+  pushSchedule(
+    entries: ReadonlyArray<{ id: string; fireAt: number; payload: string }>,
+    opts: { device?: string; offsets?: readonly number[] } = {},
+  ): Promise<{ ok: true; count: number }> {
+    return this.call('PUT', '/api/push/schedule', { entries, ...opts });
+  }
+
+  /** Телефоны аккаунта с включённым push и их минуты до срока. */
+  pushDevices(): Promise<{ devices: Array<{ deviceId: string; offsets: number[] | null }> }> {
+    return this.call('GET', '/api/push/devices');
   }
 
   /** Адрес WebSocket для сигналов «есть новое». */

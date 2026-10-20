@@ -16,6 +16,8 @@ import {
   openEnvelope,
   openSealedSpaceKey,
   parseRecoveryKey,
+  phonePushKey,
+  signingKeys,
   sealOp,
   sealSpaceKeyFor,
   slotFor,
@@ -218,5 +220,18 @@ describe('конверт операции', () => {
 
   it('один и тот же текст каждый раз шифруется по-разному', () => {
     expect(sealOp('sp1', keys, op).payload).not.toBe(sealOp('sp1', keys, op).payload);
+  });
+});
+
+describe('ключ push-напоминаний телефона', () => {
+  it('одинаков на всех устройствах аккаунта и свой у каждого телефона', () => {
+    const master = newKey();
+    const a = phonePushKey(master, 'dev-1');
+    expect(a).toHaveLength(32);
+    expect(phonePushKey(master, 'dev-1')).toEqual(a);
+    expect(phonePushKey(master, 'dev-2')).not.toEqual(a);
+    expect(phonePushKey(newKey(), 'dev-1')).not.toEqual(a);
+    // Ключ не совпадает с ключом подписи, выведенным из того же главного ключа.
+    expect(toB64(a)).not.toBe(toB64(signingKeys(master).secretKey.subarray(0, 32)));
   });
 });

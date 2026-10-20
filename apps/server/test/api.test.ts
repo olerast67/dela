@@ -362,6 +362,33 @@ describe('Web Push', () => {
     expect(await server.pushTick()).toEqual({ sent: 0, gone: 0, failed: 0 });
     expect(sent).toHaveLength(2);
   });
+
+  it('компьютер кладёт напоминания в расписание телефона своего аккаунта', async () => {
+    const s = makeServer({ openRegistration: true });
+    const { acc, res } = await register(s, 'a@x.yz', 'p');
+    const phone = res.json.token;
+    const laptop = (await s.call('POST', '/api/auth/login', { email: 'a@x.yz', authSecret: toB64(acc.authSecret), deviceName: 'B' })).json.token;
+    const stranger = (await register(s, 'b@x.yz', 'p')).res.json.token;
+    const ecdh = (await import('node:crypto')).createECDH('prime256v1');
+    ecdh.generateKeys();
+    const keys = { p256dh: ecdh.getPublicKey().toString('base64url'), auth: Buffer.alloc(16, 1).toString('base64url') };
+    const entries = [{ id: 'r1', fireAt: NOW + 60_000, payload: toB64(new Uint8Array(40)) }];
+
+    // Подписка браузера в список телефонов не попадает.
+    await s.call('PUT', '/api/push/subscription', { endpoint: 'https://fcm.googleapis.com/fcm/send/abc', keys }, phone);
+    expect((await s.call('GET', '/api/push/devices', undefined, laptop)).json.devices).toEqual([]);
+    await s.call('PUT', '/api/push/subscription', { endpoint: 'https://ntfy.sh/upAbc', keys, kind: 'phone' }, phone);
+    expect((await s.call('PUT', '/api/push/schedule', { entries, offsets: [0, 10] }, phone)).status).toBe(200);
+    const list = (await s.call('GET', '/api/push/devices', undefined, laptop)).json.devices;
+    expect(list).toEqual([{ deviceId: expect.any(String), offsets: [0, 10] }]);
+
+    const phoneId = list[0].deviceId;
+    expect((await s.call('PUT', '/api/push/schedule', { entries, device: phoneId }, laptop)).json).toEqual({ ok: true, count: 1 });
+    // Чужой аккаунт не видит телефон и не может писать в его расписание.
+    expect((await s.call('GET', '/api/push/devices', undefined, stranger)).json.devices).toEqual([]);
+    expect((await s.call('PUT', '/api/push/schedule', { entries, device: phoneId }, stranger)).status).toBe(404);
+    expect((await s.call('PUT', '/api/push/schedule', { entries, offsets: [-1] }, phone)).status).toBe(400);
+  });
 });
 
 describe('двухфакторный вход', () => {

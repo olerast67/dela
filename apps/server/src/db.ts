@@ -165,6 +165,12 @@ const MIGRATIONS: readonly string[] = [
   -- Открытый ключ подписи комментариев (Ed25519). Секрет выводится на устройствах из мастер-ключа.
   ALTER TABLE users ADD COLUMN sign_key TEXT;
   `,
+  `
+  -- Телефон (kind = 'phone') принимает напоминания, которые положили в его расписание другие устройства аккаунта.
+  ALTER TABLE push_subscriptions ADD COLUMN kind TEXT NOT NULL DEFAULT 'web';
+  -- Минуты до срока, которые выбраны на этом устройстве: JSON-массив чисел.
+  ALTER TABLE push_subscriptions ADD COLUMN offsets TEXT;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

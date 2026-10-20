@@ -502,6 +502,16 @@ export function signingKeys(masterKey: Uint8Array): SigningKeys {
   return { publicKey: pair.publicKey, secretKey: pair.privateKey };
 }
 
+/**
+ * Ключ AES-GCM для текста push-напоминаний телефона deviceId. Его выводит любое устройство аккаунта из главного ключа,
+ * поэтому компьютер кладёт напоминание в расписание телефона, а сервер ключа не знает.
+ */
+export function phonePushKey(masterKey: Uint8Array, deviceId: string): Uint8Array {
+  const s = na();
+  const base = s.crypto_kdf_derive_from_key(32, 2, 'dela_psh', masterKey);
+  return s.crypto_generichash(32, encoder.encode(`dela/push/v1/${deviceId}`), base);
+}
+
 /** Что подписывает автор комментария: всё, что видит читатель, плюс пространство, задача и время. */
 export interface CommentSigned {
   readonly spaceId: string;
