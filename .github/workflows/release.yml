@@ -275,7 +275,8 @@ jobs:
       - name: Smoke test
         run: |
           tar -tzf out/dela-mcp.tgz
-          npx --yes "$PWD/out/dela-mcp.tgz" --help
+          # Путь к файлу npx принимает за команду; --package явно говорит, что это пакет.
+          npx --yes --package "file:$PWD/out/dela-mcp.tgz" dela-mcp --help
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: mcp
