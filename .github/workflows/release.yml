@@ -250,8 +250,40 @@ jobs:
           path: out/*
           if-no-files-found: error
 
+  mcp:
+    needs: version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - run: npm ci
+      # Пакет не публикуется в npm: архив лежит в выпуске под стабильным именем, ссылка releases/latest/download/dela-mcp.tgz ведёт на последний.
+      - name: Pack dela-mcp
+        working-directory: packages/mcp
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npm pack --silent
+          mkdir -p ../../out
+          mv "dela-mcp-$VERSION.tgz" ../../out/dela-mcp.tgz
+      - name: Smoke test
+        run: |
+          tar -tzf out/dela-mcp.tgz
+          npx --yes "$PWD/out/dela-mcp.tgz" --help
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mcp
+          path: out/dela-mcp.tgz
+          if-no-files-found: error
+
   publish:
-    needs: [version, android, windows, image]
+    needs: [version, android, windows, image, mcp]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -266,14 +298,14 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          pattern: '{android,windows,web}'
+          pattern: '{android,windows,web,mcp}'
           path: dist
           merge-multiple: true
       - name: Update manifest, checksums and release notes
         run: |
           DELA_BUNDLE_DIR=dist node scripts/latest-json.mjs > dist/latest.json
           rm -f dist/*.exe.sig
-          (cd dist && sha256sum *.apk *.exe latest.json web-manifest.json web-manifest.json.sig Dela-Verify-*.zip > SHA256SUMS.txt)
+          (cd dist && sha256sum *.apk *.exe latest.json web-manifest.json web-manifest.json.sig Dela-Verify-*.zip dela-mcp.tgz > SHA256SUMS.txt)
           awk -v v="$VERSION" '$0 == "## " v || index($0, "## " v " ") == 1 { f = 1; next } /^## / && f { exit } f' CHANGELOG.md > notes.md
           cat >> notes.md <<'NOTES'
 
@@ -284,6 +316,7 @@ jobs:
           ```
           gh attestation verify Dela-@VERSION@-android.apk --repo @REPO@
           gh attestation verify Dela_@VERSION@_x64-setup.exe --repo @REPO@
+          gh attestation verify dela-mcp.tgz --repo @REPO@
           apksigner verify --print-certs Dela-@VERSION@-android.apk
           ```
 
@@ -298,6 +331,7 @@ jobs:
             dist/*.exe
             dist/web-manifest.json
             dist/Dela-Verify-*.zip
+            dist/dela-mcp.tgz
       # Сначала черновик: при неизменяемых выпусках файлы нельзя добавить после публикации.
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -311,6 +345,7 @@ jobs:
             dist/web-manifest.json
             dist/web-manifest.json.sig
             dist/Dela-Verify-*.zip
+            dist/dela-mcp.tgz
             dist/SHA256SUMS.txt
           fail_on_unmatched_files: true
       - name: Publish the release

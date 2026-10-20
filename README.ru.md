@@ -189,10 +189,10 @@ docker compose pull && docker compose --profile https up -d
 
 ## ИИ-ассистенты (dela-mcp)
 
-`dela-mcp` это сервер MCP, который работает на вашем компьютере и подключает к задачам Claude Desktop и другие клиенты MCP. Он входит на ваш сервер Dela как новое устройство аккаунта, держит ключи на компьютере и расшифровывает задачи на месте. Пакет опубликован в npm под именем `dela-mcp`, ему нужен Node.js 22.18 или новее.
+`dela-mcp` это сервер MCP, который работает на вашем компьютере и подключает к задачам Claude Desktop и другие клиенты MCP. Он входит на ваш сервер Dela как новое устройство аккаунта, держит ключи на компьютере и расшифровывает задачи на месте. В npm пакета нет: к каждому выпуску приложен готовый архив `dela-mcp.tgz`, `npx` запускает его по ссылке ниже. Нужен Node.js 22.18 или новее.
 
 ```sh
-npx -y dela-mcp login   # адрес сервера, почта, пароль и код 2FA, если он включён
+npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz login   # адрес сервера, почта, пароль и код 2FA, если он включён
 ```
 
 В Claude Desktop откройте Settings → Developer → Edit Config, добавьте сервер в `claude_desktop_config.json` и перезапустите Claude Desktop:
@@ -200,12 +200,12 @@ npx -y dela-mcp login   # адрес сервера, почта, пароль и
 ```json
 {
   "mcpServers": {
-    "dela": { "command": "npx", "args": ["-y", "dela-mcp"] }
+    "dela": { "command": "npx", "args": ["-y", "https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz"] }
   }
 }
 ```
 
-Инструменты: `search_tasks`, `list_projects`, `add_task` (фраза быстрого добавления на русском или английском), `update_task`, `complete_task` и `today`. Инструментов для удаления нет. Компьютер появляется в «Настройки → Устройства», отозвать его можно там или командой `npx dela-mcp logout`. Ассистент видит расшифрованными те задачи, которые запросил. Как хранятся сессия и ключи, описано в [packages/mcp/README.md](packages/mcp/README.md) (по-английски).
+Инструменты: `search_tasks`, `list_projects`, `add_task` (фраза быстрого добавления на русском или английском), `update_task`, `complete_task` и `today`. Инструментов для удаления нет. Компьютер появляется в «Настройки → Устройства», отозвать его можно там или командой `npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz logout`. Ассистент видит расшифрованными те задачи, которые запросил. Как хранятся сессия и ключи, описано в [packages/mcp/README.md](packages/mcp/README.md) (по-английски).
 
 ## Безопасность и приватность
 

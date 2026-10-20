@@ -4,12 +4,12 @@ An [MCP](https://modelcontextprotocol.io) server for [Dela](https://github.com/o
 
 dela-mcp runs on your computer. It signs in to your own Dela server as a new device of your account, decrypts tasks locally and talks to the MCP client over stdio. The server still sees only ciphertext, and no service from the Dela author is involved. The assistant you connect does see the decrypted tasks it asks for, so connect only assistants you trust with them.
 
-Requires Node.js 22.18 or newer.
+Requires Node.js 22.18 or newer. The package is not published to npm: each [release](https://github.com/olerast67/dela/releases/latest) has the ready archive `dela-mcp.tgz`, and `npx` runs it from the link, installing the dependencies from npm. The link `https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz` always points to the latest release; to pin a version, use `https://github.com/olerast67/dela/releases/download/v<version>/dela-mcp.tgz`.
 
 ## Sign in
 
 ```sh
-npx dela-mcp login
+npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz login
 ```
 
 It asks for the server address, your email and password (typed without echo) and, if two-factor authentication is on, the code from your authenticator app. Passkeys are not supported here: use your password.
@@ -17,8 +17,8 @@ It asks for the server address, your email and password (typed without echo) and
 The computer appears in Dela under **Settings → Devices** as "Dela MCP · Windows · your-computer-name". Revoking it there cuts dela-mcp off at its next call, and it deletes its local session file. Signing in again on the same computer revokes the previous dela-mcp session first, so the device list keeps one entry.
 
 ```sh
-npx dela-mcp status   # who is signed in and whether the server is reachable
-npx dela-mcp logout   # revoke this device and delete the local session file
+npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz status   # who is signed in and whether the server is reachable
+npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz logout   # revoke this device and delete the local session file
 ```
 
 ## Connect to Claude Desktop
@@ -30,13 +30,13 @@ Open Settings → Developer → Edit Config and add to `claude_desktop_config.js
   "mcpServers": {
     "dela": {
       "command": "npx",
-      "args": ["-y", "dela-mcp"]
+      "args": ["-y", "https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz"]
     }
   }
 }
 ```
 
-Restart Claude Desktop. Other MCP clients take the same command: `npx -y dela-mcp`.
+Restart Claude Desktop. Other MCP clients take the same command: `npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz`.
 
 ## Tools
 
@@ -77,7 +77,7 @@ Passwords are never stored or logged. Nothing but MCP messages is written to std
 
 ## Development
 
-The source is in the Dela repository under `packages/mcp`. Tests run with the rest of the project (`npm test` at the repository root). `npm pack` builds `dist/cli.js`, one file with the Dela core inside.
+The source is in the Dela repository under `packages/mcp`. Tests run with the rest of the project (`npm test` at the repository root). `npm pack` in `packages/mcp` builds `dist/cli.js`, one file with the Dela core inside. The release workflow sets the package version to the release version, packs it and attaches the archive as `dela-mcp.tgz`.
 
 ## License
 

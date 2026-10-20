@@ -189,10 +189,10 @@ Migrations run at startup, and before them the server copies the database to `/d
 
 ## AI assistants (dela-mcp)
 
-`dela-mcp` is an MCP server that runs on your computer and connects Claude Desktop and other MCP clients to your tasks. It signs in to your Dela server as a new device of your account, keeps the keys on the computer and decrypts tasks locally. The package is published to npm as `dela-mcp` and needs Node.js 22.18 or newer.
+`dela-mcp` is an MCP server that runs on your computer and connects Claude Desktop and other MCP clients to your tasks. It signs in to your Dela server as a new device of your account, keeps the keys on the computer and decrypts tasks locally. It is not published to npm: every release has the ready archive `dela-mcp.tgz`, and `npx` runs it from the link below. It needs Node.js 22.18 or newer.
 
 ```sh
-npx -y dela-mcp login   # server address, email, password and the 2FA code if it is on
+npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz login   # server address, email, password and the 2FA code if it is on
 ```
 
 In Claude Desktop open Settings → Developer → Edit Config, add the server to `claude_desktop_config.json` and restart Claude Desktop:
@@ -200,12 +200,12 @@ In Claude Desktop open Settings → Developer → Edit Config, add the server to
 ```json
 {
   "mcpServers": {
-    "dela": { "command": "npx", "args": ["-y", "dela-mcp"] }
+    "dela": { "command": "npx", "args": ["-y", "https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz"] }
   }
 }
 ```
 
-The tools are `search_tasks`, `list_projects`, `add_task` (a quick-add phrase in English or Russian), `update_task`, `complete_task` and `today`. There are no delete tools. The computer appears in Settings → Devices and can be revoked there or with `npx dela-mcp logout`. The assistant sees the decrypted tasks it asks for. Storage of the session and keys is described in [packages/mcp/README.md](packages/mcp/README.md).
+The tools are `search_tasks`, `list_projects`, `add_task` (a quick-add phrase in English or Russian), `update_task`, `complete_task` and `today`. There are no delete tools. The computer appears in Settings → Devices and can be revoked there or with `npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz logout`. The assistant sees the decrypted tasks it asks for. Storage of the session and keys is described in [packages/mcp/README.md](packages/mcp/README.md).
 
 ## Security and privacy
 

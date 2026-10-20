@@ -67,7 +67,7 @@ async function cmdLogin(args: readonly string[]): Promise<number> {
   out(`Session saved in ${vault.path} (key in: ${keystoreName(vault.keystore)}).`);
   out('');
   out('Add to claude_desktop_config.json:');
-  out(JSON.stringify({ mcpServers: { dela: { command: 'npx', args: ['-y', 'dela-mcp'] } } }, null, 2));
+  out(JSON.stringify({ mcpServers: { dela: { command: 'npx', args: ['-y', 'https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz'] } } }, null, 2));
   return 0;
 }
 
@@ -120,11 +120,11 @@ async function cmdServe(): Promise<number> {
     } catch (e) {
       dela = null;
       if (e instanceof NotLoggedInError) throw e;
-      throw new Error(`Cannot open the Dela session: ${e instanceof Error ? e.message : String(e)}. Run \`npx dela-mcp login\` again.`);
+      throw new Error(`Cannot open the Dela session: ${e instanceof Error ? e.message : String(e)}. Run \`npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz login\` again.`);
     }
   });
   await server.connect(new StdioServerTransport());
-  err(`dela-mcp ${VERSION} ready${vault.exists() ? '' : ' (not signed in: run `npx dela-mcp login`)'}`);
+  err(`dela-mcp ${VERSION} ready${vault.exists() ? '' : ' (not signed in: run `npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz login`)'}`);
   return new Promise(() => undefined);
 }
 

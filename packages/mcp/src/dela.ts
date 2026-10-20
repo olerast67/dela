@@ -48,14 +48,14 @@ export interface SavedSession {
 /** Устройство отозвано в настройках Dela или сессия закрыта сервером. */
 export class SessionRevokedError extends Error {
   constructor() {
-    super('This device was signed out of Dela. Run `npx dela-mcp login` again.');
+    super('This device was signed out of Dela. Run `npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz login` again.');
     this.name = 'SessionRevokedError';
   }
 }
 
 export class NotLoggedInError extends Error {
   constructor() {
-    super('Not signed in to Dela. Run `npx dela-mcp login` in a terminal first.');
+    super('Not signed in to Dela. Run `npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz login` in a terminal first.');
     this.name = 'NotLoggedInError';
   }
 }

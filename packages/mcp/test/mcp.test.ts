@@ -118,7 +118,7 @@ describe('dela-mcp', () => {
     expect(tools.tools.every((t) => t.annotations?.destructiveHint !== true)).toBe(true);
     const res = (await client.callTool({ name: 'today', arguments: {} })) as { isError?: boolean; content: Array<{ text: string }> };
     expect(res.isError).toBe(true);
-    expect(res.content[0]!.text).toMatch(/dela-mcp login/);
+    expect(res.content[0]!.text).toMatch(/dela-mcp.tgz login/);
   });
 
   it('вход, добавление, поиск и выполнение; второй клиент видит изменения', async () => {
