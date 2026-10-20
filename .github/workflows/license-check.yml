@@ -1,0 +1,29 @@
+# Вклад принимается под AGPL-3.0 (CONTRIBUTING.md): автор pull request подтверждает это галочкой в описании.
+# Проверка читает только текст описания, код из pull request не запускается.
+name: License
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  license:
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the license checkbox
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ "$AUTHOR" = "$OWNER" ]; then echo "Owner, no confirmation needed"; exit 0; fi
+          if printf '%s' "$BODY" | grep -Eqi '\- \[x\] I wrote this code or have the right to submit it, and I submit it under the AGPL-3.0'; then
+            echo "Confirmed by $AUTHOR"
+          else
+            echo "::error::Please tick the license box in the pull request description (see CONTRIBUTING.md)."
+            exit 1
+          fi

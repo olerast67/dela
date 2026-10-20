@@ -18,4 +18,4 @@
 
 ## License
 
-- [ ] I agree to the Contributor License Agreement in [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md#contributor-license-agreement)
+- [ ] I wrote this code or have the right to submit it, and I submit it under the AGPL-3.0 ([CONTRIBUTING.md](../blob/main/CONTRIBUTING.md#license-of-contributions))

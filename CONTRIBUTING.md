@@ -29,6 +29,6 @@ The Windows app needs Rust and the Tauri prerequisites (`npm run desktop:build`)
 - **No emojis** in the app's text, the docs, commit messages or release notes.
 - **Pull requests.** One topic per pull request. Describe how you tested it and on which platforms.
 
-## Contributor license agreement
+## License of contributions
 
-Dela is licensed under the AGPL-3.0. A hosted version may come later, so the author asks contributors to agree that the author may also distribute their contribution under other licenses. To agree, tick the CLA checkbox in the pull request description; a check blocks the pull request until it is ticked. By ticking it you confirm that you wrote the code and agree to this. Your contribution stays available under the AGPL-3.0 in this repository.
+Dela is licensed under the AGPL-3.0, and contributions are accepted under the same license. In the pull request description, tick the box confirming that you wrote the code (or have the right to submit it) and that you submit it under the AGPL-3.0; a check blocks the pull request until it is ticked.
