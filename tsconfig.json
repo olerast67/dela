@@ -6,6 +6,7 @@
     "apps/*/src",
     "apps/*/test",
     "apps/*/vite.config.ts",
+    "packages/*/vite.config.ts",
     "vitest.config.ts",
     "e2e",
     "playwright.config.ts"

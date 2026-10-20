@@ -24,3 +24,6 @@ apps/desktop/src-tauri/gen/
 # рабочие файлы навыка web-design
 /.web/
 /_site/
+
+# Лицензия, которую сборка dela-mcp копирует в пакет
+/packages/mcp/LICENSE

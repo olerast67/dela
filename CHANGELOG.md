@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- dela-mcp, an MCP server for AI assistants (`packages/mcp`, `npx dela-mcp`): it runs on your computer, signs in to your Dela server as a new device (revocable in Settings → Devices) and gives Claude Desktop and other MCP clients the tools `search_tasks`, `list_projects`, `add_task` (quick-add phrases in English or Russian), `update_task`, `complete_task` (a repeating task moves to its next date) and `today`. Keys and the task cache stay on the computer in a file encrypted with a key held by Windows DPAPI, the macOS Keychain or the Linux Secret Service, or in a 600 file where there is none. It syncs before every call and pushes after a change with the apps' sync engine; shared projects work as in the app. There are no delete tools.
+
 ## 0.8.0
 
 - Alarm for an urgent task on Android: the "Alarm" switch under Reminders in the task card makes the task's reminders ring as a full-screen alarm over the lock screen, with the task title and "Done", "Snooze for 10 minutes" and "Turn off". The sound plays through the alarm stream, so it rings in silent mode and with Do Not Disturb (which lets alarms through by default), with vibration; after 5 minutes without an answer it stops and leaves a "Missed alarm" notification. "Done" completes the task through the same queue as the widget, even when the app is closed. Alarms are exact (AlarmManager alarm clock, works in Doze) and are restored after a reboot. Permissions are asked when the alarm is first turned on; on Android 14+ without the full-screen permission the settings screen opens, and the alarm comes as a notification with sound. An urgent reminder rings once: no local notification is scheduled for it, and a push of the same reminder is not shown; if the task was added on another device while the app was closed, the push starts the alarm. The flag syncs to all devices; in the browser and the Windows program it is a regular reminder.
