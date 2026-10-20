@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "view-windows",
+  "description": "Права отдельных окон проекта или задачи: события, уведомления, ссылки http(s) в браузере. Без обновления программы и автозапуска",
+  "windows": [
+    "view-*"
+  ],
+  "permissions": [
+    "core:default",
+    "core:event:default",
+    "notification:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://*"
+        },
+        {
+          "url": "http://*"
+        }
+      ]
+    }
+  ]
+}

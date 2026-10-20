@@ -53,6 +53,13 @@ export const IconLink = (p: P) => (
     <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" />
   </Svg>
 );
+/** Отдельное окно: рамка окна и стрелка наружу. */
+export const IconPopout = (p: P) => (
+  <Svg {...p}>
+    <path d="M13 4h7v7M20 4l-8 8" />
+    <path d="M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10" />
+  </Svg>
+);
 export const IconCheck = (p: P) => (
   <Svg {...p}>
     <path d="M5 12.5l4.5 4.5L19 7.5" />

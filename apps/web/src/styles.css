@@ -3583,3 +3583,26 @@ body:has(.pomo-chip) .sidebar {
   max-width: 12px;
   height: 12px;
 }
+
+/* ---------- отдельное окно проекта или задачи (программа для Windows) ---------- */
+
+@media (min-width: 761px) {
+  .shell.compact {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell.compact.with-panel {
+    grid-template-columns: minmax(0, 1fr) 400px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Панели вкладок нет: кнопка «+» и отступ под списком — у нижнего края. */
+  .compact .fab {
+    bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .compact .content-inner {
+    padding-bottom: 88px;
+  }
+}

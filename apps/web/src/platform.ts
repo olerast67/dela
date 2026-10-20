@@ -1,4 +1,5 @@
 import { LOCALE, tr } from './i18n.ts';
+import { isViewWindow, viewWindowLabel, viewWindowUrl } from './viewWindow.ts';
 /**
  * Где запущен клиент: браузер (сервер отдаёт клиент сам), оболочка Tauri на компьютере
  * или Capacitor на телефоне. В оболочках клиент встроен в приложение, а адрес сервера
@@ -211,9 +212,14 @@ export async function localizeTray(): Promise<void> {
   await invoke('tray_labels', { open: tr('Открыть Dela'), add: tr('Новая задача (Ctrl+Shift+Space)'), quit: tr('Выйти из Dela') });
 }
 
+/** Отдельное окно программы для Windows: трей, глобальные клавиши и ссылки dela:// обслуживает главное окно. */
+function inViewWindow(): boolean {
+  return typeof location !== 'undefined' && isViewWindow(location.search);
+}
+
 /** Подписка на событие оболочки «быстрая задача» (трей, глобальное сочетание клавиш). */
 export async function onQuickAddRequest(fn: () => void): Promise<() => void> {
-  if (platform() !== 'tauri') return () => undefined;
+  if (platform() !== 'tauri' || inViewWindow()) return () => undefined;
   const { listen } = await import('@tauri-apps/api/event');
   return listen('quick-add', () => fn());
 }
@@ -228,7 +234,7 @@ export async function onAppLink(fn: (url: string) => void): Promise<void> {
     await App.addListener('appUrlOpen', (e) => fn(e.url));
     const launch = await App.getLaunchUrl();
     if (launch?.url) fn(launch.url);
-  } else if (platform() === 'tauri') {
+  } else if (platform() === 'tauri' && !inViewWindow()) {
     const { invoke } = await import('@tauri-apps/api/core');
     const { listen } = await import('@tauri-apps/api/event');
     await listen<string>('app-link', (e) => fn(e.payload));
@@ -366,6 +372,31 @@ export async function onWidgetLaunch(fn: (e: WidgetLaunch) => void): Promise<() 
   return () => void handle.remove();
 }
 
+/** Программа для Windows: проект или задача (hash-маршрут) в отдельном окне; уже открытое окно выходит вперёд. */
+export async function openViewWindow(hash: string, title: string): Promise<void> {
+  if (platform() !== 'tauri') return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('open_view_window', { label: viewWindowLabel(hash), url: viewWindowUrl(hash), title: `${title} · Dela` });
+}
+
+/** Можно ли открыть отдельное окно: только в программе для Windows. */
+export function canOpenViewWindow(): boolean {
+  return platform() === 'tauri';
+}
+
+/** Программа для Windows: запускается ли она при входе в систему. null в браузере и на телефоне. */
+export async function autostartEnabled(): Promise<boolean | null> {
+  if (platform() !== 'tauri') return null;
+  const { isEnabled } = await import('@tauri-apps/plugin-autostart');
+  return isEnabled();
+}
+
+/** Включить или выключить запуск при входе: программа стартует свёрнутой в трей. */
+export async function setAutostart(on: boolean): Promise<void> {
+  const { enable, disable } = await import('@tauri-apps/plugin-autostart');
+  await (on ? enable() : disable());
+}
+
 export interface DesktopUpdate {
   readonly version: string;
   install(): Promise<void>;
@@ -373,7 +404,8 @@ export interface DesktopUpdate {
 
 /** Программа для Windows: есть ли новая версия на GitHub. В браузере и на телефоне всегда null. */
 export async function checkDesktopUpdate(): Promise<DesktopUpdate | null> {
-  if (platform() !== 'tauri') return null;
+  // Обновление проверяет главное окно: у отдельных окон нет на это прав.
+  if (platform() !== 'tauri' || inViewWindow()) return null;
   const { check } = await import('@tauri-apps/plugin-updater');
   const update = await check();
   if (!update) return null;

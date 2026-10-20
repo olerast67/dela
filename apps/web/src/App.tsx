@@ -22,6 +22,10 @@ import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 import { tr } from './i18n.ts';
 import { appLink, copyLink, taskHash } from './links.ts';
+import { isViewWindow } from './viewWindow.ts';
+
+/** Отдельное окно проекта или задачи (программа для Windows): без боковой панели и панели вкладок. */
+const compact = typeof location !== 'undefined' && isViewWindow(location.search);
 
 function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
@@ -352,8 +356,8 @@ function Shell() {
     (route.view === 'project' ? { projectId: route.id } : route.view === 'today' ? { due: { date: new Intl.DateTimeFormat('en-CA').format(new Date()) } } : {});
 
   return (
-    <div className={`shell${selected ? ' with-panel' : ''}`}>
-      {(!narrow || menu) && (
+    <div className={`shell${selected ? ' with-panel' : ''}${compact ? ' compact' : ''}`}>
+      {!compact && (!narrow || menu) && (
         <>
           {narrow && <div className="scrim" onClick={() => setMenu(false)} />}
           <Sidebar route={route} onNavigate={() => setMenu(false)} />
@@ -389,7 +393,7 @@ function Shell() {
           </div>
         </div>
       )}
-      {narrow && !selected && <TabBar route={route} onMore={() => setMenu(true)} />}
+      {narrow && !selected && !compact && <TabBar route={route} onMore={() => setMenu(true)} />}
       <button className="fab" onClick={() => setQuickAdd(true)} aria-label={tr('Добавить задачу (Q)')}>
         <IconPlus width={24} height={24} />
       </button>

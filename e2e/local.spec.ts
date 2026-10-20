@@ -281,3 +281,35 @@ test('привычка: выполнение даёт серию 1 в строк
   await expect(panel.locator('.habit-now b')).toHaveText('1');
   await expect(panel.locator('.habit-day.s-done')).toHaveCount(2); // в полоске и в подписи
 });
+
+test('отдельное окно: проект в компактном виде без боковой панели, изменения видны в главном окне', async ({ page, context }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Только в этом браузере')).toBeVisible();
+  await page.getByRole('button', { name: 'Новый проект' }).click();
+  await page.getByPlaceholder('Название проекта').fill('Отпуск');
+  await page.getByPlaceholder('Название проекта').press('Enter');
+  await expect(page.getByRole('heading', { name: 'Отпуск' })).toBeVisible();
+  // Кнопка отдельного окна есть только в программе для Windows.
+  await expect(page.locator('.head-actions').getByRole('button', { name: 'В отдельном окне' })).toHaveCount(0);
+  const hash = new URL(page.url()).hash;
+  expect(hash).toMatch(/^#\/project\//);
+
+  // Второе окно — та же страница с ?window=1: та же база в браузере, вход не нужен.
+  const win = await context.newPage();
+  await win.setViewportSize({ width: 420, height: 640 });
+  await win.goto(`/?window=1${hash}`);
+  await expect(win.getByRole('heading', { name: 'Отпуск' })).toBeVisible();
+  await expect(win.locator('.shell.compact')).toBeVisible();
+  await expect(win.locator('nav.sidebar')).toHaveCount(0);
+  await expect(win.locator('.tabbar')).toHaveCount(0);
+
+  await win.keyboard.press('q');
+  await win.getByLabel('Новая задача').fill('Купить билеты');
+  await win.getByLabel('Новая задача').press('Enter');
+  await win.getByLabel('Новая задача').press('Escape');
+  await expect(win.locator('.task', { hasText: 'Купить билеты' })).toBeVisible();
+  // Главное окно получает задачу без перезагрузки.
+  await expect(page.locator('.task', { hasText: 'Купить билеты' })).toBeVisible();
+  await expect(page.locator('nav.sidebar')).toBeVisible();
+});

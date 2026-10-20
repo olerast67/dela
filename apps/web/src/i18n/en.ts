@@ -725,4 +725,11 @@ export const EN: Readonly<Record<string, string>> = {
   'ни разу': 'none',
   'Привычки': 'Habits',
   'привычка': 'habit',
+
+  // ---------- программа для Windows: автозапуск и отдельные окна ----------
+  'В отдельном окне': 'In a separate window',
+  'Запуск': 'Startup',
+  'Запускать при входе в Windows': 'Start when I sign in to Windows',
+  'Dela запускается свёрнутой в трей, и напоминания приходят без открытого окна.': 'Dela starts minimized to the tray, and reminders arrive without an open window.',
+  'Не удалось изменить запуск при входе в Windows.': 'Could not change the Windows startup setting.',
 };

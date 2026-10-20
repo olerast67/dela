@@ -1,11 +1,12 @@
-// Dela для компьютера: встроенный веб-клиент, трей, глобальная клавиша быстрой задачи, ссылки dela://.
+// Dela для компьютера: встроенный веб-клиент, трей, глобальная клавиша быстрой задачи, ссылки dela://,
+// запуск при входе в Windows и проекты или задачи в отдельных окнах.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, WindowEvent,
+    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -46,6 +47,35 @@ fn open_link(app: &AppHandle, url: String) {
     let _ = app.emit("app-link", url);
 }
 
+/** Аргумент, с которым Windows запускает программу при входе: окно не показывается, программа живёт в трее. */
+const MINIMIZED_ARG: &str = "--minimized";
+
+/**
+ * Проект или задача в отдельном компактном окне. Метка окна строится из маршрута в веб-клиенте:
+ * повторное открытие того же проекта показывает уже открытое окно.
+ * async: на Windows окно, созданное из синхронной команды, подвешивает программу.
+ */
+#[tauri::command]
+async fn open_view_window(app: AppHandle, label: String, url: String, title: String) -> Result<(), String> {
+    let label_ok = label.starts_with("view-") && label.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
+    if !label_ok || !url.starts_with("?window=1#/") {
+        return Err("bad window".into());
+    }
+    if let Some(w) = app.get_webview_window(&label) {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, label, WebviewUrl::App(url.into()))
+        .title(title)
+        .inner_size(420.0, 640.0)
+        .min_inner_size(320.0, 400.0)
+        .build()
+        .map_err(|err| err.to_string())?;
+    Ok(())
+}
+
 fn quick_add(app: &AppHandle) {
     show_main(app);
     let _ = app.emit("quick-add", ());
@@ -63,6 +93,8 @@ fn main() {
         // Обновления: latest.json в последнем выпуске на GitHub, установщик подписан ключом обновлений.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        // Включается переключателем в настройках; при входе в систему окно не показывается.
+        .plugin(tauri_plugin_autostart::Builder::new().arg(MINIMIZED_ARG).build())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(move |app, pressed, event| {
@@ -73,6 +105,10 @@ fn main() {
                 .build(),
         )
         .setup(move |app| {
+            // Главное окно создаётся скрытым: при запуске со входом в систему оно остаётся в трее.
+            if !std::env::args().any(|arg| arg == MINIMIZED_ARG) {
+                show_main(app.handle());
+            }
             // Схему dela:// регистрирует установщик; при запуске из исходников — сама программа.
             #[cfg(debug_assertions)]
             if let Err(err) = app.deep_link().register_all() {
@@ -119,10 +155,13 @@ fn main() {
                 .build(app)?;
             Ok(())
         })
-        // Закрытие окна прячет его в трей: напоминания продолжают приходить.
-        .invoke_handler(tauri::generate_handler![tray_labels, take_app_link])
+        .invoke_handler(tauri::generate_handler![tray_labels, take_app_link, open_view_window])
+        // Закрытие главного окна прячет его в трей: напоминания продолжают приходить. Отдельные окна закрываются.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() != "main" {
+                    return;
+                }
                 let _ = window.hide();
                 api.prevent_close();
             }

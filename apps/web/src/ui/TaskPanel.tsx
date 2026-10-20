@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { extractLinks, parseTask, type DateSpec, type Priority } from '#core';
-import { openExternal } from '../platform.ts';
+import { canOpenViewWindow, openExternal, openViewWindow } from '../platform.ts';
 import { Comments } from './Comments.tsx';
 import { Markdown, toggleTask } from './Markdown.tsx';
 import { TZ, dateLabel, durationLabel, todayDate } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
-import { IconLink, IconRepeat, IconTrash, IconX } from './icons.tsx';
+import { IconLink, IconPopout, IconRepeat, IconTrash, IconX } from './icons.tsx';
 import { HabitField } from './Habit.tsx';
 import { PomodoroField } from './Pomodoro.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
@@ -14,6 +14,7 @@ import { RepeatEditor } from './RepeatEditor.tsx';
 import { TaskTree, completeWithUndo } from './Task.tsx';
 import { showToast } from './toast.tsx';
 import { LOCALE, tr } from '../i18n.ts';
+import { taskHash } from '../links.ts';
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240];
 
@@ -157,6 +158,11 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
         <button className="icon panel-link" onClick={onCopyLink} aria-label={tr('Копировать ссылку')} title={tr('Копировать ссылку (Ctrl+Shift+C)')}>
           <IconLink />
         </button>
+        {canOpenViewWindow() && (
+          <button className="icon panel-popout" onClick={() => void openViewWindow(taskHash(id), task.title || tr('Задача'))} aria-label={tr('В отдельном окне')} title={tr('В отдельном окне')}>
+            <IconPopout />
+          </button>
+        )}
         <button className="icon" onClick={onClose} aria-label={tr('Закрыть')}>
           <IconX />
         </button>

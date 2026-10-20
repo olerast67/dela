@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { COLORS, FilterSyntaxError, type Priority, type ProjectTasks, type TaskNode, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
 import { controller, type MorningDigest } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
-import { navigate, setStartHash, startHash, useAppState, useDoc } from '../hooks.ts';
+import { href, navigate, setStartHash, startHash, useAppState, useDoc } from '../hooks.ts';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
@@ -10,7 +10,8 @@ import { LockSettings } from './Lock.tsx';
 import { passkeysSupported } from '../passkey.ts';
 import { passwordProof } from '#core';
 import { saveProjectAsTemplate } from './History.tsx';
-import { allowExactReminders, checkDesktopUpdate, exactRemindersAllowed, platform } from '../platform.ts';
+import { allowExactReminders, autostartEnabled, canOpenViewWindow, checkDesktopUpdate, exactRemindersAllowed, openViewWindow, platform, setAutostart } from '../platform.ts';
+import { isViewWindow } from '../viewWindow.ts';
 import { ShareDialog } from './Share.tsx';
 import { Description } from './Description.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
@@ -370,6 +371,9 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
             {!controller.getState().local && <button onClick={() => setSharing(true)}>{doc.isShared(id) ? tr('Участники') : tr('Поделиться')}</button>}
             <button onClick={() => setRenaming(true)}>{tr('Переименовать')}</button>
             <button onClick={() => setEditingDesc('project')}>{tr('Описание')}</button>
+            {canOpenViewWindow() && !isViewWindow(location.search) && (
+              <button onClick={() => void openViewWindow(href({ view: 'project', id }), project.name)}>{tr('В отдельном окне')}</button>
+            )}
             <button onClick={() => setAddingSection(true)}>{tr('Раздел')}</button>
             <button onClick={() => saveProjectAsTemplate(doc, id)} title={tr('Сохранить проект как шаблон')}>
               {tr('Шаблон')}
@@ -768,6 +772,7 @@ export function SettingsView() {
       <TwoFactor />
       <Passkeys />
       <LockSettings />
+      <DesktopAutostart />
       <DesktopUpdates />
       <DeleteAccount />
       <ImportExport />
@@ -1356,6 +1361,47 @@ export function DeleteAccount() {
           </button>
         </form>
       )}
+      {msg && (
+        <p className="error" role="alert">
+          {msg}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** Программа для Windows: запуск при входе в систему, свёрнутой в трей. В браузере и на телефоне раздела нет. */
+export function DesktopAutostart() {
+  const [on, setOn] = useState<boolean | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => {
+    void autostartEnabled()
+      .then(setOn)
+      .catch(() => setOn(false));
+  }, []);
+  if (platform() !== 'tauri') return null;
+  return (
+    <section className="settings">
+      <h2>{tr('Запуск')}</h2>
+      <label className="checkline">
+        <input
+          type="checkbox"
+          checked={on === true}
+          disabled={on === null}
+          onChange={async (e) => {
+            const want = e.target.checked;
+            setMsg(null);
+            try {
+              await setAutostart(want);
+              setOn(want);
+            } catch {
+              setMsg(tr('Не удалось изменить запуск при входе в Windows.'));
+            }
+          }}
+        />
+        {tr('Запускать при входе в Windows')}
+      </label>
+      <p className="muted">{tr('Dela запускается свёрнутой в трей, и напоминания приходят без открытого окна.')}</p>
       {msg && (
         <p className="error" role="alert">
           {msg}
