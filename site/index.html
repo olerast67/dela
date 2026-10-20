@@ -3,89 +3,243 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dela: open-source task manager with end-to-end encryption</title>
-  <meta name="description" content="Self-hosted task manager. Tasks are encrypted on your device, the app works offline and syncs web, Windows and Android through your own server.">
+  <title>Dela, open-source task manager with end-to-end encryption</title>
+  <meta name="description" content="Open-source task manager for your own server. Tasks are encrypted on the device, the server stores ciphertext only. Browser, Windows, Android and Wear OS.">
+  <link rel="canonical" href="https://olerast67.github.io/dela/">
+  <link rel="alternate" hreflang="en" href="https://olerast67.github.io/dela/">
   <link rel="alternate" hreflang="ru" href="https://olerast67.github.io/dela/ru.html">
-  <link rel="icon" href="demo/icon.svg" type="image/svg+xml">
+  <link rel="alternate" hreflang="x-default" href="https://olerast67.github.io/dela/">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1916" media="(prefers-color-scheme: dark)">
   <link rel="preload" href="fonts/manrope-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
-  <meta property="og:title" content="Dela: task manager with end-to-end encryption">
-  <meta property="og:description" content="Open source, self-hosted, works offline. Web, Windows and Android.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Dela">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:locale:alternate" content="ru_RU">
+  <meta property="og:title" content="Dela, task manager with end-to-end encryption">
+  <meta property="og:description" content="Open source, your own server, works offline. Browser, Windows, Android and Wear OS.">
   <meta property="og:image" content="https://olerast67.github.io/dela/images/banner-en.png">
+  <meta property="og:image:width" content="1280">
+  <meta property="og:image:height" content="640">
+  <meta property="og:image:alt" content="Dela, an open-source task manager with end-to-end encryption">
   <meta property="og:url" content="https://olerast67.github.io/dela/">
   <meta name="twitter:card" content="summary_large_image">
 </head>
 <body>
+  <a class="skip" href="#main">Skip to content</a>
   <header class="wrap top">
-    <a class="logo" href="./"><img src="demo/icon.svg" width="30" height="30" alt=""> Dela</a>
+    <a class="logo" href="./"><img src="icon.svg" width="30" height="30" alt=""> Dela</a>
     <nav aria-label="Sections">
-      <a href="#features">Features</a>
-      <a href="#download">Download</a>
-      <a href="#server">Server</a>
-      <a href="#security">Security</a>
-      <a href="ru.html" lang="ru">Русский</a>
+      <a class="sec" href="#privacy">Privacy</a>
+      <a class="sec" href="#new">What’s new</a>
+      <a class="sec" href="#download">Download</a>
+      <a class="sec" href="#server">Server</a>
+      <a class="lang" href="ru.html" lang="ru" hreflang="ru">Русский</a>
     </nav>
   </header>
 
-  <main>
+  <main id="main">
     <div class="wrap hero">
-      <h1>Dela keeps your tasks encrypted on your own server</h1>
-      <p class="lead text">Every device keeps a full copy of the tasks, so the app opens instantly and works without a network. Tasks are encrypted on the device with a key the server does not have. Web, Windows and Android, open source under <span class="nw">AGPL-3.0</span>.</p>
-      <div class="actions">
-        <a class="btn primary" href="demo/" data-cta>Try it without a server</a>
-        <a class="btn" href="https://github.com/olerast67/dela/releases/latest">Download</a>
-        <a class="btn" href="https://github.com/olerast67/dela">Source on GitHub</a>
+      <div>
+        <h1>Dela keeps your tasks encrypted on your own server</h1>
+        <p class="lead text">Dela is an open-source task manager. Every device keeps a full copy of the tasks, so the app opens instantly and works without a network. Tasks are encrypted on the device with a key the server does not have. Browser, Windows, Android and Wear OS watches, under <span class="nw">AGPL-3.0</span>.</p>
+        <div class="actions">
+          <a class="btn primary" href="demo/" data-cta>Try it without a server</a>
+          <a class="btn" href="https://github.com/olerast67/dela/releases/latest">Download</a>
+        </div>
+        <p class="note">The demo keeps tasks encrypted in this browser only. The source code is on <a href="https://github.com/olerast67/dela">GitHub</a>.</p>
       </div>
       <picture>
         <source media="(max-width: 760px)" srcset="images/phone-today-en.png" width="1170" height="2532">
-        <img class="shot" src="images/screens-en.png" width="1600" height="1554" alt="Dela: Today and the week calendar on a computer, Today and Upcoming on a phone">
+        <img class="shot" src="images/screens-en.png" width="1600" height="1554" fetchpriority="high" alt="Dela: Today and the week calendar on a computer, Today and Upcoming on a phone">
       </picture>
     </div>
 
-    <section id="features" class="wrap">
-      <h2>What it does</h2>
-      <ul class="features">
-        <li><h3>Quick add in plain language</h3><p>“call mom tomorrow at 7pm #Home every week p1” in English or Russian. The date, time, recurrence, project and priority are highlighted while you type. The interface is in English and Russian.</p></li>
-        <li><h3>Today, Upcoming and a calendar</h3><p>Day, week and month. Drag a task to another day or into the hour grid, drag its bottom edge to change the duration.</p></li>
-        <li><h3>Recurrence and filters</h3><p>“every 2nd tuesday of the month”, “every 3&nbsp;days after completion”. Filters in Todoist syntax, import from Todoist.</p></li>
-        <li><h3>Shared projects</h3><p>Members invited by email, assignees, comments with files. Files are encrypted on the device; a removed member cannot read later changes.</p></li>
-        <li><h3>Phone</h3><p>Swipe to complete or reschedule, a home screen widget with a task list, voice input, a PIN and fingerprint lock, reminders without a network.</p></li>
-        <li><h3>Computer</h3><p>A Windows app with a tray icon, <span class="nw">Ctrl+Shift+Space</span> from anywhere, keyboard shortcuts in any layout, automatic updates.</p></li>
+    <section id="privacy" class="wrap" aria-labelledby="privacy-h">
+      <h2 id="privacy-h">What the server can see</h2>
+      <p class="intro text">The server stores, orders and hands out encrypted changes and checks access rights. Encryption is always on and cannot be turned off.</p>
+      <div class="split">
+        <div class="panel">
+          <h3>The server knows</h3>
+          <ul>
+            <li>email addresses and the list of devices</li>
+            <li>members of shared projects</li>
+            <li>when a change was made and its size, rounded to 64&nbsp;bytes</li>
+            <li>reminder times, if push reminders are on</li>
+            <li>the size of attached files</li>
+          </ul>
+        </div>
+        <div class="panel locked">
+          <h3>It gets only ciphertext of</h3>
+          <ul>
+            <li>task text, descriptions and comments</li>
+            <li>dates, labels and project names</li>
+            <li>field names and record IDs</li>
+            <li>attached files</li>
+            <li>calendar links and the places of location reminders</li>
+          </ul>
+        </div>
+      </div>
+      <p class="text">Argon2id derives two keys from the password on the device: one proves the login to the server, the other unlocks the account key. Every change is encrypted with XChaCha20-Poly1305&nbsp;using the key of its project. If both the password and the recovery key are lost, the data cannot be decrypted.</p>
+      <p class="text">In a browser, the web app code comes from your server. The Dela Verify extension compares the files the page loaded with a list of hashes that the project signs for every release, and shows a red badge when they differ. The Windows and Android apps carry their own code, and their updates are signed. Details and known limitations: <a href="https://github.com/olerast67/dela/blob/main/docs/architecture.md">architecture</a>, <a href="https://github.com/olerast67/dela#security">security in the README</a>, <a href="https://github.com/olerast67/dela/blob/main/PRIVACY.md">privacy policy</a>.</p>
+    </section>
+
+    <section id="new" class="wrap" aria-labelledby="new-h">
+      <h2 id="new-h">New in versions 0.6&nbsp;to 1.0</h2>
+      <p class="intro text">Statistics, the morning summary and recognition of pictures and voice run on the device. The dot on the right shows where a feature works.</p>
+
+      <div class="group">
+        <div>
+          <h3>Planning</h3>
+          <ul class="tasks">
+            <li class="task"><b>Calendar events next to tasks</b><p>Subscribe to an iCal link, or show the phone calendars on Android. Events appear in Today and in the calendar, read-only.</p><span class="tag">All apps</span></li>
+            <li class="task"><b><span class="nw">3-day</span> calendar and an Unscheduled panel</b><p>Drag overdue tasks and tasks without a date onto a day or an hour. On a phone, hold a task and move it with a finger.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>Grouping and a board</b><p>Group any list by date, priority, project or label. Today can be shown as a board with a column per priority.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>Morning summary</b><p>One notification a day at the time you choose, for example “Today: 5&nbsp;tasks, 2&nbsp;overdue”.</p><span class="tag">All apps</span></li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <a href="images/calendar-week-en.png"><img class="shot" src="images/calendar-week-en.png" width="2880" height="1800" loading="lazy" decoding="async" alt="Week calendar with tasks in the hour grid and the panel of overdue tasks and tasks without a date"></a>
+        </figure>
+      </div>
+
+      <div class="group flip">
+        <div>
+          <h3>Habits and focus</h3>
+          <ul class="tasks">
+            <li class="task"><b>Habits with streaks</b><p>Mark a repeating task as a habit. The row shows the current streak; “Skip today” and up to 6&nbsp;allowed skips a week keep it.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>Pomodoro timer</b><p>25&nbsp;minutes of work and a <span class="nw">5-minute</span> break by default. Time worked adds up in the task as “Time spent”.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>Statistics</b><p>Tasks completed per day and per week, the day streak and completions per project. Nothing new is sent to the server.</p><span class="tag">All apps</span></li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <a href="images/stats-en.png"><img class="shot" src="images/stats-en.png" width="2880" height="1800" loading="lazy" decoding="async" alt="Statistics: tasks completed today and this week, time spent, habit streaks and bars per day and per week"></a>
+        </figure>
+      </div>
+
+      <div class="group">
+        <div>
+          <h3>Writing tasks</h3>
+          <ul class="tasks">
+            <li class="task"><b>Markdown in descriptions and comments</b><p>Headings, lists, links, tables and checklists. A checklist item in the description is checked with a click.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>Reminders in the quick add phrase</b><p>“remind me an hour before”, “remind me at 9am”, “no reminder”, in English and Russian.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>A pasted list becomes tasks</b><p>Each line gets its own date, project and labels; an indented line becomes a subtask.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>Tasks from a picture or a voice message</b><p>Share a photo of a list or a voice message to Dela. Tesseract and sherpa-onnx recognize it on the phone, and nothing is created until you confirm.</p><span class="tag android">Android</span></li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <a href="images/quick-add-en.png"><img class="shot" src="images/quick-add-en.png" width="2880" height="1800" loading="lazy" decoding="async" alt="Quick add with the date, project, priority and reminder highlighted in the phrase"></a>
+        </figure>
+      </div>
+
+      <div class="group flip">
+        <div>
+          <h3>Reminders and the watch</h3>
+          <ul class="tasks">
+            <li class="task"><b>Location reminders</b><p>On arrival or on leaving, within 100, 200&nbsp;or 500&nbsp;m. Works without Google Play services; coordinates stay inside the encrypted task.</p><span class="tag android">Android</span></li>
+            <li class="task"><b>Alarm for an urgent task</b><p>A full-screen alarm over the lock screen. It rings in silent mode and with Do Not Disturb, with “Done” and “Snooze for 10&nbsp;minutes”.</p><span class="tag android">Android</span></li>
+            <li class="task"><b>Wear OS watch app</b><p>Today, check-off and reminders on the watch. The watch signs in to your server by itself and needs neither the phone nor Google services.</p><span class="tag wear">Wear OS</span></li>
+          </ul>
+        </div>
+        <figure class="shot-col">
+          <a href="images/task-panel-en.png"><img class="shot" src="images/task-panel-en.png" width="2880" height="1800" loading="lazy" decoding="async" alt="Task card with the repeat, the habit streak, reminders and a location"></a>
+        </figure>
+      </div>
+
+      <div class="group">
+        <div>
+          <h3>Files, links and windows</h3>
+          <ul class="tasks">
+            <li class="task"><b>Large attachments</b><p>Files are uploaded in 4&nbsp;MB parts, each encrypted on its own. A broken upload continues with the missing parts. The default limit is 100&nbsp;MB per file.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>Links to a task</b><p><span class="nw">Ctrl+Shift+C</span> copies a link that opens the task in the app on any device of the account.</p><span class="tag">All apps</span></li>
+            <li class="task"><b>Several tasks at once</b><p>Select tasks and complete, reschedule, move or label them together. One “Undo” reverts the whole action.</p><span class="tag">All apps</span></li>
+          </ul>
+        </div>
+        <div>
+          <h3>On the computer</h3>
+          <ul class="tasks">
+            <li class="task"><b>Separate windows</b><p>A project or a task opens in its own compact window. Dela can start with Windows, minimized to the tray.</p><span class="tag windows">Windows</span></li>
+            <li class="task"><b>AI assistants through dela-mcp</b><p>Claude Desktop and other MCP clients search, add and complete tasks. dela-mcp runs on your computer and decrypts there; it has no delete tools.</p><span class="tag mcp">MCP</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="basics" class="wrap" aria-labelledby="basics-h">
+      <h2 id="basics-h">Everything from earlier versions</h2>
+      <ul class="basics">
+        <li>Quick add in plain language: “call mom tomorrow at 7pm #Home every week p1”</li>
+        <li>Projects with sub-projects, sections, subtasks, labels, priorities, deadlines and durations</li>
+        <li>Today, Upcoming, a calendar for a day, a week or a month, a board, search and a trash</li>
+        <li>Repeats by schedule or from the completion date: “every 3&nbsp;days after completion”</li>
+        <li>Filters in Todoist syntax and import from Todoist</li>
+        <li>Shared projects with invites by email, assignees and comments with files</li>
+        <li>Project templates, history of actions, export to JSON and Markdown</li>
+        <li>Command palette, shortcuts on physical keys in any layout, undo for the last 100&nbsp;actions</li>
+        <li>Passkeys, two-factor login, a recovery key and a device list with revocation</li>
+        <li>A PIN lock, and a fingerprint on Android</li>
+        <li>An Android home screen widget and a quick add tile</li>
+        <li>Reminders through Web Push, Android alarms without a network, and UnifiedPush (ntfy) without Google services</li>
+        <li>English and Russian interface</li>
       </ul>
     </section>
 
-    <section id="download" class="wrap">
-      <h2>Download</h2>
-      <table>
-        <thead><tr><th>Platform</th><th>File</th><th>Notes</th></tr></thead>
-        <tbody>
-          <tr><td>Windows 10&nbsp;and 11</td><td><a href="https://github.com/olerast67/dela/releases/latest">Installer .exe</a></td><td>Not code-signed yet, SmartScreen asks for confirmation. Later versions install themselves</td></tr>
-          <tr><td>Android 7&nbsp;and newer</td><td><a href="https://github.com/olerast67/dela/releases/latest">APK</a></td><td>Updates through <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela">Obtainium</a></td></tr>
-          <tr><td>Any browser</td><td>your server address</td><td>Installs as an app on desktop and Android</td></tr>
-        </tbody>
-      </table>
-      <p class="text">The apps ask for your server address at the first sign-in. To look around first, the <a href="demo/">demo</a> keeps tasks only in your browser.</p>
+    <section id="download" class="wrap" aria-labelledby="download-h">
+      <h2 id="download-h">Download the apps</h2>
+      <p class="intro text">All files are on the <a href="https://github.com/olerast67/dela/releases/latest">page of the latest release</a>. GitHub Actions builds them from the version tag, and every file has a build provenance attestation that <code>gh attestation verify</code> checks.</p>
+      <ul class="platforms">
+        <li><span class="name">Windows 10&nbsp;and 11</span><span class="file"><code>Dela_&lt;version&gt;_x64-setup.exe</code></span><span class="what">Installs for the current user. The installer is not code-signed yet, so SmartScreen asks for confirmation. Later versions install themselves from the app.</span></li>
+        <li><span class="name">Android 7&nbsp;and newer</span><span class="file"><code>Dela-&lt;version&gt;-android.apk</code></span><span class="what">Updates through <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/olerast67/dela">Obtainium</a>.</span></li>
+        <li><span class="name">Wear OS 3&nbsp;and newer</span><span class="file"><code>Dela-&lt;version&gt;-wear.apk</code></span><span class="what">A separate watch app. It signs in with your email and password and shows up as its own device in the device list in Settings.</span></li>
+        <li><span class="name">Any browser</span><span class="file">your server address</span><span class="what">Installs as an app on a computer and on Android. On an iPhone, open it in Safari and add it to the home screen; push reminders work from iOS 16.4.</span></li>
+        <li><span class="name">Dela Verify</span><span class="file"><code>Dela-Verify-&lt;version&gt;.zip</code></span><span class="what">Browser extension for Chrome, Edge and Firefox that checks the web app of your server against the signed release.</span></li>
+        <li><span class="name">AI assistants</span><span class="file"><code>npx dela-mcp login</code></span><span class="what">MCP server for Claude Desktop and other MCP clients. Setup is in the <a href="https://github.com/olerast67/dela/blob/main/packages/mcp/README.md">dela-mcp README</a>.</span></li>
+      </ul>
+      <div class="actions">
+        <a class="btn primary" href="https://github.com/olerast67/dela/releases/latest">Open the latest release</a>
+      </div>
+      <p class="note">The apps ask for your server address at the first sign-in.</p>
     </section>
 
-    <section id="server" class="wrap">
-      <h2>Install the server</h2>
-      <p class="text">You need a server with Docker and a domain name whose DNS record points to the server. The bundled Caddy obtains the HTTPS certificate itself.</p>
-      <pre><code>mkdir dela &amp;&amp; cd dela
+    <section id="server" class="wrap" aria-labelledby="server-h">
+      <h2 id="server-h">Install the server</h2>
+      <p class="text">You need a server with Docker and a domain name whose DNS record points to it. The bundled Caddy gets the HTTPS certificate itself.</p>
+      <div class="code">
+        <pre><code id="install-en">mkdir dela &amp;&amp; cd dela
 curl -fsSLO https://raw.githubusercontent.com/olerast67/dela/main/docker-compose.yml
 curl -fsSL https://raw.githubusercontent.com/olerast67/dela/main/.env.example -o .env
 nano .env    # your email and domain
 docker compose --profile https up -d</code></pre>
-      <p class="text">The first account can be registered only with the address from <code>DELA_ADMIN_EMAIL</code>. After that, registration needs an invite. The server copies the database before every migration and once a day. All settings are in the <a href="https://github.com/olerast67/dela#configuration">README</a>.</p>
+        <button class="btn copy" type="button" data-copy="install-en" hidden>Copy</button>
+      </div>
+      <p class="text">Then open <code>https://&lt;your domain&gt;</code> and register with the email from <code>.env</code>. That first account becomes the administrator, and everyone else needs an invite. Behind your own reverse proxy, start without the profile: Dela listens on <code>127.0.0.1:8080</code>.</p>
+      <p class="text">The server copies the database before every migration and once a day. Updating is <code>docker compose pull</code> and the same <code>up -d</code>. All settings are in the <a href="https://github.com/olerast67/dela#configuration">README</a>.</p>
     </section>
 
-    <section id="security" class="wrap">
-      <h2>What the server can see</h2>
-      <p class="text">Argon2id derives two keys from the password on the device: one proves the login to the server, the other unlocks the account key. Every change is encrypted with XChaCha20-Poly1305 using the key of its project.</p>
-      <p class="text">The server sees email addresses, devices, members of shared projects, change times, sizes rounded to 64&nbsp;bytes and reminder times. Task text, dates, labels, project names, comments and files reach it only encrypted. If both the password and the recovery key are lost, the data cannot be decrypted. Details: <a href="https://github.com/olerast67/dela/blob/main/docs/architecture.md">architecture</a>, <a href="https://github.com/olerast67/dela/blob/main/SECURITY.md">security policy</a>.</p>
+    <section id="todoist" class="wrap" aria-labelledby="todoist-h">
+      <h2 id="todoist-h">Dela and Todoist</h2>
+      <p class="text">I built Dela as a self-hosted replacement for Todoist. It understands Todoist filters and imports your projects by API token or from an export file.</p>
+      <div class="compare-wrap">
+        <table>
+          <thead><tr><td></td><th scope="col">Dela</th><th scope="col">Todoist</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Where tasks are stored</th><td>Your server and your devices</td><td>Todoist servers</td></tr>
+            <tr><th scope="row">End-to-end encryption</th><td>Always on</td><td>No</td></tr>
+            <tr><th scope="row">Source code</th><td>Open, <span class="nw">AGPL-3.0</span></td><td>Closed</td></tr>
+            <tr><th scope="row">Price</th><td>Free, no paid features</td><td>Free plan and paid plans</td></tr>
+            <tr><th scope="row">iPhone</th><td>Web app in Safari</td><td>App Store app</td></tr>
+            <tr><th scope="row">Team workspaces, cloud AI, two-way Google Calendar sync</th><td>No: each of them would let a server or another service read the task text</td><td>Yes</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="small">The Todoist column describes todoist.com in October 2026.</p>
     </section>
 
-    <section id="support" class="wrap">
-      <h2>Support the project</h2>
+    <section id="support" class="wrap" aria-labelledby="support-h">
+      <h2 id="support-h">Support the project</h2>
       <p class="text">Dela is free and has no paid features. Donations pay for the time spent on new platforms and on an external security audit.</p>
       <div class="support">
         <a class="btn primary" href="https://boosty.to/olerast/donate">Donate on Boosty</a>
@@ -94,8 +248,8 @@ docker compose --profile https up -d</code></pre>
       </div>
     </section>
 
-    <section id="author" class="wrap">
-      <h2>Made by olerast</h2>
+    <section id="author" class="wrap" aria-labelledby="author-h">
+      <h2 id="author-h">Made by olerast</h2>
       <p class="text">I make videos about the projects I build and test on myself: <a href="https://www.youtube.com/@olerast">YouTube</a>, <a href="https://t.me/olerast">Telegram</a>, <a href="https://olerast.com">olerast.com</a>. The code is written by Claude from Anthropic on my instructions and is covered by unit and end-to-end tests that run on every commit.</p>
     </section>
   </main>
@@ -106,9 +260,26 @@ docker compose --profile https up -d</code></pre>
       <a href="https://github.com/olerast67/dela">GitHub</a>
       <a href="https://github.com/olerast67/dela/blob/main/CHANGELOG.md">Changelog</a>
       <a href="https://github.com/olerast67/dela/blob/main/PRIVACY.md">Privacy</a>
+      <a href="https://github.com/olerast67/dela/blob/main/SECURITY.md">Security</a>
       <a href="code-signing.html">Code signing</a>
-      <a href="ru.html" lang="ru">Русская версия</a>
+      <a href="ru.html" lang="ru" hreflang="ru">Русская версия</a>
     </div>
   </footer>
+  <script>
+    for (const b of document.querySelectorAll('[data-copy]')) {
+      if (!navigator.clipboard) continue;
+      b.hidden = false;
+      const label = b.textContent;
+      b.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(document.getElementById(b.dataset.copy).textContent);
+          b.textContent = b.dataset.done || 'Copied';
+        } catch {
+          b.textContent = b.dataset.fail || 'Select and copy';
+        }
+        setTimeout(() => { b.textContent = label; }, 2000);
+      });
+    }
+  </script>
 </body>
 </html>
