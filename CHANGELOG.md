@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 - Wear OS watch app (`apps/wear`, package `io.github.olerast67.dela.wear`, Wear OS 3 or newer): a standalone app that signs in to your Dela server by itself with email and password (and a TOTP code if it is on) as a separate device, revocable in Settings → Devices; it needs neither the phone nor Google services. It shows Today (overdue and due today), checks a task off (a repeating task moves to its next date, as in the app), syncs when opened and every 30 minutes, and shows reminders from its own exact alarms for the next two days, with a "Done" button in the notification. The "Dela: today" tile lists the first tasks. The watch runs the same core code as the other apps (`packages/core` and the dela-mcp client, built for the QuickJS engine) with libsodium for the cryptography; the keys and the task cache are kept in a file encrypted with a key from Android Keystore.
+- dela-mcp comes with every release as `dela-mcp.tgz` and runs without npm: `npx -y https://github.com/olerast67/dela/releases/latest/download/dela-mcp.tgz login`.
+- Calendar events in Today and in the calendar are styled again (a missing brace in the stylesheet left them plain in 0.9.0).
+- docker-compose.yml passes `DELA_MAX_FILE_MB`, `DELA_CALENDAR_HOSTS` and the other new settings to the server.
+- New screenshots, README and site.
 
 ## 0.9.0
 

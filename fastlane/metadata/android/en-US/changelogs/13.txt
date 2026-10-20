@@ -1,0 +1,1 @@
+Dela 1.0. A Wear OS watch app with Today, check-off and reminders. dela-mcp for AI assistants comes with every release. Calendar events are styled again. New screenshots and site.
