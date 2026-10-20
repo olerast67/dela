@@ -80,8 +80,32 @@ export function navigate(route: Route): void {
   location.hash = href(route);
 }
 
+/** Экран при запуске (настройки): адрес вида «#/inbox», хранится на этом устройстве. */
+export function startHash(): string | null {
+  try {
+    const v = localStorage.getItem('startView');
+    return v && v.startsWith('#/') ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStartHash(hash: string | null): void {
+  try {
+    if (hash) localStorage.setItem('startView', hash);
+    else localStorage.removeItem('startView');
+  } catch {
+    // без хранилища приложение открывается на «Сегодня»
+  }
+}
+
 export function useRoute(): Route {
-  const [route, setRoute] = useState(() => parseRoute(location.hash));
+  const [route, setRoute] = useState(() => {
+    // Запуск без адреса экрана открывает экран из настроек; ссылка на конкретный экран важнее.
+    const start = startHash();
+    if (start && (location.hash === '' || location.hash === '#' || location.hash === '#/')) history.replaceState(null, '', start);
+    return parseRoute(location.hash);
+  });
   useEffect(() => {
     const on = () => {
       const next = parseRoute(location.hash);

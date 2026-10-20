@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { COLORS, FilterSyntaxError, type ProjectTasks, type TaskNode, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
 import { controller } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
-import { navigate, useAppState, useDoc } from '../hooks.ts';
+import { navigate, setStartHash, startHash, useAppState, useDoc } from '../hooks.ts';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
@@ -447,7 +447,42 @@ function ThemeSettings() {
           </button>
         ))}
       </div>
+      <StartViewSetting />
     </section>
+  );
+}
+
+function StartViewSetting() {
+  const doc = useDoc();
+  const [value, setValue] = useState(() => startHash() ?? '#/today');
+  const options: Array<readonly [string, string]> = [
+    ['#/today', tr('Сегодня')],
+    ['#/inbox', tr('Входящие')],
+    ['#/upcoming', tr('Предстоящие')],
+    ['#/calendar', tr('Календарь')],
+    ...doc.projects().filter((p) => !p.project.isInbox).map((p) => [`#/project/${encodeURIComponent(p.project.id)}`, `# ${p.project.name}`] as const),
+    ...doc.filters().map((f) => [`#/filter/${encodeURIComponent(f.id)}`, `${tr('Фильтр')}: ${f.name}`] as const),
+  ];
+  // Удалённый проект или фильтр в списке не найдётся: тогда показывается «Сегодня».
+  const current = options.some(([v]) => v === value) ? value : '#/today';
+  return (
+    <>
+      <h2>{tr('Экран при запуске')}</h2>
+      <select
+        aria-label={tr('Экран при запуске')}
+        value={current}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setStartHash(e.target.value === '#/today' ? null : e.target.value);
+        }}
+      >
+        {options.map(([v, label]) => (
+          <option key={v} value={v}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </>
   );
 }
 

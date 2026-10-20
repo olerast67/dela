@@ -139,6 +139,7 @@ export const EN: Readonly<Record<string, string>> = {
   'Добавлено: {n}': 'Added: {n}',
   'Вставлен список: {n}': 'Pasted a list: {n}',
   'Одной задачей': 'As one task',
+  'Экран при запуске': 'Start screen',
   'Добавить все': 'Add all',
   'Дедлайн {n}': 'Deadline {n}',
   'Приоритет {priority}': 'Priority {priority}',

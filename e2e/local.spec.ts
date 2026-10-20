@@ -40,3 +40,17 @@ test('вставленный список становится задачами,
   await expect(page.locator('.task', { hasText: 'покрасить стену' })).toBeVisible();
   await expect(page.locator('.task', { hasText: 'купить краску' })).toHaveCount(0);
 });
+
+test('экран при запуске из настроек', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.goto('/#/settings');
+  await page.getByLabel('Экран при запуске').selectOption('#/upcoming');
+  await page.goto('/');
+  await expect(page).toHaveURL(/#\/upcoming$/);
+  // Ссылка на конкретный экран важнее настройки.
+  await page.goto('/#/inbox');
+  await page.reload();
+  await expect(page).toHaveURL(/#\/inbox$/);
+});
