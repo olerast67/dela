@@ -38,6 +38,7 @@ import {
   type WorkLog,
 } from './model.ts';
 import type { Json, Op } from './op.ts';
+import { clampRadius, coordValue, toPlace, placeValue, type PlaceReminder, type SavedPlace } from './places.ts';
 import { nextOccurrence, occurrencesBetween, parseRule } from './recurrence.ts';
 import { MemoryReplica } from './replica.ts';
 import { uuidv7 } from './uuid.ts';
@@ -108,6 +109,7 @@ export interface TaskInput {
   readonly habit?: Habit | null;
   readonly reminders?: readonly number[] | null;
   readonly alarm?: boolean;
+  readonly place?: PlaceReminder | null;
   readonly position?: Position;
 }
 
@@ -123,13 +125,14 @@ export interface TaskPatch {
   readonly habit?: Habit | null;
   readonly reminders?: readonly number[] | null;
   readonly alarm?: boolean;
+  readonly place?: PlaceReminder | null;
   readonly assignee?: string | null;
 }
 
 const PROJECT_PALETTE = ['blue', 'green', 'orange', 'violet', 'teal', 'red', 'pink', 'yellow', 'brown'] as const;
 
 /** Таблицы с мягким удалением: отмена создания помечает запись удалённой. */
-const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template', 'work']);
+const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template', 'work', 'place']);
 
 const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   title: 'title',
@@ -143,6 +146,7 @@ const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   habit: 'habit',
   reminders: 'reminders',
   alarm: 'alarm',
+  place: 'place',
   assignee: 'assignee',
 };
 
@@ -656,6 +660,7 @@ export class Doc {
     if (input.habit) changes.push(['task', id, 'habit', input.habit as unknown as Json]);
     if (input.reminders) changes.push(['task', id, 'reminders', [...input.reminders]]);
     if (input.alarm) changes.push(['task', id, 'alarm', true]);
+    if (input.place) changes.push(['task', id, 'place', placeValue(input.place)]);
     for (const label of input.labels ?? []) changes.push(['task', id, LABEL_PREFIX + label, true]);
     this.write(changes);
     return id;
@@ -668,6 +673,7 @@ export class Doc {
       let value = patch[key] as unknown as Json | undefined;
       if (value === undefined) continue;
       if (key === 'title' && typeof value === 'string') value = value.trim();
+      if (key === 'place' && value !== null) value = placeValue(patch.place!);
       changes.push(['task', id, field, value]);
     }
     this.write(changes);
@@ -947,6 +953,39 @@ export class Doc {
       out.push({ id, name: typeof rec.name === 'string' ? rec.name : '', data: rec.data, createdAt: typeof rec.created_at === 'number' ? rec.created_at : 0 });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  }
+
+  // ---------- сохранённые места ----------
+
+  /** Место для напоминаний по месту («Дом», «Работа»). Хранится в личном пространстве, координаты зашифрованы. */
+  savePlace(input: { name: string; lat: number; lon: number; radius: number }): string {
+    const id = uuidv7(this.now());
+    this.write([
+      ['place', id, 'name', input.name.trim().slice(0, 100)],
+      ['place', id, 'lat', coordValue(input.lat)],
+      ['place', id, 'lon', coordValue(input.lon)],
+      ['place', id, 'radius', clampRadius(input.radius)],
+      ['place', id, 'created_at', this.now()],
+    ]);
+    return id;
+  }
+
+  deletePlace(id: string): void {
+    // Координаты стираются: удалённое место не должно хранить, где оно было.
+    this.write([
+      ['place', id, 'lat', null],
+      ['place', id, 'lon', null],
+      ['place', id, 'deleted_at', this.now()],
+    ]);
+  }
+
+  places(): SavedPlace[] {
+    const out: SavedPlace[] = [];
+    for (const [id, rec] of this.replica.all('place')) {
+      const p = toPlace(id, rec);
+      if (p && p.deletedAt === null) out.push(p);
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name, 'ru') || a.createdAt - b.createdAt);
   }
 
   // ---------- комментарии ----------

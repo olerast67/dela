@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Напоминания по месту. Английский по умолчанию, русский в values-ru; язык как в приложении (WidgetStore.localized). -->
+<resources>
+    <string name="place_channel">Place tracking</string>
+    <string name="place_tracking">Dela is watching your places</string>
+    <string name="place_tracking_text">Reminds you when you arrive or leave</string>
+    <string name="place_tracking_off">Turn off</string>
+    <string name="place_arrived">You are at %s</string>
+    <string name="place_left">You left %s</string>
+    <string name="place_arrived_here">You have arrived</string>
+    <string name="place_left_here">You have left the place</string>
+</resources>

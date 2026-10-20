@@ -8,6 +8,7 @@ import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
 import { IconLink, IconPopout, IconRepeat, IconTrash, IconX } from './icons.tsx';
 import { HabitField } from './Habit.tsx';
+import { PlaceField } from './Place.tsx';
 import { PomodoroField } from './Pomodoro.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
 import { RepeatEditor } from './RepeatEditor.tsx';
@@ -363,7 +364,9 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
             )}
           </dd>
 
-          {task.due?.time && (platform() === 'capacitor' || task.alarm) && (
+          <PlaceField task={task} />
+
+          {(task.due?.time || task.place) && (platform() === 'capacitor' || task.alarm) && (
             <>
               <dt>{tr('Будильник')}</dt>
               {platform() === 'capacitor' ? (

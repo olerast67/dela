@@ -101,17 +101,22 @@ public class DelaPushService extends PushService {
 
     /** today: утренняя сводка без задачи, нажатие открывает «Сегодня». */
     private void show(String title, String body, String taskId, String key, boolean today) {
-        NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        showReminder(this, title, body, taskId, key, today);
+    }
+
+    /** Уведомление о задаче в канале напоминаний; тот же вид у напоминаний по месту (PlaceService). */
+    static void showReminder(Context c, String title, String body, String taskId, String key, boolean today) {
+        NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(new NotificationChannel(CHANNEL, getString(R.string.notify_channel), NotificationManager.IMPORTANCE_HIGH));
+            nm.createNotificationChannel(new NotificationChannel(CHANNEL, c.getString(R.string.notify_channel), NotificationManager.IMPORTANCE_HIGH));
         }
-        Intent open = new Intent(this, MainActivity.class);
+        Intent open = new Intent(c, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         if (taskId != null) open.putExtra(WidgetBridgePlugin.EXTRA_TASK_ID, taskId);
         else if (today) open.putExtra(WidgetBridgePlugin.EXTRA_TODAY, true);
         open.setData(Uri.parse("dela://push/" + key.hashCode()));
-        PendingIntent pi = PendingIntent.getActivity(this, key.hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        NotificationCompat.Builder n = new NotificationCompat.Builder(this, CHANNEL)
+        PendingIntent pi = PendingIntent.getActivity(c, key.hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        NotificationCompat.Builder n = new NotificationCompat.Builder(c, CHANNEL)
             .setSmallIcon(R.drawable.ic_tile_add)
             .setContentTitle(title)
             .setContentText(body)
@@ -121,7 +126,7 @@ public class DelaPushService extends PushService {
             // На экране блокировки без названия задачи: оно видно после разблокировки телефона.
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(
-                new NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_tile_add).setContentTitle(getString(R.string.notify_generic_title)).build()
+                new NotificationCompat.Builder(c, CHANNEL).setSmallIcon(R.drawable.ic_tile_add).setContentTitle(c.getString(R.string.notify_generic_title)).build()
             );
         try {
             nm.notify(notificationId(key), n.build());

@@ -175,6 +175,19 @@ export {
 export { parseFilter, runFilter, FilterSyntaxError, type FilterResult } from './filter.ts';
 export { remindersBetween, alarmTasks, digestsBetween, offsetsOf, isReminderList, MAX_REMINDERS, DIGEST_KEY_PREFIX, type Digest, type Reminder } from './reminders.ts';
 export { Workspace } from './workspace.ts';
+export {
+  placeZones,
+  placeReminder,
+  nearestPlace,
+  distance,
+  PLACE_RADII,
+  DEFAULT_PLACE_RADIUS,
+  MAX_PLACE_ZONES,
+  type PlaceEvent,
+  type PlaceReminder,
+  type PlaceZone,
+  type SavedPlace,
+} from './places.ts';
 export type { FilterSource } from './filter.ts';
 export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';
 export { weekStart, weekDates, monthGrid, monthStart, slotOf, moveDue, snapMinute, layoutDay, type TimedItem, type PlacedItem } from './calendar.ts';

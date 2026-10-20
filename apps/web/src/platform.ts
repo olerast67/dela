@@ -225,6 +225,111 @@ export async function prepareAlarms(): Promise<'ok' | 'notifications' | 'fullscr
   return 'ok';
 }
 
+// ---------- напоминания по месту ----------
+
+interface DelaPlacesPlugin {
+  set(o: { zones: readonly PlaceZoneLike[] }): Promise<{ tracking: boolean }>;
+  status(): Promise<PlaceStatus>;
+  requestLocation(): Promise<PlaceStatus>;
+  requestBackground(): Promise<PlaceStatus>;
+  setEnabled(o: { enabled: boolean }): Promise<PlaceStatus>;
+  openSettings(): Promise<void>;
+  current(): Promise<{ lat: number; lon: number; accuracy: number }>;
+}
+
+interface PlaceZoneLike {
+  readonly taskId: string;
+  readonly title: string;
+  readonly lat: number;
+  readonly lon: number;
+  readonly radius: number;
+  readonly on: 'arrive' | 'leave';
+  readonly name: string;
+  readonly alarm: boolean;
+}
+
+/** Состояние слежения за местами на телефоне. */
+export interface PlaceStatus {
+  /** Разрешение на геолокацию, пока приложение открыто (точное или приблизительное). */
+  readonly location: boolean;
+  /** Точная геолокация: с приблизительной (Android 12+, около 2 км) зоны в сотни метров не различить. */
+  readonly precise: boolean;
+  /** Разрешение «Разрешить всегда»: без него после перезагрузки телефона слежение не возобновится. */
+  readonly background: boolean;
+  /** Пользователь не выключал слежение кнопкой в уведомлении. */
+  readonly enabled: boolean;
+  /** Служба сейчас следит (есть зоны и разрешение). */
+  readonly tracking: boolean;
+}
+
+let placesSent = '';
+let placesQueue: Promise<unknown> = Promise.resolve();
+
+/**
+ * Телефон: отдать Android зоны открытых задач с напоминанием по месту. Список хранится в приватных настройках
+ * приложения на телефоне; пустой список останавливает слежение. Одинаковый список повторно не отправляется.
+ */
+export function syncNativePlaces(zones: readonly PlaceZoneLike[]): Promise<void> {
+  const run = placesQueue.then(async () => {
+    const p = (await nativePlugin<DelaPlacesPlugin>('DelaPlaces'))?.p;
+    if (!p) return;
+    const json = JSON.stringify(zones);
+    if (json === placesSent) return;
+    await p.set({ zones });
+    placesSent = json;
+  });
+  placesQueue = run.catch(() => undefined);
+  return run;
+}
+
+/** Состояние слежения; null вне Android. */
+export async function placeStatus(): Promise<PlaceStatus | null> {
+  const p = (await nativePlugin<DelaPlacesPlugin>('DelaPlaces'))?.p;
+  return p ? p.status() : null;
+}
+
+/**
+ * Телефон: разрешения на геолокацию, спрашиваются при первом напоминании по месту (объяснение показывает карточка задачи).
+ * Сначала «при использовании», затем «всегда»: на Android 11+ второе разрешают на экране настроек приложения.
+ * Без разрешения на уведомления напоминание не покажется, его тоже спрашиваем. null вне Android.
+ */
+export async function preparePlaces(again = false): Promise<PlaceStatus | null> {
+  const p = (await nativePlugin<DelaPlacesPlugin>('DelaPlaces'))?.p;
+  if (!p) return null;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  if ((await LocalNotifications.checkPermissions()).display !== 'granted') await LocalNotifications.requestPermissions();
+  let st = await p.status();
+  if (!st.location || !st.precise) st = await p.requestLocation();
+  if (st.location && !st.background) st = await p.requestBackground();
+  if (!st.enabled) st = await p.setEnabled({ enabled: true });
+  // Повторная просьба после отказа: Android больше не показывает запрос, разрешают на экране приложения в настройках.
+  if (again && (!st.location || !st.precise || !st.background)) await p.openSettings();
+  return st;
+}
+
+/** Включить или выключить слежение за местами (то же, что кнопка в уведомлении «Dela следит за местами»). */
+export async function setPlaceTracking(enabled: boolean): Promise<PlaceStatus | null> {
+  const p = (await nativePlugin<DelaPlacesPlugin>('DelaPlaces'))?.p;
+  return p ? p.setEnabled({ enabled }) : null;
+}
+
+/**
+ * Где сейчас устройство. На Android — LocationManager телефона без сервисов Google, в браузере — Geolocation API.
+ * Координаты никуда не отправляются: адрес по ним не ищется, карта не загружается.
+ */
+export async function currentPosition(): Promise<{ lat: number; lon: number; accuracy: number }> {
+  const p = (await nativePlugin<DelaPlacesPlugin>('DelaPlaces'))?.p;
+  if (p) return p.current();
+  if (typeof navigator === 'undefined' || !navigator.geolocation) throw new Error('no geolocation');
+  return new Promise((resolve, reject) =>
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, accuracy: pos.coords.accuracy }),
+      reject,
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 60_000 },
+    ),
+  );
+}
+
 /** Телефон: можно ли ставить напоминания на точное время. null вне Android. */
 export async function exactRemindersAllowed(): Promise<boolean | null> {
   if (platform() !== 'capacitor') return null;
