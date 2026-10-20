@@ -2689,3 +2689,16 @@ body:has(.selection-bar) .fab {
 body:has(.selection-bar) .content {
   padding-bottom: 200px;
 }
+
+/* В узкой боковой панели редактору повтора мало второй колонки: на время правки он занимает всю ширину. */
+.fields dd:has(> .repeat-editor) {
+  grid-column: 1 / -1;
+}
+
+.repeat-editor .row {
+  flex-wrap: wrap;
+}
+
+.repeat-editor button {
+  white-space: nowrap;
+}

@@ -78,6 +78,19 @@ public class DelaPushService extends PushService {
         return new String(c.doFinal(Arrays.copyOfRange(all, 12, all.length)), StandardCharsets.UTF_8);
     }
 
+    /**
+     * Номер уведомления тот же, что у локального напоминания в веб-части (notificationId в platform.ts, FNV-1a):
+     * push того же напоминания заменяет уже показанное уведомление, а не добавляет второе.
+     */
+    static int notificationId(String key) {
+        int h = 0x811c9dc5;
+        for (int i = 0; i < key.length(); i++) {
+            h ^= key.charAt(i);
+            h *= 0x01000193;
+        }
+        return h & 0x7fffffff;
+    }
+
     /** today: утренняя сводка без задачи, нажатие открывает «Сегодня». */
     private void show(String title, String body, String taskId, String key, boolean today) {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
@@ -103,7 +116,7 @@ public class DelaPushService extends PushService {
                 new NotificationCompat.Builder(this, CHANNEL).setSmallIcon(R.drawable.ic_tile_add).setContentTitle(getString(R.string.notify_generic_title)).build()
             );
         try {
-            nm.notify(key.hashCode(), n.build());
+            nm.notify(notificationId(key), n.build());
         } catch (SecurityException ignored) {
             // нет разрешения на уведомления
         }
