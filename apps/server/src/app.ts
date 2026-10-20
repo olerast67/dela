@@ -197,8 +197,9 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
         styleSrc: ["'self'"],
         imgSrc: ["'self'", 'data:', 'blob:'],
         fontSrc: ["'self'"],
-        // Импорт из Todoist идёт из браузера напрямую, минуя сервер.
-        connectSrc: ["'self'", 'https://api.todoist.com'],
+        // Импорт из Todoist и подписки на календари iCal идут из браузера напрямую, минуя сервер.
+        // Адрес календаря выбирает пользователь, поэтому разрешён любой https; http и ws на чужие сайты закрыты.
+        connectSrc: ["'self'", 'https:'],
         workerSrc: ["'self'"],
         manifestSrc: ["'self'"],
         objectSrc: ["'none'"],

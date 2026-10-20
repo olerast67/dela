@@ -6,6 +6,7 @@ import { href, navigate, setStartHash, startHash, useAppState, useDoc } from '..
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
+import { CalendarSettings, TodayEvents } from './Events.tsx';
 import { LockSettings } from './Lock.tsx';
 import { passkeysSupported } from '../passkey.ts';
 import { passwordProof } from '#core';
@@ -187,6 +188,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
     return (
       <>
         {head}
+        <TodayEvents date={today} />
         <TodayBoard tasks={[...overdue, ...todays]} sort={opts.sort} today={today} onOpen={onOpen} selectedId={selectedId} />
       </>
     );
@@ -194,6 +196,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
     return (
       <>
         {head}
+        <TodayEvents date={today} />
         <Groups
           groups={groupNodes(doc, doc.nested([...overdue, ...todays]), opts.group, opts.sort, today)}
           matched={ids([...overdue, ...todays])}
@@ -214,6 +217,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
   return (
     <>
       {head}
+      <TodayEvents date={today} />
       {overdue.length > 0 && (
         <section>
           <div className="section-head">
@@ -719,6 +723,7 @@ export function SettingsView() {
           </button>
         </section>
         <ThemeSettings />
+        <CalendarSettings />
         <PomodoroSettings />
         <LockSettings />
         <ImportExport />
@@ -767,6 +772,7 @@ export function SettingsView() {
         ))}
       </section>
       <ReminderSettings />
+      <CalendarSettings />
       <PomodoroSettings />
       <ChangePassword />
       <TwoFactor />

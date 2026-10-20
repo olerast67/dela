@@ -25,6 +25,8 @@ Whoever runs the server you connect to is responsible for it. The release apps c
 - Windows app updates: at startup the Windows app downloads `latest.json` from the GitHub releases of this project to check for a newer version. The request carries no account data.
 - Android push: if you turn on push reminders on Android, a UnifiedPush distributor app you choose (for example ntfy) delivers encrypted messages from your server. The text of a reminder is encrypted with a key only the phone knows.
 - Voice input on Android uses the speech recognizer of the system. Dela asks it to recognize on the device, but the recognizer service (usually Google) may send the audio online.
+- Calendar subscriptions (iCal): each of your devices downloads the calendar file directly from the calendar server at the link you entered, about every 30 minutes, and keeps a copy on the device. The link is stored only inside your encrypted data; the Dela server sees neither the link nor the events. The calendar server sees the IP address of the device.
+- Phone calendars on Android: with the calendar permission Dela reads the events of the calendars you choose and shows them on the phone. These events are never synced or sent anywhere.
 - Dela Verify, the optional browser extension, downloads the signed list of web app files for your server's version from the GitHub releases of this project.
 
 ## Deleting data

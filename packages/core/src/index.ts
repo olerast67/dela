@@ -168,6 +168,7 @@ export {
 export { parseFilter, runFilter, FilterSyntaxError, type FilterResult } from './filter.ts';
 export { remindersBetween, alarmTasks, digestsBetween, offsetsOf, isReminderList, MAX_REMINDERS, DIGEST_KEY_PREFIX, type Digest, type Reminder } from './reminders.ts';
 export { Workspace } from './workspace.ts';
+export { eventsOnDay, normalizeCalendarUrl, toCalendarSub, windowBounds, type AllDayEvent, type CalEvent, type CalendarSub, type DayEvents, type TimedEvent } from './events.ts';
 export type { FilterSource } from './filter.ts';
 export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';
 export { weekStart, weekDates, monthGrid, monthStart, slotOf, moveDue, snapMinute, layoutDay, type TimedItem, type PlacedItem } from './calendar.ts';

@@ -3606,3 +3606,156 @@ body:has(.pomo-chip) .sidebar {
     padding-bottom: 88px;
   }
 }
+
+/* ---------- события календарей: поверх задач, только чтение ---------- */
+
+.event-swatch {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--ec, var(--c, var(--c-gray)));
+  margin-right: 6px;
+  vertical-align: baseline;
+}
+
+.day-events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 4px 0 12px;
+}
+
+.day-event {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-left: 3px solid var(--ec);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ec) 8%, transparent);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+
+.day-event:hover {
+  background: color-mix(in srgb, var(--ec) 15%, transparent);
+}
+
+.day-event-icon,
+.cal-event-icon {
+  flex: none;
+  color: var(--ec);
+}
+
+.day-event-time {
+  flex: none;
+  min-width: 96px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-event-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cal-chip.cal-event {
+  background: color-mix(in srgb, var(--ec) 10%, transparent);
+  color: var(--text-muted);
+}
+
+.cal-chip.cal-event:hover {
+  background: color-mix(in srgb, var(--ec) 18%, transparent);
+}
+
+/* Блок события приглушён и с пунктиром: его не перетащить и не выполнить. */
+.cal-block.cal-event {
+  --pc: var(--ec);
+  border-left-style: dashed;
+  background: color-mix(in srgb, var(--ec) 8%, var(--surface));
+  color: var(--text-muted);
+  z-index: 0;
+}
+
+.cal-block.cal-event:hover {
+  background: color-mix(in srgb, var(--ec) 14%, var(--surface));
+}
+
+.cal-block.cal-event .cal-event-icon {
+  vertical-align: -1px;
+}
+
+.event-details {
+  max-width: 480px;
+}
+
+.event-details .share-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.event-details .share-head .icon {
+  margin-top: 10px;
+}
+
+.event-body {
+  padding: 8px 16px 16px;
+}
+
+.event-body p {
+  margin: 0 0 8px;
+}
+
+.event-desc {
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.event-source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.calendar-row {
+  flex-wrap: wrap;
+}
+
+.calendar-name {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.calendar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calendar-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 6px;
+}
+
+.calendar-add input {
+  flex: 1 1 180px;
+  min-width: 0;
+}

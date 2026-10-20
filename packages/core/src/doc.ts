@@ -9,6 +9,7 @@ import { habitStreak, type HabitStreak } from './habits.ts';
 import { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkEvent } from './stats.ts';
 import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
+import { normalizeCalendarUrl, toCalendarSub, type CalendarSub } from './events.ts';
 import { compareOrder, keyBetween } from './fractional.ts';
 import type { HybridClock } from './hlc.ts';
 import {
@@ -129,7 +130,7 @@ export interface TaskPatch {
 const PROJECT_PALETTE = ['blue', 'green', 'orange', 'violet', 'teal', 'red', 'pink', 'yellow', 'brown'] as const;
 
 /** Таблицы с мягким удалением: отмена создания помечает запись удалённой. */
-const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template', 'work']);
+const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template', 'work', 'calendar']);
 
 const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   title: 'title',
@@ -1138,6 +1139,57 @@ export class Doc {
 
   deleteFilter(id: string): void {
     this.write([['filter', id, 'deleted_at', this.now()]]);
+  }
+
+  // ---------- подписки на календари ----------
+
+  /** Подписка на календарь iCal. Ссылка — секрет: она живёт только в зашифрованной записи пространства. */
+  addCalendar(input: { name: string; url: string; color?: string }): string {
+    const url = normalizeCalendarUrl(input.url);
+    if (!url) throw new Error('bad calendar url');
+    const id = uuidv7(this.now());
+    this.write([
+      ['calendar', id, 'name', input.name.trim()],
+      ['calendar', id, 'url', url],
+      ['calendar', id, 'color', input.color ?? 'blue'],
+      ['calendar', id, 'order', this.orderBetween(this.calendars(), id)],
+      ['calendar', id, 'created_at', this.now()],
+    ]);
+    return id;
+  }
+
+  updateCalendar(id: string, patch: { name?: string; url?: string; color?: string; enabled?: boolean }): void {
+    const changes: Change[] = [];
+    if (patch.name !== undefined) changes.push(['calendar', id, 'name', patch.name.trim()]);
+    if (patch.url !== undefined) {
+      const url = normalizeCalendarUrl(patch.url);
+      if (!url) throw new Error('bad calendar url');
+      changes.push(['calendar', id, 'url', url]);
+    }
+    if (patch.color !== undefined) changes.push(['calendar', id, 'color', patch.color]);
+    if (patch.enabled !== undefined) changes.push(['calendar', id, 'off', !patch.enabled]);
+    this.write(changes);
+  }
+
+  /** Удалить подписку: ссылка стирается из записи, отменить нельзя. */
+  deleteCalendar(id: string): void {
+    this.write(
+      [
+        ['calendar', id, 'url', null],
+        ['calendar', id, 'deleted_at', this.now()],
+      ],
+      { undoable: false },
+    );
+  }
+
+  /** Живые подписки по порядку, включая выключенные. */
+  calendars(): CalendarSub[] {
+    const out: CalendarSub[] = [];
+    for (const [id, rec] of this.replica.all('calendar')) {
+      const c = toCalendarSub(id, rec);
+      if (c.deletedAt === null && c.url) out.push(c);
+    }
+    return out.sort(compareOrder);
   }
 
   // ---------- запросы ----------

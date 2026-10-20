@@ -5,7 +5,8 @@
  * На телефоне задачу берут долгим нажатием и ведут пальцем.
  */
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { addDays, addMonths, layoutDay, monthGrid, monthStart, moveDue, slotOf, snapMinute, weekDates, type DateSpec, type TaskView } from '#core';
+import { addDays, addMonths, eventsOnDay, layoutDay, monthGrid, monthStart, moveDue, slotOf, snapMinute, weekDates, type CalEvent, type DateSpec, type DayEvents, type TaskView } from '#core';
+import { useCalendarEvents } from '../calendars.ts';
 import { TZ, clock, clockLabel, dateLabel, hourLabel, monthTitle, rangeTitle, todayDate, weekdayShort } from '../format.ts';
 import { navigate, useDoc, useMedia } from '../hooks.ts';
 import { DRAG_TYPE, setDragged } from './dnd.ts';
@@ -14,6 +15,8 @@ import { completeWithUndo } from './Task.tsx';
 import { OptionsPopover } from './ViewOptions.tsx';
 import { tr } from '../i18n.ts';
 import { haptic } from '../platform.ts';
+import { EventDetails, eventStyle } from './Events.tsx';
+import { IconCalendar } from './icons.tsx';
 
 export type CalendarMode = 'day' | '3day' | 'week' | 'month';
 type ColorBy = 'priority' | 'project';
@@ -270,6 +273,11 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
     for (const d of dates) if (d < today) byDate.set(d, (byDate.get(d) ?? []).filter((t) => !overdue.some((o) => o.id === t.id)));
   }
 
+  // События календарей: поверх задач, только для чтения.
+  const calEvents = useCalendarEvents(first, dates.length);
+  const eventsByDate = new Map(dates.map((d) => [d, eventsOnDay(calEvents, d, TZ)]));
+  const [openEvent, setOpenEvent] = useState<CalEvent | null>(null);
+
   const move = (taskId: string, date: string, minute: number | null, allDayRow = false) => {
     const t = doc.task(taskId);
     if (!t) return;
@@ -379,6 +387,8 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
           anchor={anchor}
           today={today}
           byDate={byDate}
+          events={eventsByDate}
+          onEvent={setOpenEvent}
           onOpen={onOpen}
           selectedId={selectedId}
           onDropDay={(id, d) => move(id, d, null)}
@@ -389,6 +399,8 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
           dates={dates}
           today={today}
           byDate={byDate}
+          events={eventsByDate}
+          onEvent={setOpenEvent}
           onOpen={onOpen}
           selectedId={selectedId}
           onMove={move}
@@ -397,6 +409,7 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
         />
       )}
       </div>
+      {openEvent && <EventDetails event={openEvent} onClose={() => setOpenEvent(null)} />}
       {showSide && <SidePanel today={today} onOpen={onOpen} selectedId={selectedId} sheet={compact} away={sideAway} onAway={setSideAway} onClose={() => setSheet(false)} />}
       </div>
     </div>
@@ -513,6 +526,25 @@ function Chip({ task, onOpen, selected, showTime, note }: { task: Overdue; onOpe
   );
 }
 
+/** Событие календаря в месяце и в строке «Весь день»: без кружка выполнения, приглушённое, со значком календаря. */
+function EventChip({ event, minute, onEvent }: { event: CalEvent; minute: number | null; onEvent: (e: CalEvent) => void }) {
+  return (
+    <div
+      className="cal-chip cal-event"
+      style={eventStyle(event)}
+      role="button"
+      tabIndex={0}
+      onClick={() => onEvent(event)}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onEvent(event)}
+      title={event.title}
+    >
+      <IconCalendar width={12} height={12} className="cal-event-icon" />
+      {minute !== null && <span className="cal-time">{clockLabel(minute)}</span>}
+      <span className="cal-title">{event.title || tr('Без названия')}</span>
+    </div>
+  );
+}
+
 function acceptDrop(e: React.DragEvent): boolean {
   if (!e.dataTransfer.types.includes(DRAG_TYPE)) return false;
   e.preventDefault();
@@ -525,12 +557,14 @@ function MonthGrid(props: {
   anchor: string;
   today: string;
   byDate: Map<string, TaskView[]>;
+  events: Map<string, DayEvents>;
+  onEvent: (e: CalEvent) => void;
   onOpen: (id: string) => void;
   selectedId: string | null;
   onDropDay: (taskId: string, date: string) => void;
   onDay: (date: string) => void;
 }) {
-  const { dates, anchor, today, byDate, onOpen, selectedId, onDropDay, onDay } = props;
+  const { dates, anchor, today, byDate, events, onEvent, onOpen, selectedId, onDropDay, onDay } = props;
   const month = anchor.slice(0, 7);
   const [mouseOver, setOver] = useState<string | null>(null);
   const touchOver = useContext(TouchContext).over;
@@ -545,6 +579,15 @@ function MonthGrid(props: {
       ))}
       {dates.map((d) => {
         const tasks = byDate.get(d) ?? [];
+        const day = events.get(d);
+        const evs: Array<{ event: CalEvent; minute: number | null }> = [
+          ...(day?.allDay ?? []).map((event) => ({ event, minute: null })),
+          ...(day?.timed ?? []).map((t) => ({ event: t.event as CalEvent, minute: t.start })),
+        ];
+        // События и задачи делят место в клетке: события сверху.
+        const shownEvents = evs.slice(0, LIMIT);
+        const shownTasks = tasks.slice(0, Math.max(0, LIMIT - shownEvents.length));
+        const hidden = evs.length + tasks.length - shownEvents.length - shownTasks.length;
         return (
           <div
             key={d}
@@ -564,12 +607,15 @@ function MonthGrid(props: {
             <button className="cal-daynum" onClick={() => onDay(d)} aria-label={tr('Открыть день {d}', { d: d })}>
               {Number(d.slice(8))}
             </button>
-            {tasks.slice(0, LIMIT).map((t) => (
+            {shownEvents.map(({ event, minute }) => (
+              <EventChip key={event.id} event={event} minute={minute} onEvent={onEvent} />
+            ))}
+            {shownTasks.map((t) => (
               <Chip key={`${t.id}-${d}`} task={t} onOpen={onOpen} selected={t.id === selectedId} showTime />
             ))}
-            {tasks.length > LIMIT && (
+            {hidden > 0 && (
               <button className="cal-more" onClick={() => onDay(d)}>
-                {tr('ещё {n}', { n: tasks.length - LIMIT })}
+                {tr('ещё {n}', { n: hidden })}
               </button>
             )}
           </div>
@@ -596,13 +642,15 @@ function TimeGrid(props: {
   dates: string[];
   today: string;
   byDate: Map<string, TaskView[]>;
+  events: Map<string, DayEvents>;
+  onEvent: (e: CalEvent) => void;
   onOpen: (id: string) => void;
   selectedId: string | null;
   onMove: (taskId: string, date: string, minute: number | null, allDayRow?: boolean) => void;
   onDay: (date: string) => void;
   onQuickAdd: (defaults: QuickAddDefaults) => void;
 }) {
-  const { dates, today, byDate, onOpen, selectedId, onMove, onDay, onQuickAdd } = props;
+  const { dates, today, byDate, events, onEvent, onOpen, selectedId, onMove, onDay, onQuickAdd } = props;
   const doc = useDoc();
   const tone = useToneClass();
   const body = useRef<HTMLDivElement>(null);
@@ -703,6 +751,9 @@ function TimeGrid(props: {
               onMove(id, d, null, true);
             }}
           >
+            {(events.get(d)?.allDay ?? []).map((ev) => (
+              <EventChip key={ev.id} event={ev} minute={null} onEvent={onEvent} />
+            ))}
             {(allDay.get(d) ?? []).map((t) => (
               <Chip key={`${t.id}-${d}`} task={t} onOpen={onOpen} selected={t.id === selectedId} showTime={false} />
             ))}
@@ -750,7 +801,40 @@ function TimeGrid(props: {
               {Array.from({ length: 24 }, (_, h) => (
                 <div key={h} className="cal-line" style={{ top: h * HOUR }} />
               ))}
-              {layoutDay((timed.get(d) ?? []).map((i) => ({ id: i.task.id, start: i.start, end: i.end }))).map((p) => {
+              {layoutDay([
+                ...(timed.get(d) ?? []).map((i) => ({ id: i.task.id, start: i.start, end: i.end })),
+                // События в той же раскладке, что и задачи: пересекаясь, они встают рядом, а не друг на друга.
+                ...(events.get(d)?.timed ?? []).map((t) => ({ id: `ev:${t.event.id}`, start: t.start, end: Math.min(24 * 60, Math.max(t.end, t.start + 15)) })),
+              ]).map((p) => {
+                if (p.id.startsWith('ev:')) {
+                  const item = events.get(d)!.timed.find((t) => `ev:${t.event.id}` === p.id)!;
+                  const height = ((p.end - p.start) / 60) * HOUR;
+                  return (
+                    <div
+                      key={p.id}
+                      className={`cal-block cal-event${height < 36 ? ' short' : ''}`}
+                      style={{
+                        ...eventStyle(item.event),
+                        top: (p.start / 60) * HOUR,
+                        height: height - 2,
+                        left: `calc(${(p.col / p.cols) * 100}% + 2px)`,
+                        width: `calc(${100 / p.cols}% - 4px)`,
+                      }}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onEvent(item.event)}
+                      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onEvent(item.event)}
+                      title={item.event.title}
+                    >
+                      <span className="cal-title">
+                        <IconCalendar width={11} height={11} className="cal-event-icon" /> {item.event.title || tr('Без названия')}
+                      </span>
+                      <span className="cal-time">
+                        {clockLabel(item.start)}-{clockLabel(item.end)}
+                      </span>
+                    </div>
+                  );
+                }
                 const item = timed.get(d)!.find((i) => i.task.id === p.id)!;
                 const t = item.task;
                 const height = ((p.end - p.start) / 60) * HOUR;

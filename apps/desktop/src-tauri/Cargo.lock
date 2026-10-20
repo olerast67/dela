@@ -758,6 +758,8 @@ dependencies = [
 name = "dela-desktop"
 version = "0.8.0"
 dependencies = [
+ "reqwest",
+ "rustls",
  "serde_json",
  "tauri",
  "tauri-build",
