@@ -13,6 +13,8 @@ export interface QuickAddDefaults {
   readonly sectionId?: string | null;
   readonly parentId?: string | null;
   readonly due?: DateSpec;
+  /** Приоритет по умолчанию: колонка доски «Сегодня». */
+  readonly priority?: Priority;
 }
 
 interface Ignored {
@@ -49,7 +51,7 @@ export function createFromParsed(doc: Workspace, parsed: ParsedTask, defaults: Q
     ...(projectId ? { projectId } : {}),
     sectionId: sectionId ?? null,
     parentId: defaults.parentId ?? null,
-    priority: (parsed.priority ?? 4) as Priority,
+    priority: (parsed.priority ?? defaults.priority ?? 4) as Priority,
     labels,
     due: parsed.due ?? defaults.due ?? null,
     deadline: parsed.deadline,
