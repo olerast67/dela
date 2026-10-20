@@ -17,6 +17,10 @@ services:
       DELA_OPEN_REGISTRATION: ${DELA_OPEN_REGISTRATION:-false}
       DELA_PUBLIC_URL: ${DELA_PUBLIC_URL:-}
       DELA_BACKUP_KEEP: ${DELA_BACKUP_KEEP:-7}
+      DELA_MAX_FILE_MB: ${DELA_MAX_FILE_MB:-100}
+      DELA_MAX_FILE_MB_PER_SPACE: ${DELA_MAX_FILE_MB_PER_SPACE:-1024}
+      DELA_CALENDAR_HOSTS: ${DELA_CALENDAR_HOSTS:-}
+      DELA_PUSH_HOSTS: ${DELA_PUSH_HOSTS:-}
       # Dela runs behind a proxy: the client address for login limits comes from X-Forwarded-For.
       DELA_TRUST_PROXY: 'true'
     read_only: true

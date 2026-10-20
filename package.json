@@ -20,7 +20,8 @@
     "start": "node --disable-warning=ExperimentalWarning apps/server/src/main.ts",
     "test:e2e": "npm run build:web && playwright test",
     "desktop:dev": "cd apps/desktop && tauri dev",
-    "desktop:build": "npm run build:web && cd apps/desktop && tauri build"
+    "desktop:build": "npm run build:web && cd apps/desktop && tauri build",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "devDependencies": {
     "@capacitor/android": "^8.5.3",

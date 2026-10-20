@@ -3714,6 +3714,8 @@ body:has(.pomo-chip) .sidebar {
 .place-saved {
   display: inline-flex;
   align-items: center;
+}
+
 /* ---------- события календарей: поверх задач, только чтение ---------- */
 
 .event-swatch {
