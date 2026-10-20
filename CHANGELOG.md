@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Markdown in task descriptions and comments: headings, bold and italic, lists, links and bare URLs, code, quotes, tables and checklists. A checklist item in the description is checked with a click and saved with the task; in comments checklists are shown only. The description is shown formatted, a click on its text opens the editor. Raw HTML is shown as text, only http(s) and mailto links open, images from links are not loaded.
+
 ## 0.7.0
 
 - Calendar: a "3 days" mode; task color by priority or by project; an option to hide future repeats of recurring tasks; an "Unscheduled" side panel with overdue tasks and tasks without a date, which can be dragged onto a day, the all-day row or an hour of the grid. On a narrow screen the panel opens from a button. On a phone, tasks in the calendar and in the panel are dragged with a finger: hold a task, then move it to a day, the all-day row or an hour. Color, repeats and the panel are remembered per device.

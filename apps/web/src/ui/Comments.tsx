@@ -3,11 +3,11 @@
  * шифротекстом; ключ файла лежит в записи комментария, которая зашифрована ключом пространства.
  */
 import { useEffect, useRef, useState } from 'react';
-import { extractLinks, openFile, sealFile, uuidv7, type Attachment, type Comment } from '#core';
+import { openFile, sealFile, uuidv7, type Attachment, type Comment } from '#core';
 import { controller } from '../controller.ts';
 import { useDoc } from '../hooks.ts';
-import { openExternal } from '../platform.ts';
 import { IconX } from './icons.tsx';
+import { Markdown } from './Markdown.tsx';
 import { LOCALE, tr } from '../i18n.ts';
 
 /** Шифротекст файла не больше 7 МиБ: столько принимает сервер. */
@@ -76,7 +76,6 @@ function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
   const mine = c.author !== null && c.author === controller.userId && status === 'ok';
   const name = mine ? tr('Вы') : c.author ? (controller.memberEmail(spaceId, c.author) ?? tr('Участник')) : tr('Участник');
   const who = status === 'bad' ? tr('Подпись не сходится') : name;
-  const links = extractLinks(c.text);
   return (
     <div className="comment">
       <div className="comment-head">
@@ -103,23 +102,7 @@ function CommentItem({ c, spaceId }: { c: Comment; spaceId: string }) {
           </button>
         )}
       </div>
-      {c.text && <div className="comment-text">{c.text}</div>}
-      {links.length > 0 && (
-        <div className="links">
-          {links.map((url) => (
-            <a
-              key={url}
-              href={url}
-              onClick={(e) => {
-                e.preventDefault();
-                void openExternal(url);
-              }}
-            >
-              {url.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-            </a>
-          ))}
-        </div>
-      )}
+      {c.text && <Markdown className="comment-text" text={c.text} />}
       {c.file && <FileView spaceId={spaceId} file={c.file} />}
     </div>
   );

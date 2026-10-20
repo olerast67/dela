@@ -647,4 +647,9 @@ export const EN: Readonly<Record<string, string>> = {
   'Задач без даты нет.': 'No tasks without a date.',
   'Перетащите задачу на день или на час в сетке, чтобы назначить срок.': 'Drag a task onto a day or an hour in the grid to give it a date.',
   'Удерживайте задачу и перетащите её на день или на час в сетке, чтобы назначить срок.': 'Hold a task, then drag it onto a day or an hour in the grid to give it a date.',
+  // ---------- Markdown в описании ----------
+  'Описание, изменить': 'Description, edit',
+  'Щёлкните, чтобы изменить': 'Click to edit',
+  'Отметить пункт': 'Check item',
+  'Снять отметку': 'Uncheck item',
 };

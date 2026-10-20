@@ -1706,6 +1706,153 @@ kbd {
   overflow-wrap: anywhere;
 }
 
+/* ---------- Markdown в описании и комментариях ---------- */
+
+.panel-desc-view {
+  min-height: 0;
+  padding: 2px 4px;
+  border-radius: 6px;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+
+.panel-desc-view:hover {
+  background: var(--surface-2);
+}
+
+.md > :first-child {
+  margin-top: 0;
+}
+
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md p,
+.md ul,
+.md ol,
+.md pre,
+.md blockquote,
+.md .md-table {
+  margin: 0 0 8px;
+}
+
+.md .md-h {
+  margin: 12px 0 6px;
+  line-height: 1.3;
+}
+
+.md h3.md-h {
+  font-size: 17px;
+}
+
+.md h4.md-h {
+  font-size: 15px;
+}
+
+.md h5.md-h,
+.md h6.md-h {
+  font-size: 14px;
+}
+
+.md ul,
+.md ol {
+  padding-left: 22px;
+}
+
+.md li > ul,
+.md li > ol {
+  margin: 2px 0 0;
+}
+
+.md li.md-task {
+  list-style: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: baseline;
+  margin-left: -22px;
+}
+
+.md li.md-task > input {
+  margin: 0;
+  accent-color: var(--accent);
+  transform: translateY(2px);
+}
+
+.md li.md-task > ul,
+.md li.md-task > ol {
+  grid-column: 2;
+}
+
+.md li.md-task.done > .md-task-text {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
+.md a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+.md code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+
+.md pre {
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+
+.md pre code {
+  background: none;
+  padding: 0;
+}
+
+.md blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 10px;
+  color: var(--text-muted);
+}
+
+.md hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 10px 0;
+}
+
+/* Таблица на узком экране прокручивается сама, а не растягивает карточку. */
+.md .md-table {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.md table {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.md th,
+.md td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.md th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
 /* ---------- календарь ---------- */
 
 .content-inner:has(.calendar) {
@@ -2715,7 +2862,6 @@ kbd {
 }
 
 .comment-text {
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 4px 0 0 30px;
 }

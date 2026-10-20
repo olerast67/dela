@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { extractLinks, parseTask, type DateSpec, type Priority } from '#core';
 import { openExternal } from '../platform.ts';
 import { Comments } from './Comments.tsx';
+import { Markdown, toggleTask } from './Markdown.tsx';
 import { TZ, dateLabel, durationLabel, todayDate } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
@@ -41,6 +42,8 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
   // Редактор повтора относится к открытой задаче: при переходе к другой он закрывается.
   useEffect(() => setRepeatEditor(false), [id]);
   const [addingSub, setAddingSub] = useState(false);
+  const [editingDesc, setEditingDesc] = useState(false);
+  useEffect(() => setEditingDesc(false), [id]);
   const title = useDraft(task?.title ?? '', (v) => v.trim() && doc.updateTask(id, { title: v }));
   const description = useDraft(task?.description ?? '', (v) => doc.updateTask(id, { description: v }));
 
@@ -178,10 +181,48 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
             aria-label={tr('Название')}
           />
         </div>
-        <textarea className="panel-desc" placeholder={tr('Описание')} rows={3} {...description} aria-label={tr('Описание')} />
-        {extractLinks(`${task.title} ${task.description}`).length > 0 && (
+        {editingDesc || !task.description.trim() ? (
+          <textarea
+            className="panel-desc"
+            placeholder={tr('Описание')}
+            rows={3}
+            {...description}
+            onBlur={() => {
+              description.onBlur();
+              setEditingDesc(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') (e.target as HTMLTextAreaElement).blur();
+            }}
+            autoFocus={editingDesc}
+            aria-label={tr('Описание')}
+          />
+        ) : (
+          // Описание показывается размеченным; щелчок по тексту (не по ссылке и не по пункту чек-листа) открывает правку.
+          <div
+            className="panel-desc panel-desc-view"
+            role="button"
+            tabIndex={0}
+            aria-label={tr('Описание, изменить')}
+            title={tr('Щёлкните, чтобы изменить')}
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest('a, input, button')) return;
+              if (window.getSelection()?.toString()) return;
+              setEditingDesc(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.target === e.currentTarget) {
+                e.preventDefault();
+                setEditingDesc(true);
+              }
+            }}
+          >
+            <Markdown text={task.description} onToggle={(i) => doc.updateTask(id, { description: toggleTask(task.description, i) })} />
+          </div>
+        )}
+        {extractLinks(task.title).length > 0 && (
           <div className="links">
-            {extractLinks(`${task.title} ${task.description}`).map((url) => (
+            {extractLinks(task.title).map((url) => (
               <a
                 key={url}
                 href={url}

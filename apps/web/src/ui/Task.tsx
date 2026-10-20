@@ -1,5 +1,6 @@
 import { useRef, useState, type MouseEvent } from 'react';
 import { haptic } from '../platform.ts';
+import { previewLine } from './Markdown.tsx';
 import { RescheduleSheet } from './Reschedule.tsx';
 import { type TaskNode, type TaskView, type Workspace } from '#core';
 import { dueLabel, dueTone, dateLabel, durationLabel, timeLabel } from '../format.ts';
@@ -254,7 +255,7 @@ export function TaskRow({
       </button>
       <div className="task-body">
         <div className="task-title">{task.title || <span className="muted">{tr('Без названия')}</span>}</div>
-        {task.description && <div className="task-desc">{task.description.split('\n')[0]}</div>}
+        {task.description && <div className="task-desc">{previewLine(task.description)}</div>}
         <div className="task-meta">
           {showDate && task.due && (
             <span className={`due tone-${dueTone(task)}`}>
