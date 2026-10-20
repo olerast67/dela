@@ -4,7 +4,8 @@
  */
 import { expect, test, type Page } from '@playwright/test';
 
-const SHOTS = 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad';
+// Папка для снимков проверки вёрстки: SHOTS=1 включает их, SHOTS_DIR меняет папку.
+const SHOTS = process.env.SHOTS_DIR ?? 'test-results/shots';
 
 /** Снимок для проверки вёрстки глазами (SHOTS=1); пауза даёт закончиться переходу между экранами. */
 async function shot(page: Page, name: string) {

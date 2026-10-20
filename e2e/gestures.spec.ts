@@ -47,7 +47,7 @@ test('смахивание: вправо выполнить, влево пере
   await swipe(page, phrase, -140);
   const sheet = page.getByRole('dialog', { name: 'Перенести задачу' });
   await expect(sheet).toBeVisible();
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/sheet.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/sheet.png` });
   await sheet.getByRole('button', { name: /Завтра/ }).click();
   await expect(sheet).toHaveCount(0);
   await expect(phrase).toHaveCount(0);
@@ -59,7 +59,7 @@ test('смахивание: вправо выполнить, влево пере
   const panel = page.locator('.panel');
   await expect(panel).toBeVisible();
   await page.waitForTimeout(400);
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/panel-sheet.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/panel-sheet.png` });
   const grip = (await page.locator('.panel-grip').boundingBox())!;
   await page.mouse.move(grip.x + grip.width / 2, grip.y + 10);
   await page.mouse.down();

@@ -30,7 +30,7 @@ test('комментарий с картинкой', async ({ page }) => {
   await expect(panel.getByRole('img', { name: 'точка.png' })).toBeVisible();
   await expect(page.locator('.task', { hasText: 'Подписаться на olerast' }).getByTitle('Комментарии')).toContainText('1');
   await expect(page.getByText('Всё сохранено')).toBeVisible({ timeout: 10_000 });
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/comments.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/comments.png` });
 
   await page.reload();
   await page.locator('.task', { hasText: 'Подписаться на olerast' }).click();

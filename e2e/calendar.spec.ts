@@ -34,7 +34,7 @@ test('календарь: планирование дня перетаскива
   const grid = page.locator('.cal-time-grid');
   await expect(grid.locator('.cal-block', { hasText: 'Созвон с командой' })).toBeVisible();
   await expect(grid.locator('.cal-block', { hasText: 'Созвон с командой' })).toContainText('10:00-11:30');
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/cal-week.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/cal-week.png` });
 
   // Из «Весь день» в сетку: задача получает время.
   const chip = grid.locator('.cal-allday .cal-chip', { hasText: 'Разобрать почту' });
@@ -60,7 +60,7 @@ test('календарь: планирование дня перетаскива
   await page.getByRole('tab', { name: 'День' }).click();
   await page.locator('.cal-block', { hasText: 'Разобрать почту' }).dragTo(page.locator('.cal-allday-cell').first());
   await expect(page.locator('.cal-allday .cal-chip', { hasText: 'Разобрать почту' })).toBeVisible();
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/cal-day.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/cal-day.png` });
 
   // Месяц: перенос на другой день сохраняет время.
   await page.getByRole('tab', { name: 'Месяц' }).click();
@@ -70,7 +70,7 @@ test('календарь: планирование дня перетаскива
   const target = cells.nth(27);
   await ролик.dragTo(target);
   await expect(target.locator('.cal-chip', { hasText: 'Записать ролик' })).toContainText('15:00');
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/cal-month.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/cal-month.png` });
 
   // Щелчок по пустому часу открывает быстрое добавление с этим временем.
   await page.getByRole('tab', { name: 'Неделя' }).click();

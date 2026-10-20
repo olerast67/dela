@@ -21,7 +21,7 @@ test('блокировка PIN-кодом', async ({ page }) => {
   await page.getByLabel('PIN ещё раз').fill('2468');
   await section.getByRole('button', { name: 'Включить' }).click();
   await expect(page.getByText('Блокировка включена.')).toBeVisible();
-  if (process.env.SHOTS) await section.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/lock-settings.png' });
+  if (process.env.SHOTS) await section.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/lock-settings.png` });
 
   await page.getByRole('button', { name: 'Заблокировать сейчас' }).click();
   await expect(page.getByRole('heading', { name: 'Dela заблокирована' })).toBeVisible();
@@ -30,7 +30,7 @@ test('блокировка PIN-кодом', async ({ page }) => {
   await page.getByLabel('PIN-код').fill('1111');
   await page.getByRole('button', { name: 'Разблокировать' }).click();
   await expect(page.getByRole('alert')).toContainText('Осталось попыток: 9');
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/lock-screen.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/lock-screen.png` });
 
   await page.getByLabel('PIN-код').fill('2468');
   await page.getByRole('button', { name: 'Разблокировать' }).click();

@@ -21,7 +21,7 @@ test('шаблоны и история', async ({ page }) => {
   await page.getByRole('button', { name: 'Шаблон' }).click();
   await page.locator('.sidebar').getByText('Шаблоны').click();
   await expect(page.locator('.template-card', { hasText: 'Ролик на YouTube' }).first()).toContainText('4 разд.');
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/templates.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/templates.png` });
 
   // Выполненная задача видна в истории.
   await page.locator('.sidebar').getByText('Сегодня').click();
@@ -29,5 +29,5 @@ test('шаблоны и история', async ({ page }) => {
   await page.locator('.sidebar').getByText('История').click();
   await expect(page.locator('.activity-row.kind-completed', { hasText: 'Подписаться на olerast' })).toBeVisible();
   await expect(page.locator('.activity-row.kind-created', { hasText: 'Написать сценарий' })).toBeVisible();
-  if (process.env.SHOTS) await page.screenshot({ path: 'C:/Users/olerast/AppData/Local/Temp/claude/F--ToDoIst/18f673bb-437e-416d-a093-d1b79e5bb602/scratchpad/history.png' });
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/history.png` });
 });
