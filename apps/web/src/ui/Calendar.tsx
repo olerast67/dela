@@ -1,18 +1,20 @@
 /**
- * Календарь: месяц, неделя и день. В неделе и дне задачи со временем стоят в сетке часов:
+ * Календарь: месяц, неделя, три дня и день. В неделе и дне задачи со временем стоят в сетке часов:
  * их можно перетащить на другой час или день и растянуть за нижний край (длительность).
  * Задачи без времени лежат в строке «Весь день»; оттуда их перетаскивают в сетку, так планируется день.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { addDays, addMonths, layoutDay, monthGrid, monthStart, moveDue, slotOf, snapMinute, weekDates, type DateSpec, type TaskView } from '#core';
-import { TZ, clock, clockLabel, hourLabel, monthTitle, rangeTitle, todayDate, weekdayShort } from '../format.ts';
+import { TZ, clock, clockLabel, dateLabel, hourLabel, monthTitle, rangeTitle, todayDate, weekdayShort } from '../format.ts';
 import { navigate, useDoc, useMedia } from '../hooks.ts';
 import { DRAG_TYPE, setDragged } from './dnd.ts';
 import type { QuickAddDefaults } from './QuickAdd.tsx';
 import { completeWithUndo } from './Task.tsx';
+import { OptionsPopover } from './ViewOptions.tsx';
 import { tr } from '../i18n.ts';
 
-export type CalendarMode = 'day' | 'week' | 'month';
+export type CalendarMode = 'day' | '3day' | 'week' | 'month';
+type ColorBy = 'priority' | 'project';
 
 /** Высота часа в сетке, пикселей. */
 const HOUR = 48;
@@ -20,11 +22,40 @@ const HOUR = 48;
 const DEFAULT_DURATION = 30;
 
 const MODE_KEY = 'dela.calendarMode';
+/** Цвет задач, скрытие будущих повторов и боковая панель: настройки отображения этого устройства. */
+const COLOR_KEY = 'dela.calendarColor';
+const REPEATS_KEY = 'dela.calendarHideRepeats';
+const SIDE_KEY = 'dela.calendarSide';
+
+function readPref(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writePref(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // без хранилища настройка живёт до перезагрузки
+  }
+}
+
+/** Чем красить задачи в сетке: приоритетом или цветом проекта. */
+const ColorContext = createContext<ColorBy>('priority');
+
+function useToneClass(): (t: TaskView) => string {
+  const by = useContext(ColorContext);
+  const doc = useDoc();
+  return (t) => (by === 'priority' ? `prio-${t.priority}` : `by-project c-${doc.project(t.projectId)?.color ?? 'gray'}`);
+}
 
 function savedMode(narrow: boolean): CalendarMode {
   try {
     const m = localStorage.getItem(MODE_KEY);
-    if (m === 'day' || m === 'week' || m === 'month') return m;
+    if (m === 'day' || m === '3day' || m === 'week' || m === 'month') return m;
   } catch {
     // нет доступа к хранилищу
   }
@@ -48,6 +79,24 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
   const today = todayDate();
   const mode = routeMode ?? savedMode(narrow);
   const anchor = routeDate ?? today;
+  const [color, setColor] = useState<ColorBy>(() => (readPref(COLOR_KEY) === 'project' ? 'project' : 'priority'));
+  const [hideRepeats, setHideRepeats] = useState(() => readPref(REPEATS_KEY) === '1');
+  // На широком экране панель открыта, пока её не закрыли; на узком она прячется за кнопкой.
+  const [sideOpen, setSideOpen] = useState(() => readPref(SIDE_KEY) !== '0');
+  const [sheet, setSheet] = useState(false);
+  // Узко бывает и на компьютере, когда открыта карточка задачи: тогда панель тоже прячется за кнопку,
+  // иначе она сжимала колонки недели до нескольких пикселей.
+  const root = useRef<HTMLDivElement>(null);
+  const [tight, setTight] = useState(false);
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(([e]) => setTight(e!.contentRect.width < 900));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const compact = narrow || tight;
+  const showSide = compact ? sheet : sideOpen;
 
   const go = (m: CalendarMode, d: string) => {
     try {
@@ -57,14 +106,16 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
     }
     navigate({ view: 'calendar', mode: m, date: d === today ? null : d });
   };
-  const step = (dir: 1 | -1) => go(mode, mode === 'month' ? addMonths(monthStart(anchor), dir) : addDays(anchor, dir * (mode === 'week' ? 7 : 1)));
+  const step = (dir: 1 | -1) => go(mode, mode === 'month' ? addMonths(monthStart(anchor), dir) : addDays(anchor, dir * (mode === 'week' ? 7 : mode === '3day' ? 3 : 1)));
 
-  const dates = mode === 'month' ? monthGrid(anchor) : mode === 'week' ? weekDates(anchor) : [anchor];
+  const dates = mode === 'month' ? monthGrid(anchor) : mode === 'week' ? weekDates(anchor) : mode === '3day' ? [anchor, addDays(anchor, 1), addDays(anchor, 2)] : [anchor];
   const first = dates[0]!;
   const last = dates[dates.length - 1]!;
-  const byDate = new Map(doc.upcoming(first, dates.length, TZ).map((g) => [g.date, g.tasks]));
+  // Будущие повторы (projected) можно скрыть: остаётся только ближайший настоящий срок задачи.
+  const byDate = new Map(doc.upcoming(first, dates.length, TZ).map((g) => [g.date, hideRepeats ? g.tasks.filter((t) => !t.projected) : g.tasks]));
   // Просроченные показываются в «Весь день» сегодня: их удобно сразу разложить по часам.
-  if (byDate.has(today)) {
+  // Когда открыта боковая панель, они лежат там и в сетке не повторяются.
+  if (byDate.has(today) && !showSide) {
     const overdue = doc.today(today, TZ).overdue;
     byDate.set(today, [...overdue.map((t) => ({ ...t, overdueMark: true }) as TaskView), ...(byDate.get(today) ?? [])]);
     for (const d of dates) if (d < today) byDate.set(d, (byDate.get(d) ?? []).filter((t) => !overdue.some((o) => o.id === t.id)));
@@ -78,9 +129,11 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
   };
 
   const title = mode === 'month' ? monthTitle(anchor) : rangeTitle(first, last);
+  const unscheduled = doc.today(today, TZ).overdue.length + doc.openTasks().filter((t) => !t.due).length;
 
   return (
-    <div className={`calendar calendar-${mode}`}>
+    <ColorContext.Provider value={color}>
+    <div className={`calendar calendar-${mode}`} ref={root}>
       <header className="view-head cal-head">
         <h1>{title}</h1>
         <div className="cal-nav">
@@ -95,6 +148,7 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
             {(
               [
                 ['day', tr('День')],
+                ['3day', tr('3 дня')],
                 ['week', tr('Неделя')],
                 ['month', tr('Месяц')],
               ] as const
@@ -104,8 +158,50 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
               </button>
             ))}
           </div>
+          <OptionsPopover label={tr('Вид')} title={tr('Цвет задач и повторы')} on={color !== 'priority' || hideRepeats}>
+            <label>
+              <span>{tr('Цвет задач')}</span>
+              <select
+                value={color}
+                onChange={(e) => {
+                  const v = e.target.value === 'project' ? 'project' : 'priority';
+                  setColor(v);
+                  writePref(COLOR_KEY, v);
+                }}
+              >
+                <option value="priority">{tr('По приоритету')}</option>
+                <option value="project">{tr('По проекту')}</option>
+              </select>
+            </label>
+            <label className="checkline">
+              <input
+                type="checkbox"
+                checked={hideRepeats}
+                onChange={(e) => {
+                  setHideRepeats(e.target.checked);
+                  writePref(REPEATS_KEY, e.target.checked ? '1' : '0');
+                }}
+              />
+              {tr('Скрыть будущие повторы')}
+            </label>
+          </OptionsPopover>
+          <button
+            className={`cal-side-toggle${showSide ? ' active' : ''}`}
+            aria-expanded={showSide}
+            onClick={() => {
+              if (compact) setSheet(!sheet);
+              else {
+                setSideOpen(!sideOpen);
+                writePref(SIDE_KEY, sideOpen ? '0' : '1');
+              }
+            }}
+          >
+            {tr('Не запланировано')} <span className="muted">{unscheduled}</span>
+          </button>
         </div>
       </header>
+      <div className="cal-layout">
+      <div className="cal-main">
       {mode === 'month' ? (
         <MonthGrid
           dates={dates}
@@ -129,7 +225,59 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
           onQuickAdd={onQuickAdd}
         />
       )}
+      </div>
+      {showSide && <SidePanel today={today} onOpen={onOpen} selectedId={selectedId} sheet={compact} onClose={() => setSheet(false)} />}
+      </div>
     </div>
+    </ColorContext.Provider>
+  );
+}
+
+/**
+ * Боковая панель: просроченные задачи и задачи без даты. Их перетаскивают на день месяца,
+ * в строку «Весь день» или на час в сетке: задача получает дату (и время).
+ * Когда места мало, панель открывается кнопкой поверх сетки (на телефоне снизу); когда задачу потащили, она уходит с дороги.
+ */
+function SidePanel({ today, onOpen, selectedId, sheet, onClose }: { today: string; onOpen: (id: string) => void; selectedId: string | null; sheet: boolean; onClose: () => void }) {
+  const doc = useDoc();
+  const [away, setAway] = useState(false);
+  const overdue = doc.today(today, TZ).overdue;
+  const undated = doc.openTasks().filter((t) => !t.due);
+  return (
+    <aside
+      className={`cal-side${sheet ? ' sheet' : ''}${away ? ' away' : ''}`}
+      aria-label={tr('Не запланировано')}
+      onDragStart={() => sheet && setTimeout(() => setAway(true), 0)}
+      onDragEnd={() => {
+        if (!sheet) return;
+        setAway(false);
+        onClose();
+      }}
+    >
+      {sheet && (
+        <div className="cal-side-head">
+          <b>{tr('Не запланировано')}</b>
+          <button className="icon" onClick={onClose} aria-label={tr('Закрыть')}>
+            ×
+          </button>
+        </div>
+      )}
+      <h2>
+        {tr('Просрочено')} <span className="muted">{overdue.length || ''}</span>
+      </h2>
+      {overdue.length === 0 && <p className="muted">{tr('Просроченных задач нет.')}</p>}
+      {overdue.map((t) => (
+        <Chip key={t.id} task={t} onOpen={onOpen} selected={t.id === selectedId} showTime={false} note={t.due ? dateLabel(t.due.date, today) : undefined} />
+      ))}
+      <h2>
+        {tr('Без даты')} <span className="muted">{undated.length || ''}</span>
+      </h2>
+      {undated.length === 0 && <p className="muted">{tr('Задач без даты нет.')}</p>}
+      {undated.map((t) => (
+        <Chip key={t.id} task={t} onOpen={onOpen} selected={t.id === selectedId} showTime={false} />
+      ))}
+      <p className="muted cal-side-hint">{tr('Перетащите задачу на день или на час в сетке, чтобы назначить срок.')}</p>
+    </aside>
   );
 }
 
@@ -152,12 +300,13 @@ function dragProps(t: TaskView) {
   };
 }
 
-function Chip({ task, onOpen, selected, showTime }: { task: Overdue; onOpen: (id: string) => void; selected: boolean; showTime: boolean }) {
+function Chip({ task, onOpen, selected, showTime, note }: { task: Overdue; onOpen: (id: string) => void; selected: boolean; showTime: boolean; note?: string | undefined }) {
   const doc = useDoc();
+  const tone = useToneClass();
   const slot = task.due ? slotOf(task.due, TZ) : null;
   return (
     <div
-      className={`cal-chip prio-${task.priority}${selected ? ' selected' : ''}${task.overdueMark ? ' overdue' : ''}${task.projected ? ' projected' : ''}`}
+      className={`cal-chip ${tone(task)}${selected ? ' selected' : ''}${task.overdueMark ? ' overdue' : ''}${task.projected ? ' projected' : ''}`}
       data-id={task.id}
       {...dragProps(task)}
       onClick={() => onOpen(task.id)}
@@ -174,6 +323,7 @@ function Chip({ task, onOpen, selected, showTime }: { task: Overdue; onOpen: (id
       />
       {showTime && slot && <span className="cal-time">{clockLabel(slot.minute)}</span>}
       <span className="cal-title">{task.title}</span>
+      {note && <span className="cal-time cal-note">{note}</span>}
     </div>
   );
 }
@@ -265,6 +415,7 @@ function TimeGrid(props: {
 }) {
   const { dates, today, byDate, onOpen, selectedId, onMove, onDay, onQuickAdd } = props;
   const doc = useDoc();
+  const tone = useToneClass();
   const body = useRef<HTMLDivElement>(null);
   const now = useNowMinute();
   const [indicator, setIndicator] = useState<{ date: string; minute: number } | null>(null);
@@ -410,7 +561,7 @@ function TimeGrid(props: {
                 return (
                   <div
                     key={`${t.id}-${d}`}
-                    className={`cal-block prio-${t.priority}${t.id === selectedId ? ' selected' : ''}${t.projected ? ' projected' : ''}${height < 36 ? ' short' : ''}`}
+                    className={`cal-block ${tone(t)}${t.id === selectedId ? ' selected' : ''}${t.projected ? ' projected' : ''}${height < 36 ? ' short' : ''}`}
                     data-id={t.id}
                     style={{
                       top: (p.start / 60) * HOUR,

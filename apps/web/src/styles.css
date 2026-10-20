@@ -1584,7 +1584,7 @@ kbd {
 
 .view-opts-panel {
   position: absolute;
-  right: 0;
+  left: var(--panel-left, 0);
   top: calc(100% + 6px);
   z-index: 20;
   width: 250px;
@@ -1597,11 +1597,6 @@ kbd {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.14);
-}
-
-.view-opts[data-align='left'] .view-opts-panel {
-  right: auto;
-  left: 0;
 }
 
 .today-board .column {
@@ -1626,6 +1621,13 @@ kbd {
   gap: 4px;
   font-size: 13px;
   color: var(--text-muted);
+}
+
+.view-opts-panel label.checkline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
 }
 
 .view-opts-panel select {
@@ -2103,6 +2105,140 @@ kbd {
   .cal-body {
     height: calc(100vh - 230px);
   }
+}
+
+/* цвет по проекту: --c задаёт класс c-<цвет> */
+.cal-chip.by-project,
+.cal-block.by-project {
+  --pc: var(--c);
+}
+
+.cal-nav {
+  flex-wrap: wrap;
+}
+
+.cal-side-toggle.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* сетка и боковая панель «Не запланировано» */
+.cal-layout {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.cal-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.cal-side {
+  flex: 0 0 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.cal-side h2 {
+  font-size: 13px;
+  margin: 6px 2px 4px;
+}
+
+.cal-side h2:first-of-type {
+  margin-top: 0;
+}
+
+.cal-side p {
+  margin: 0 2px 4px;
+  font-size: 12px;
+}
+
+.cal-side .cal-chip {
+  font-size: 13px;
+  line-height: 20px;
+  padding: 3px 6px 3px 5px;
+}
+
+.cal-side .cal-note {
+  margin-left: auto;
+  color: var(--danger);
+}
+
+.cal-side-hint {
+  margin-top: 8px !important;
+}
+
+.cal-side-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.cal-side-head .icon {
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 8px;
+}
+
+@media (max-width: 760px) {
+  /* Переключатель режимов занимает свою строку, кнопка «Вид» сжимается до значка: шапка не вылезает за край. */
+  .cal-nav .segmented {
+    order: 10;
+    flex-basis: 100%;
+    display: flex;
+  }
+
+  .cal-nav .segmented button {
+    flex: 1;
+  }
+
+  .cal-nav .view-opts summary span {
+    display: none;
+  }
+}
+
+/* мало места: панель открывается кнопкой поверх сетки */
+.cal-layout {
+  position: relative;
+}
+
+.cal-side.sheet {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 260px;
+  z-index: 30;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.18);
+}
+
+/* телефон: панель выезжает снизу */
+@media (max-width: 760px) {
+  .cal-side.sheet {
+    position: fixed;
+    top: auto;
+    left: 8px;
+    right: 8px;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    width: auto;
+    max-height: 55vh;
+    z-index: 40;
+    box-shadow: 0 -8px 28px rgb(0 0 0 / 0.18);
+  }
+}
+
+/* панель уступает место, пока задачу из неё тащат на сетку */
+.cal-side.away {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* В узкой клетке месяца (открыта панель задачи, телефон) время уступает место названию. */

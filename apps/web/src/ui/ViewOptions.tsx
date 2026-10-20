@@ -104,6 +104,41 @@ export function ViewOptionsButton({
   defaults?: Partial<ViewOptions>;
   manualLabel?: string;
 }) {
+  const changed = opts.group !== (defaults.group ?? 'none') || opts.sort !== (defaults.sort ?? 'manual');
+  return (
+    <OptionsPopover label={tr('Порядок')} title={tr('Группировка и сортировка')} on={changed}>
+      {groups.length > 1 && (
+        <label>
+          <span>{tr('Группировать')}</span>
+          <select value={opts.group} onChange={(e) => onChange({ group: e.target.value as GroupBy })}>
+            {groups.map((g) => (
+              <option key={g} value={g}>
+                {GROUP_LABEL[g]}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label>
+        <span>{tr('Сортировать')}</span>
+        <select value={opts.sort} onChange={(e) => onChange({ sort: e.target.value as SortBy })}>
+          {sorts.map((s) => (
+            <option key={s} value={s}>
+              {s === 'manual' && manualLabel ? manualLabel : SORT_LABEL[s]}
+            </option>
+          ))}
+        </select>
+      </label>
+      {/* Ручной порядок есть только в проекте (там нет manualLabel): только там перетаскивание что-то переставляет. */}
+      {changed && !manualLabel && (
+        <p className="muted">{tr('Пока выбран другой порядок, задачи не переставляются перетаскиванием. Задачу можно бросить на заголовок группы.')}</p>
+      )}
+    </OptionsPopover>
+  );
+}
+
+/** Кнопка с выпадающей панелью настроек отображения (порядок в списках, вид календаря). */
+export function OptionsPopover({ label, title, on, children }: { label: string; title: string; on: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLDetailsElement>(null);
   // Щелчок мимо панели и Esc закрывают её.
   useEffect(() => {
@@ -119,53 +154,29 @@ export function ViewOptionsButton({
       document.removeEventListener('keydown', close);
     };
   }, []);
-  const changed = opts.group !== (defaults.group ?? 'none') || opts.sort !== (defaults.sort ?? 'manual');
   return (
     <details
       className="view-opts"
       ref={ref}
       onToggle={(e) => {
-        // Панель открывается в ту сторону, где ей хватает места: у левого края узкого экрана она уходила бы за край.
+        // Панель прижата к правому краю кнопки, но не выходит за края экрана: на телефоне кнопка бывает и слева, и посередине.
         const el = e.currentTarget;
-        if (el.open) el.dataset.align = el.getBoundingClientRect().right < 266 ? 'left' : 'right';
+        if (!el.open) return;
+        const r = el.getBoundingClientRect();
+        const w = Math.min(250, window.innerWidth - 32);
+        const left = Math.max(16, Math.min(r.right - w, window.innerWidth - 16 - w));
+        el.style.setProperty('--panel-left', `${left - r.left}px`);
       }}
     >
-      <summary className={changed ? 'on' : ''} title={tr('Группировка и сортировка')}>
+      <summary className={on ? 'on' : ''} title={title} aria-label={label}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
           <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
           <circle cx="16" cy="7" r="2" />
           <circle cx="10" cy="17" r="2" />
         </svg>
-        <span>{tr('Порядок')}</span>
+        <span>{label}</span>
       </summary>
-      <div className="view-opts-panel">
-        {groups.length > 1 && (
-          <label>
-            <span>{tr('Группировать')}</span>
-            <select value={opts.group} onChange={(e) => onChange({ group: e.target.value as GroupBy })}>
-              {groups.map((g) => (
-                <option key={g} value={g}>
-                  {GROUP_LABEL[g]}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <label>
-          <span>{tr('Сортировать')}</span>
-          <select value={opts.sort} onChange={(e) => onChange({ sort: e.target.value as SortBy })}>
-            {sorts.map((s) => (
-              <option key={s} value={s}>
-                {s === 'manual' && manualLabel ? manualLabel : SORT_LABEL[s]}
-              </option>
-            ))}
-          </select>
-        </label>
-        {/* Ручной порядок есть только в проекте (там нет manualLabel): только там перетаскивание что-то переставляет. */}
-        {changed && !manualLabel && (
-          <p className="muted">{tr('Пока выбран другой порядок, задачи не переставляются перетаскиванием. Задачу можно бросить на заголовок группы.')}</p>
-        )}
-      </div>
+      <div className="view-opts-panel">{children}</div>
     </details>
   );
 }

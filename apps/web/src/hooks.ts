@@ -19,7 +19,7 @@ export type Route =
   | { view: 'inbox' }
   | { view: 'today' }
   | { view: 'upcoming' }
-  | { view: 'calendar'; mode: 'day' | 'week' | 'month' | null; date: string | null }
+  | { view: 'calendar'; mode: 'day' | '3day' | 'week' | 'month' | null; date: string | null }
   | { view: 'project'; id: string }
   | { view: 'label'; id: string }
   | { view: 'filter'; id: string }
@@ -52,7 +52,7 @@ export function parseRoute(hash: string): Route {
       const date = new URLSearchParams(query).get('d');
       return {
         view: 'calendar',
-        mode: id === 'day' || id === 'week' || id === 'month' ? id : null,
+        mode: id === 'day' || id === '3day' || id === 'week' || id === 'month' ? id : null,
         date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
       };
     }

@@ -637,4 +637,13 @@ export const EN: Readonly<Record<string, string>> = {
   'Без метки': 'No label',
   'По умолчанию': 'Default',
   'По времени': 'By time',
+  // ---------- календарь: три дня, цвет, панель ----------
+  '3 дня': '3 days',
+  'Цвет задач и повторы': 'Task color and repeats',
+  'Цвет задач': 'Task color',
+  'Скрыть будущие повторы': 'Hide future repeats',
+  'Не запланировано': 'Unscheduled',
+  'Просроченных задач нет.': 'No overdue tasks.',
+  'Задач без даты нет.': 'No tasks without a date.',
+  'Перетащите задачу на день или на час в сетке, чтобы назначить срок.': 'Drag a task onto a day or an hour in the grid to give it a date.',
 };
