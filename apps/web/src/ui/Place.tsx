@@ -109,6 +109,23 @@ export function PlaceField({ task }: { task: TaskView }) {
     }
   };
 
+  // В общем проекте координаты увидели бы все участники, а зона срабатывала бы на их телефонах.
+  if (doc.isShared(task.projectId)) {
+    return (
+      <>
+        <dt>{tr('По месту')}</dt>
+        <dd className="place-field">
+          <p className="muted">{tr('В общем проекте напоминания по месту нет: место увидели бы все участники.')}</p>
+          {place && (
+            <button className="small" onClick={() => set(null)}>
+              {tr('Убрать место')}
+            </button>
+          )}
+        </dd>
+      </>
+    );
+  }
+
   const fromSaved = (s: SavedPlace) => void choose({ lat: s.lat, lon: s.lon, radius: s.radius, on: place?.on ?? 'arrive', name: s.name });
 
   return (

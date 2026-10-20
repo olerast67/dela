@@ -767,4 +767,6 @@ export const EN: Readonly<Record<string, string>> = {
   'Запускать при входе в Windows': 'Start when I sign in to Windows',
   'Dela запускается свёрнутой в трей, и напоминания приходят без открытого окна.': 'Dela starts minimized to the tray, and reminders arrive without an open window.',
   'Не удалось изменить запуск при входе в Windows.': 'Could not change the Windows startup setting.',
+  'В общем проекте напоминания по месту нет: место увидели бы все участники.': 'Shared projects have no place reminders: every member would see the place.',
+  'Убрать место': 'Remove the place',
 };

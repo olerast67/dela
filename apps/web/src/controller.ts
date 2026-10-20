@@ -1277,7 +1277,7 @@ export class Controller {
   private async syncPhoneReminders(): Promise<void> {
     if (!this.doc) return;
     this.syncWidget();
-    void syncNativePlaces(placeZones(this.doc)).catch((err) => console.error('native places failed', err));
+    void syncNativePlaces(placeZones(this.doc.personal)).catch((err) => console.error('native places failed', err));
     const now = Date.now();
     const list = this.alerts(now, now + 7 * 24 * 3600_000, this.reminderDefaults(), true);
     await syncNativeReminders(

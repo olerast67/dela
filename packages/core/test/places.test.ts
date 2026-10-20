@@ -140,3 +140,24 @@ describe('расстояние', () => {
     expect(distance(0, 179.999, 0, -179.999)).toBeLessThan(250);
   });
 });
+
+describe('место не уходит в общий проект', () => {
+  it('при переносе задачи место снимается, зоны берутся только из личного пространства', async () => {
+    const { Doc, HybridClock, Workspace, placeZones } = await import('../src/index.ts');
+    const time = Date.parse('2026-10-05T07:00:00Z');
+    const clock = new HybridClock('00000000000000ab', () => time);
+    const SHARED = '01929c3e-0000-7000-8000-0000000000ee';
+    const personal = new Doc({ spaceId: '01929c3e-0000-7000-8000-0000000000ef', clock, now: () => time, timeZone: 'Europe/Moscow' });
+    const shared = new Doc({ spaceId: SHARED, clock, now: () => time, timeZone: 'Europe/Moscow', kind: 'shared' });
+    const ws = new Workspace(personal);
+    ws.addShared(shared);
+    shared.write([['project', SHARED, 'name', 'Семья']]);
+    const t = ws.createTask({ title: 'Купить хлеб' });
+    ws.updateTask(t, { place: { lat: 55.75, lon: 37.62, radius: 200, on: 'arrive', name: 'Дом' } });
+    expect(placeZones(personal)).toHaveLength(1);
+    ws.moveTask(t, { projectId: SHARED });
+    const moved = ws.projectTasks(SHARED).unsectioned[0]!.task;
+    expect(moved.place ?? null).toBeNull();
+    expect(placeZones(personal)).toHaveLength(0);
+  });
+});

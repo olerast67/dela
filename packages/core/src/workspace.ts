@@ -458,7 +458,8 @@ export class Workspace {
       habit: t.habit,
       reminders: t.reminders,
       alarm: t.alarm,
-      place: t.place,
+      // Место — координаты автора: в общее пространство оно не переезжает, там его видели бы все участники.
+      place: dst.kind === 'shared' ? null : t.place,
       ...(at.position ? { position: at.position } : {}),
     });
     const extra: Change[] = [['task', newId, 'created_at', t.createdAt]];
