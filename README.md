@@ -114,6 +114,7 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 | `DELA_VAPID_SUBJECT` | repository URL | Contact for push services, `mailto:` or `https:` |
 | `DELA_PUBLIC_URL` | empty | Address the web app is opened at, for example `https://tasks.example.com`. Needed for passkeys |
 | `DELA_MAX_SHARED_SPACES` | `200` | Shared projects one user can create |
+| `DELA_CALENDAR_HOSTS` | empty | Calendar hosts the web app may load iCal subscriptions from (comma-separated, for example `calendar.example.com`); the Android and Windows apps load any calendar without it |
 | `DELA_PUSH_HOSTS` | empty | Your own UnifiedPush distributors (host names, comma-separated); ntfy.sh is allowed by default |
 
 ### Updating and backups

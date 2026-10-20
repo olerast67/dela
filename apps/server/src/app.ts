@@ -197,8 +197,10 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
         styleSrc: ["'self'"],
         imgSrc: ["'self'", 'data:', 'blob:'],
         fontSrc: ["'self'"],
-        // Импорт из Todoist идёт из браузера напрямую, минуя сервер.
-        connectSrc: ["'self'", 'https://api.todoist.com'],
+        // Импорт из Todoist и подписки на календари iCal идут из браузера напрямую, минуя сервер.
+        // Хосты календарей перечисляет владелец сервера: открытый https на всё дал бы уйти расшифрованным данным при XSS.
+        // В приложениях для Android и Windows календари грузятся без CSP.
+        connectSrc: ["'self'", 'https://api.todoist.com', ...config.calendarHosts.map((h) => `https://${h}`)],
         workerSrc: ["'self'"],
         manifestSrc: ["'self'"],
         objectSrc: ["'none'"],

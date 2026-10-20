@@ -25,6 +25,7 @@ export default defineConfig({
       DELA_HOST: '127.0.0.1',
       DELA_DB_PATH: ':memory:',
       DELA_OPEN_REGISTRATION: 'true',
+      DELA_CALENDAR_HOSTS: 'calendar.example.test,nocors.example.test',
       // Passkey: WebAuthn не принимает IP как домен, тест открывает localhost.
       DELA_PUBLIC_URL: `http://localhost:${PORT}`,
     },

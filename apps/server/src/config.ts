@@ -40,6 +40,8 @@ export interface Config {
   readonly maxFileBytes: number;
   /** Свои распространители UnifiedPush: имена хостов через запятую в DELA_PUSH_HOSTS. */
   readonly pushHosts: readonly string[];
+  /** Хосты календарей iCal, которые браузеру можно загружать напрямую (connect-src в CSP). */
+  readonly calendarHosts: readonly string[];
   /** Адрес, с которого открывают веб-клиент (https://tasks.example.com): нужен для passkey. */
   readonly publicUrl: string;
   /** Сколько общих проектов может создать один пользователь. */
@@ -73,6 +75,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     maxSharedSpaces: Number(env.DELA_MAX_SHARED_SPACES ?? 200),
     publicUrl: (env.DELA_PUBLIC_URL ?? '').replace(/\/+$/, ''),
     pushHosts: (env.DELA_PUSH_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean),
+    calendarHosts: (env.DELA_CALENDAR_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter((h) => /^[a-z0-9.-]+$/.test(h)),
   };
 }
 
@@ -95,6 +98,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     maxFileBytesPerSpace: 1024 * 1024 * 1024,
     maxFileBytes: 100 * 1024 * 1024,
     pushHosts: [],
+    calendarHosts: [],
     publicUrl: 'http://localhost',
     maxSharedSpaces: 200,
     ...overrides,

@@ -70,6 +70,7 @@ import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
 import { createPasskey, getPasskey } from './passkey.ts';
 import { loadPomodoro, onPomodoroChange, pomodoroSettings } from './pomodoro.ts';
+import { clearCalendars } from './calendars.ts';
 import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativePlaces, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
 import { LANG, tn, tr } from './i18n.ts';
 
@@ -1448,6 +1449,8 @@ export class Controller {
     this.secrets = null;
     this.api.token = null;
     await this.store.clear();
+    // Кеш календарей по подпискам: события не должны пережить выход из аккаунта.
+    await clearCalendars().catch(() => undefined);
     // Телефон: снять напоминания и зоны мест, очистить виджет, чтобы названия задач и координаты не остались после выхода.
     await syncNativeReminders([]).catch(() => undefined);
     await syncNativePlaces([]).catch(() => undefined);

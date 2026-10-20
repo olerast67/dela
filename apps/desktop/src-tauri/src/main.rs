@@ -76,6 +76,42 @@ async fn open_view_window(app: AppHandle, label: String, url: String, title: Str
     Ok(())
 }
 
+/** Больше этого файл календаря не скачивается. */
+const MAX_CALENDAR_BYTES: usize = 20 * 1024 * 1024;
+
+/**
+ * Скачать календарь iCal по ссылке подписки. Веб-клиент в браузере упирается в CORS, программе это не мешает.
+ * Ссылка — секрет (в ней ключ доступа к календарю): она не пишется в журнал и не попадает в текст ошибки.
+ * Разрешены только https и только GET, тело ограничено по размеру.
+ */
+#[tauri::command]
+async fn fetch_calendar(url: String) -> Result<String, String> {
+    let url = reqwest::Url::parse(&url).map_err(|_| "url".to_string())?;
+    if url.scheme() != "https" {
+        return Err("url".into());
+    }
+    if rustls::crypto::CryptoProvider::get_default().is_none() {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .user_agent("Dela")
+        .build()
+        .map_err(|_| "network".to_string())?;
+    let mut resp = client.get(url).send().await.map_err(|_| "network".to_string())?;
+    if !resp.status().is_success() {
+        return Err(format!("http {}", resp.status().as_u16()));
+    }
+    let mut body: Vec<u8> = Vec::new();
+    while let Some(chunk) = resp.chunk().await.map_err(|_| "network".to_string())? {
+        if body.len() + chunk.len() > MAX_CALENDAR_BYTES {
+            return Err("large".into());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
+}
+
 fn quick_add(app: &AppHandle) {
     show_main(app);
     let _ = app.emit("quick-add", ());
@@ -155,7 +191,7 @@ fn main() {
                 .build(app)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![tray_labels, take_app_link, open_view_window])
+        .invoke_handler(tauri::generate_handler![tray_labels, take_app_link, open_view_window, fetch_calendar])
         // Закрытие главного окна прячет его в трей: напоминания продолжают приходить. Отдельные окна закрываются.
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

@@ -174,4 +174,6 @@
     <!-- Без GPS (планшеты) приложение тоже ставится -->
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <!-- События календарей телефона поверх задач, только чтение. Спрашивается, когда их включают в настройках. -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
 </manifest>

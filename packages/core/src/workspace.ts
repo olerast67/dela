@@ -554,6 +554,24 @@ export class Workspace {
     this.batch(() => this.personal.deleteFilter(id));
   }
 
+  // Подписки на календари живут только в личном пространстве: их не видят участники общих проектов.
+
+  addCalendar(input: { name: string; url: string; color?: string }): string {
+    return this.batch(() => this.personal.addCalendar(input));
+  }
+
+  updateCalendar(id: string, patch: { name?: string; url?: string; color?: string; enabled?: boolean }): void {
+    this.batch(() => this.personal.updateCalendar(id, patch));
+  }
+
+  deleteCalendar(id: string): void {
+    this.personal.deleteCalendar(id);
+  }
+
+  calendars() {
+    return this.personal.calendars();
+  }
+
   get canUndo(): boolean {
     return this.undoStack.length > 0;
   }
