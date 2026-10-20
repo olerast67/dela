@@ -27,3 +27,6 @@ apps/desktop/src-tauri/gen/
 
 # Лицензия, которую сборка dela-mcp копирует в пакет
 /packages/mcp/LICENSE
+
+# Рабочие копии агентов (git worktree)
+.claude/worktrees/
