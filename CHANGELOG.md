@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.7.0
 
 - Calendar: a "3 days" mode; task color by priority or by project; an option to hide future repeats of recurring tasks; an "Unscheduled" side panel with overdue tasks and tasks without a date, which can be dragged onto a day, the all-day row or an hour of the grid. On a narrow screen the panel opens from a button. On a phone, tasks in the calendar and in the panel are dragged with a finger: hold a task, then move it to a day, the all-day row or an hour. Color, repeats and the panel are remembered per device.
 - Grouping and sorting in lists: the "Order" button in Inbox, projects, labels, filters, Today and Upcoming groups tasks by date, priority, project or label and sorts them by date, priority or name. The choice is kept per screen on the device; subtasks stay under their parents. With another order on, dragging no longer reorders tasks, but a task dropped on a group heading takes that group's priority, date, project or label. Today can also be shown as a board with a column per priority; moving a card to another column changes its priority.

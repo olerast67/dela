@@ -1,0 +1,1 @@
+Calendar: 3 days, color by project, an "Unscheduled" panel, drag with a finger. Grouping and sorting in lists, Today as a board. Repeat by buttons. Morning summary. A reminder no longer shows twice.
