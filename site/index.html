@@ -84,7 +84,7 @@
         </div>
       </div>
       <p class="text">Argon2id derives two keys from the password on the device: one proves the login to the server, the other unlocks the account key. Every change is encrypted with XChaCha20-Poly1305&nbsp;using the key of its project. If both the password and the recovery key are lost, the data cannot be decrypted.</p>
-      <p class="text">In a browser, the web app code comes from your server. The Dela Verify extension compares the files the page loaded with a list of hashes that the project signs for every release, and shows a red badge when they differ. The Windows and Android apps carry their own code, and their updates are signed. Details and known limitations: <a href="https://github.com/olerast67/dela/blob/main/docs/architecture.md">architecture</a>, <a href="https://github.com/olerast67/dela#security">security in the README</a>, <a href="https://github.com/olerast67/dela/blob/main/PRIVACY.md">privacy policy</a>.</p>
+      <p class="text">In a browser, the web app code comes from your server. The Dela Verify extension compares the files the page loaded with a list of hashes that the project signs for every release, and shows a red badge when they differ. The Windows and Android apps carry their own code, and their updates are signed. Details and known limitations: <a href="https://github.com/olerast67/dela/blob/main/docs/architecture.md">architecture</a>, <a href="https://github.com/olerast67/dela#security-and-privacy">security in the README</a>, <a href="https://github.com/olerast67/dela/blob/main/PRIVACY.md">privacy policy</a>.</p>
     </section>
 
     <section id="new" class="wrap" aria-labelledby="new-h">
@@ -216,7 +216,7 @@ docker compose --profile https up -d</code></pre>
         <button class="btn copy" type="button" data-copy="install-en" hidden>Copy</button>
       </div>
       <p class="text">Then open <code>https://&lt;your domain&gt;</code> and register with the email from <code>.env</code>. That first account becomes the administrator, and everyone else needs an invite. Behind your own reverse proxy, start without the profile: Dela listens on <code>127.0.0.1:8080</code>.</p>
-      <p class="text">The server copies the database before every migration and once a day. Updating is <code>docker compose pull</code> and the same <code>up -d</code>. All settings are in the <a href="https://github.com/olerast67/dela#configuration">README</a>.</p>
+      <p class="text">The server copies the database before every migration and once a day. Updating is <code>docker compose pull</code> and the same <code>up -d</code>. All settings are in the <a href="https://github.com/olerast67/dela#server-settings">README</a>.</p>
     </section>
 
     <section id="todoist" class="wrap" aria-labelledby="todoist-h">

@@ -21,7 +21,7 @@ Out of scope: a server operator who serves a modified web client (the browser lo
 
 ## What the server can see
 
-The list is in the Security section of the [README](README.md#security). If the server receives something that is not on this list, that is a vulnerability.
+The list is in the Security section of the [README](README.md#security-and-privacy). If the server receives something that is not on this list, that is a vulnerability.
 
 ## Verifying a download
 
