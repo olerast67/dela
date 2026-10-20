@@ -291,7 +291,18 @@ def main() -> None:
     log(f'уведомления: {texts(dump())}')
 
     # «Готово» в уведомлении: задача выполняется в фоне (WorkManager), без открытия приложения.
-    done = find(dump(), 'Done', exact=True)
+    done = None
+    for _ in range(3):
+        nodes = dump()
+        done = find(nodes, 'Done', exact=True)
+        if done:
+            break
+        # В списке уведомление свёрнуто: нажатие раскрывает его с кнопками.
+        item = find(nodes, 'Созвон с командой')
+        if item:
+            shell(f'input tap {item.cx} {item.cy}')
+        time.sleep(2)
+    screenshot('10-notification-open.png')
     if check(done is not None, 'в уведомлении есть кнопка «Done»'):
         shell(f'input tap {done.cx} {done.cy}')
         end = time.time() + 60
@@ -301,7 +312,7 @@ def main() -> None:
             call = [t for t in seed('status')['tasks'] if t['title'] == 'Созвон с командой']
             ok = bool(call) and call[0]['completed']
         check(ok, 'на сервере «Созвон с командой» выполнена из уведомления')
-        screenshot('10-after-done.png')
+        screenshot('11-after-done.png')
 
 
 try:
