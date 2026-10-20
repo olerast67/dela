@@ -11,18 +11,21 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 /**
  * Связь веб-клиента с виджетом и плиткой в шторке:
  * update() кладёт снимок задач, takeCompleted() отдаёт задачи, отмеченные на виджете,
- * takeLaunch() и событие launch сообщают, что приложение открыто с виджета (задача или быстрое добавление).
+ * takeLaunch() и событие launch сообщают, что приложение открыто с виджета (задача или быстрое добавление)
+ * или с push утренней сводки (экран «Сегодня»).
  */
 @CapacitorPlugin(name = "DelaWidget")
 public class WidgetBridgePlugin extends Plugin {
     static final String EXTRA_TASK_ID = "dela.taskId";
     static final String EXTRA_QUICK_ADD = "dela.quickAdd";
     static final String EXTRA_VOICE = "dela.voice";
+    static final String EXTRA_TODAY = "dela.today";
 
     private static WidgetBridgePlugin instance;
     private static String pendingTask;
     private static boolean pendingQuickAdd;
     private static boolean pendingVoice;
+    private static boolean pendingToday;
 
     @Override
     public void load() {
@@ -35,6 +38,7 @@ public class WidgetBridgePlugin extends Plugin {
         if (task != null) pendingTask = task;
         if (intent.getBooleanExtra(EXTRA_QUICK_ADD, false)) pendingQuickAdd = true;
         if (intent.getBooleanExtra(EXTRA_VOICE, false)) pendingVoice = true;
+        if (intent.getBooleanExtra(EXTRA_TODAY, false)) pendingToday = true;
     }
 
     private JSObject drainLaunch() {
@@ -42,9 +46,11 @@ public class WidgetBridgePlugin extends Plugin {
         if (pendingTask != null) data.put("taskId", pendingTask);
         if (pendingQuickAdd) data.put("quickAdd", true);
         if (pendingVoice) data.put("voice", true);
+        if (pendingToday) data.put("today", true);
         pendingTask = null;
         pendingQuickAdd = false;
         pendingVoice = false;
+        pendingToday = false;
         return data;
     }
 
@@ -52,7 +58,7 @@ public class WidgetBridgePlugin extends Plugin {
     protected void handleOnNewIntent(Intent intent) {
         super.handleOnNewIntent(intent);
         store(intent);
-        if (pendingTask == null && !pendingQuickAdd && !pendingVoice) return;
+        if (pendingTask == null && !pendingQuickAdd && !pendingVoice && !pendingToday) return;
         notifyListeners("launch", drainLaunch(), true);
     }
 

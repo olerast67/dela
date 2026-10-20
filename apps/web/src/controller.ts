@@ -46,6 +46,8 @@ import {
   recoverAccount,
   welcomeTasks,
   remindersBetween,
+  digestsBetween,
+  isTime,
   type Reminder,
   signIn,
   signUp,
@@ -66,7 +68,7 @@ import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
 import { createPasskey, getPasskey } from './passkey.ts';
 import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
-import { LANG, tr } from './i18n.ts';
+import { LANG, tn, tr } from './i18n.ts';
 
 function loadFired(): string[] {
   try {
@@ -83,6 +85,19 @@ function saveFired(fired: Set<string>): void {
   } catch {
     // без localStorage повторный показ после перезагрузки возможен, это не страшно
   }
+}
+
+/** Утренняя сводка этого устройства: включена ли и во сколько. */
+export interface MorningDigest {
+  readonly on: boolean;
+  readonly time: string;
+}
+
+/** «Сегодня 5 задач, просрочено 2». */
+function digestText(today: number, overdue: number): string {
+  if (today > 0 && overdue > 0) return tr('Сегодня {tasks}, просрочено {n}', { tasks: tn(today, 'задача', 'задачи', 'задач'), n: overdue });
+  if (today > 0) return tr('Сегодня {tasks}', { tasks: tn(today, 'задача', 'задачи', 'задач') });
+  return tr('Просрочено {tasks}', { tasks: tn(overdue, 'задача', 'задачи', 'задач') });
 }
 
 export type Phase = 'loading' | 'auth' | 'recovery' | 'ready';
@@ -952,6 +967,46 @@ export class Controller {
     this.schedulePushSoon();
   }
 
+  /** Утренняя сводка хранится на устройстве, как и минуты напоминаний: у телефона и компьютера она своя. */
+  morningDigest(): MorningDigest {
+    try {
+      const v = JSON.parse(localStorage.getItem('morningDigest') ?? 'null') as Partial<MorningDigest> | null;
+      return { on: v?.on === true, time: typeof v?.time === 'string' && isTime(v.time) ? v.time : '08:00' };
+    } catch {
+      return { on: false, time: '08:00' };
+    }
+  }
+
+  setMorningDigest(value: MorningDigest): void {
+    try {
+      localStorage.setItem('morningDigest', JSON.stringify(value));
+    } catch {
+      // без localStorage настройка действует до перезагрузки
+    }
+    this.scheduleReminders();
+    this.schedulePushSoon();
+  }
+
+  /**
+   * Напоминания задач и утренние сводки этого устройства в [from, to), по времени.
+   * Сводка — синтетическое напоминание без задачи (taskId пустой): по нажатию открывается «Сегодня».
+   */
+  private alerts(from: number, to: number, offsets: number[]): Reminder[] {
+    const list = remindersBetween(this.doc!, from, to, TZ, offsets);
+    const digest = this.morningDigest();
+    if (!digest.on) return list;
+    const digests = digestsBetween(this.doc!, from, to, TZ, digest.time).map(
+      (d): Reminder => ({ key: d.key, taskId: '', at: d.at, title: digestText(d.today, d.overdue), dueAt: d.at, offset: 0 }),
+    );
+    return [...list, ...digests].sort((a, b) => a.at - b.at || a.key.localeCompare(b.key));
+  }
+
+  /** Текст уведомления под заголовком. */
+  private bodyOf(r: Reminder): string {
+    if (!r.taskId) return tr('Утренняя сводка');
+    return r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
+  }
+
   private remindersDebounce: ReturnType<typeof setTimeout> | undefined;
   private lastPushUpload = 0;
 
@@ -1076,27 +1131,36 @@ export class Controller {
     if (this.pushEnabled()) {
       const offsets = this.reminderDefaults();
       const seal = platform() === 'capacitor' ? (c: unknown) => this.sealForPhone(this.phoneKey(self), c) : (c: unknown) => sealLocalB64(this.store, c);
-      await this.api.pushSchedule(await this.pushEntries(offsets, seal), { offsets });
+      await this.api.pushSchedule(await this.pushEntries(offsets, seal, true), { offsets });
     }
     for (const phone of await this.pushPhones()) {
       if (phone.deviceId === self) continue;
       const key = this.phoneKey(phone.deviceId);
-      const entries = await this.pushEntries(phone.offsets ?? [0], (c) => this.sealForPhone(key, c));
+      // Утренняя сводка — настройка самого телефона: другие устройства её не знают и в его расписание не кладут.
+      const entries = await this.pushEntries(phone.offsets ?? [0], (c) => this.sealForPhone(key, c), false);
       await this.api.pushSchedule(entries, { device: phone.deviceId }).catch(() => undefined);
     }
   }
 
-  private async pushEntries(offsets: number[], seal: (content: unknown) => Promise<string>): Promise<Array<{ id: string; fireAt: number; payload: string }>> {
+  private async pushEntries(
+    offsets: number[],
+    seal: (content: unknown) => Promise<string>,
+    own: boolean,
+  ): Promise<Array<{ id: string; fireAt: number; payload: string }>> {
     if (!this.doc) return [];
     const now = Date.now();
-    const list = remindersBetween(this.doc, now, now + 7 * 24 * 3600_000, TZ, offsets).slice(0, 300);
+    const to = now + 7 * 24 * 3600_000;
+    const list = (own ? this.alerts(now, to, offsets) : remindersBetween(this.doc, now, to, TZ, offsets)).slice(0, 300);
     return Promise.all(
       list.map(async (r) => {
         const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(r.key)));
         const id = [...digest.subarray(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
-        const body = r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
+        const body = this.bodyOf(r);
         // Сервер принимает до 1 КБ на напоминание: длинное название обрезается, иначе отклонилось бы всё расписание.
-        const content = { t: (r.title || tr('Задача')).slice(0, 200), b: body, k: r.key, id: r.taskId };
+        // У сводки нет задачи: флаг today открывает «Сегодня» (service worker и служба push на Android).
+        const content = r.taskId
+          ? { t: (r.title || tr('Задача')).slice(0, 200), b: body, k: r.key, id: r.taskId }
+          : { t: r.title, b: body, k: r.key, today: true };
         return { id, fireAt: r.at, payload: await seal(content) };
       }),
     );
@@ -1126,7 +1190,7 @@ export class Controller {
       this.schedulePushSoon();
     }
     // Пропущенные за последние 10 минут (вкладка спала) тоже показываем.
-    const list = remindersBetween(this.doc, now - 10 * 60_000, now + 48 * 3600_000, TZ, this.reminderDefaults());
+    const list = this.alerts(now - 10 * 60_000, now + 48 * 3600_000, this.reminderDefaults());
     for (const r of list) {
       if (r.at > now) break;
       if (this.fired.has(r.key)) continue;
@@ -1141,7 +1205,7 @@ export class Controller {
     this.reminderTimer = setTimeout(() => this.scheduleReminders(), Math.max(1000, delay));
   }
 
-  /** Напоминание пришло через push, пока приложение открыто. */
+  /** Напоминание пришло через push, пока приложение открыто. Пустой taskId — утренняя сводка. */
   receivePushReminder(msg: { key: string; title: string; taskId: string }): void {
     if (this.fired.has(msg.key)) return;
     this.fired.add(msg.key);
@@ -1171,27 +1235,28 @@ export class Controller {
     if (!this.doc) return;
     this.syncWidget();
     const now = Date.now();
-    const list = remindersBetween(this.doc, now, now + 7 * 24 * 3600_000, TZ, this.reminderDefaults());
+    const list = this.alerts(now, now + 7 * 24 * 3600_000, this.reminderDefaults());
     await syncNativeReminders(
       list.map((r) => ({
         key: r.key,
         at: r.at,
         title: r.title || tr('Задача'),
-        body: r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) }),
-        taskId: r.taskId,
+        body: this.bodyOf(r),
+        taskId: r.taskId || null,
       })),
     ).catch((err) => console.error('native reminders failed', err));
   }
 
   private async fire(r: Reminder): Promise<void> {
     this.onReminder?.(r);
-    const text = r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
-    if (await nativeNotify(r.title || tr('Задача'), text).catch(() => false)) return;
+    const body = this.bodyOf(r);
+    if (await nativeNotify(r.title || tr('Задача'), body).catch(() => false)) return;
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-    const body = r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
-      if (reg) await reg.showNotification(r.title || tr('Задача'), { body, tag: r.key, data: { taskId: r.taskId }, icon: '/icon-192.png' });
+      // Сводка без задачи: нажатие открывает «Сегодня».
+      const data = r.taskId ? { taskId: r.taskId } : { today: true };
+      if (reg) await reg.showNotification(r.title || tr('Задача'), { body, tag: r.key, data, icon: '/icon-192.png' });
       else new Notification(r.title || tr('Задача'), { body, tag: r.key });
     } catch (err) {
       console.error('notification failed', err);

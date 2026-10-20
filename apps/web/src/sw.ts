@@ -17,19 +17,20 @@ self.addEventListener('message', (e) => {
   if (e.data?.type === 'SKIP_WAITING') void self.skipWaiting();
 });
 
-// Клик по уведомлению: открыть приложение на задаче.
+// Клик по уведомлению: открыть приложение на задаче, а утреннюю сводку — на «Сегодня».
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const taskId = (e.notification.data as { taskId?: string } | null)?.taskId;
+  const data = e.notification.data as { taskId?: string; today?: boolean } | null;
+  const taskId = data?.taskId;
   const base = self.registration.scope;
-  const url = taskId ? `${base}#/today?task=${encodeURIComponent(taskId)}` : base;
+  const url = taskId ? `${base}#/today?task=${encodeURIComponent(taskId)}` : data?.today ? `${base}#/today` : base;
   e.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const w of windows) {
         if ('focus' in w) {
           await w.focus();
-          w.postMessage({ type: 'open-task', taskId });
+          w.postMessage(taskId || !data?.today ? { type: 'open-task', taskId } : { type: 'open-today' });
           return;
         }
       }
@@ -65,7 +66,10 @@ interface ReminderPayload {
   t: string;
   b: string;
   k: string;
-  id: string;
+  /** Нет у утренней сводки. */
+  id?: string;
+  /** Утренняя сводка: открыть «Сегодня». */
+  today?: boolean;
 }
 
 async function decryptPayload(b64: string): Promise<ReminderPayload | null> {
@@ -96,7 +100,7 @@ self.addEventListener('push', (e) => {
         await self.registration.showNotification(r?.t ?? (ru ? 'Напоминание Dela' : 'Dela reminder'), {
           body: r?.b ?? (ru ? 'Откройте приложение' : 'Open the app'),
           icon: '/icon-192.png',
-          ...(r ? { tag: r.k, data: { taskId: r.id } } : {}),
+          ...(r ? { tag: r.k, data: r.id ? { taskId: r.id } : { today: r.today === true } } : {}),
         });
       } catch {
         // уведомления запрещены: окно приложения уже получило сообщение

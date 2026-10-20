@@ -177,7 +177,16 @@ function Shell() {
         if (cancelled) fn();
         else offs.push(fn);
       });
-    keep(onNotificationOpen((id) => setSelected(id)));
+    keep(
+      onNotificationOpen(
+        (id) => setSelected(id),
+        () => {
+          // Утренняя сводка: экран «Сегодня» без открытой карточки.
+          setSelected(null);
+          location.hash = '#/today';
+        },
+      ),
+    );
     // Программа для Windows: через несколько секунд после запуска проверяем новую версию на GitHub.
     const updateTimer = setTimeout(() => {
       void checkDesktopUpdate()
@@ -188,6 +197,11 @@ function Shell() {
     keep(
       onWidgetLaunch((e) => {
         if (e.taskId) setSelected(e.taskId);
+        // Push утренней сводки на Android открывает «Сегодня».
+        if (e.today && !e.taskId) {
+          setSelected(null);
+          location.hash = '#/today';
+        }
         if (e.quickAdd || e.voice) setQuickAdd(true);
         if (e.voice) setQuickVoice(true);
       }),
@@ -232,11 +246,17 @@ function Shell() {
   }, []);
 
   useEffect(() => {
-    controller.onReminder = (r) => showToast(`⏰ ${r.title}`, { label: tr('Открыть'), run: () => setSelected(r.taskId) }, 60_000);
+    // У утренней сводки нет задачи: «Открыть» ведёт на «Сегодня».
+    const openToday = () => {
+      setSelected(null);
+      location.hash = '#/today';
+    };
+    controller.onReminder = (r) => showToast(`⏰ ${r.title}`, { label: tr('Открыть'), run: () => (r.taskId ? setSelected(r.taskId) : openToday()) }, 60_000);
     const onMessage = (e: MessageEvent<{ type?: string; taskId?: string; key?: string; title?: string }>) => {
       if (e.data?.type === 'open-task' && e.data.taskId) setSelected(e.data.taskId);
-      if (e.data?.type === 'push-reminder' && e.data.key && e.data.taskId)
-        controller.receivePushReminder({ key: e.data.key, title: e.data.title ?? '', taskId: e.data.taskId });
+      if (e.data?.type === 'open-today') openToday();
+      if (e.data?.type === 'push-reminder' && e.data.key)
+        controller.receivePushReminder({ key: e.data.key, title: e.data.title ?? '', taskId: e.data.taskId ?? '' });
     };
     navigator.serviceWorker?.addEventListener('message', onMessage);
     const fromUrl = new URLSearchParams(location.hash.split('?')[1] ?? '').get('task');

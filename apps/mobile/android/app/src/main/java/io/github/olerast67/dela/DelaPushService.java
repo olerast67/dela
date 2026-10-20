@@ -60,11 +60,11 @@ public class DelaPushService extends PushService {
         try {
             JSONObject outer = new JSONObject(new String(message.getContent(), StandardCharsets.UTF_8));
             JSONObject r = new JSONObject(decrypt(outer.getString("p")));
-            show(r.optString("t", getString(R.string.notify_task)), r.optString("b", ""), r.optString("id", null), r.optString("k", "dela"));
+            show(r.optString("t", getString(R.string.notify_task)), r.optString("b", ""), r.optString("id", null), r.optString("k", "dela"), r.optBoolean("today", false));
         } catch (Exception err) {
             // Без ключа или с чужим ключом показываем общее напоминание: текст на сервере не виден.
             Context res = WidgetStore.localized(this);
-            show(res.getString(R.string.notify_generic_title), res.getString(R.string.notify_generic_text), null, "dela");
+            show(res.getString(R.string.notify_generic_title), res.getString(R.string.notify_generic_text), null, "dela", false);
         }
     }
 
@@ -78,7 +78,8 @@ public class DelaPushService extends PushService {
         return new String(c.doFinal(Arrays.copyOfRange(all, 12, all.length)), StandardCharsets.UTF_8);
     }
 
-    private void show(String title, String body, String taskId, String key) {
+    /** today: утренняя сводка без задачи, нажатие открывает «Сегодня». */
+    private void show(String title, String body, String taskId, String key, boolean today) {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             nm.createNotificationChannel(new NotificationChannel(CHANNEL, getString(R.string.notify_channel), NotificationManager.IMPORTANCE_HIGH));
@@ -86,6 +87,7 @@ public class DelaPushService extends PushService {
         Intent open = new Intent(this, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         if (taskId != null) open.putExtra(WidgetBridgePlugin.EXTRA_TASK_ID, taskId);
+        else if (today) open.putExtra(WidgetBridgePlugin.EXTRA_TODAY, true);
         open.setData(Uri.parse("dela://push/" + key.hashCode()));
         PendingIntent pi = PendingIntent.getActivity(this, key.hashCode(), open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         NotificationCompat.Builder n = new NotificationCompat.Builder(this, CHANNEL)

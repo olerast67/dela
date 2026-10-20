@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { COLORS, FilterSyntaxError, type ProjectTasks, type TaskNode, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
-import { controller } from '../controller.ts';
+import { controller, type MorningDigest } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { navigate, setStartHash, startHash, useAppState, useDoc } from '../hooks.ts';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
@@ -832,6 +832,11 @@ export function FilterView({ id, onOpen, selectedId }: ViewProps & { id: string 
 export function ReminderSettings() {
   const [permission, setPermission] = useState(() => (typeof Notification === 'undefined' ? 'unsupported' : Notification.permission));
   const [defaults, setDefaults] = useState(() => controller.reminderDefaults());
+  const [digest, setDigest] = useState(() => controller.morningDigest());
+  const changeDigest = (next: MorningDigest) => {
+    setDigest(next);
+    controller.setMorningDigest(next);
+  };
   const [push, setPush] = useState(() => controller.pushEnabled());
   const [pushMsg, setPushMsg] = useState<string | null>(null);
   const [exact, setExact] = useState<boolean | null>(null);
@@ -919,6 +924,22 @@ export function ReminderSettings() {
           );
         })}
       </div>
+      <div className="row wrap" style={{ marginTop: 14 }}>
+        <label className="checkline">
+          <input type="checkbox" checked={digest.on} onChange={(e) => changeDigest({ ...digest, on: e.target.checked })} />
+          {tr('Утренняя сводка')}
+        </label>
+        <input
+          type="time"
+          value={digest.time}
+          disabled={!digest.on}
+          onChange={(e) => e.target.value && changeDigest({ ...digest, time: e.target.value })}
+          aria-label={tr('Время утренней сводки')}
+        />
+      </div>
+      <p className="muted">
+        {tr('Одно уведомление в день: сколько задач на сегодня и сколько просрочено. Считается на этом устройстве; в дни без задач уведомления нет.')}
+      </p>
     </section>
   );
 }

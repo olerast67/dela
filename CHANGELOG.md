@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Repeat by buttons in the task card: frequency, "every N", days of the week, day of the month, end date and the after-completion mode. The text field stays; the buttons write the same repeat and a readable phrase in the interface language.
+- Morning summary (Settings → Reminders): one notification a day at the chosen time with the number of tasks due today and overdue, for example "Today: 5 tasks, 2 overdue". Counted on the device, set per device, no notification on days without tasks; tapping it opens Today. Works in the app, through push and in the phone's local notifications.
 
 ## 0.6.0
 

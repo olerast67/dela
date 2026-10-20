@@ -3,7 +3,7 @@
  * (смещения по умолчанию задаёт пользователь). Поле reminders задачи переопределяет их:
  * список минут «до срока», пустой список — без напоминаний.
  */
-import { instant } from './dates.ts';
+import { addDays, instant, today as todayIn, zonedToUtc } from './dates.ts';
 import type { Doc, TaskView } from './doc.ts';
 
 export interface Reminder {
@@ -45,4 +45,35 @@ export function remindersBetween(doc: Pick<Doc, 'openTasks'>, from: number, to: 
     }
   }
   return out.sort((a, b) => a.at - b.at || a.key.localeCompare(b.key));
+}
+
+/** Утренняя сводка за день: сколько задач на этот день и сколько просрочено к моменту сводки. */
+export interface Digest {
+  /** «digest:2026-10-21»: не пересекается с ключами напоминаний задач («<id задачи>:…»), одна сводка в день. */
+  readonly key: string;
+  readonly date: string;
+  readonly at: number;
+  readonly today: number;
+  readonly overdue: number;
+}
+
+export const DIGEST_KEY_PREFIX = 'digest:';
+
+/**
+ * Сводки, время которых попадает в [from, to). Считаются по текущему документу так, будто до сводки ничего не изменится:
+ * при каждой правке расписание пересчитывается, поэтому на момент показа числа совпадают с экраном «Сегодня».
+ * Дни, где нет ни задач на день, ни просроченных, пропускаются.
+ */
+export function digestsBetween(doc: Pick<Doc, 'today'>, from: number, to: number, tz: string, time: string): Digest[] {
+  const out: Digest[] = [];
+  // Первый день берётся на сутки раньше: момент сводки вчерашнего дня по часовому поясу может попасть в окно.
+  for (let date = addDays(todayIn(tz, from), -1); ; date = addDays(date, 1)) {
+    const at = zonedToUtc(date, time, tz);
+    if (at >= to) break;
+    if (at < from) continue;
+    const { today, overdue } = doc.today(date, tz);
+    if (today.length === 0 && overdue.length === 0) continue;
+    out.push({ key: `${DIGEST_KEY_PREFIX}${date}`, date, at, today: today.length, overdue: overdue.length });
+  }
+  return out;
 }

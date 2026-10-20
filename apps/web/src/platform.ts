@@ -91,7 +91,8 @@ export interface NativeReminder {
   readonly at: number;
   readonly title: string;
   readonly body: string;
-  readonly taskId: string;
+  /** null — утренняя сводка: нажатие открывает «Сегодня». */
+  readonly taskId: string | null;
 }
 
 let permissionAsked = false;
@@ -162,7 +163,7 @@ async function replaceNativeReminders(list: readonly NativeReminder[]): Promise<
       body: r.body,
       schedule: { at: new Date(r.at), allowWhileIdle: true },
       isExactNotification: exact,
-      extra: { taskId: r.taskId },
+      extra: r.taskId ? { taskId: r.taskId } : { today: true },
       smallIcon: 'ic_stat_dela',
     })),
   });
@@ -181,13 +182,14 @@ export async function allowExactReminders(): Promise<boolean> {
   return (await LocalNotifications.changeExactNotificationSetting()).exact_alarm === 'granted';
 }
 
-/** Телефон: тап по уведомлению открывает задачу. */
-export async function onNotificationOpen(fn: (taskId: string) => void): Promise<() => void> {
+/** Телефон: тап по уведомлению открывает задачу, а по утренней сводке — «Сегодня». */
+export async function onNotificationOpen(fn: (taskId: string) => void, onToday: () => void): Promise<() => void> {
   if (platform() !== 'capacitor') return () => undefined;
   const { LocalNotifications } = await import('@capacitor/local-notifications');
   const handle = await LocalNotifications.addListener('localNotificationActionPerformed', (e) => {
-    const id = (e.notification.extra as { taskId?: string } | undefined)?.taskId;
-    if (id) fn(id);
+    const extra = e.notification.extra as { taskId?: string; today?: boolean } | undefined;
+    if (extra?.taskId) fn(extra.taskId);
+    else if (extra?.today) onToday();
   });
   return () => void handle.remove();
 }
@@ -289,8 +291,8 @@ export function haptic(kind: 'light' | 'medium' | 'success' = 'light'): void {
 interface DelaWidgetPlugin {
   update(o: { snapshot: string }): Promise<void>;
   takeCompleted(): Promise<{ ids: string[] }>;
-  takeLaunch(): Promise<{ taskId?: string; quickAdd?: boolean; voice?: boolean }>;
-  addListener(event: 'launch', cb: (e: { taskId?: string; quickAdd?: boolean; voice?: boolean }) => void): Promise<{ remove(): Promise<void> }>;
+  takeLaunch(): Promise<WidgetLaunch>;
+  addListener(event: 'launch', cb: (e: WidgetLaunch) => void): Promise<{ remove(): Promise<void> }>;
   addListener(event: 'completed', cb: () => void): Promise<{ remove(): Promise<void> }>;
 }
 
@@ -327,13 +329,21 @@ export async function onWidgetCompleted(fn: () => void): Promise<void> {
   await w?.addListener('completed', fn);
 }
 
-/** Приложение открыто с виджета или плитки: показать задачу или быстрое добавление. */
-export async function onWidgetLaunch(fn: (e: { taskId?: string; quickAdd?: boolean; voice?: boolean }) => void): Promise<() => void> {
+/** Что открыть при запуске: задачу, быстрое добавление или «Сегодня» (push утренней сводки). */
+export interface WidgetLaunch {
+  readonly taskId?: string;
+  readonly quickAdd?: boolean;
+  readonly voice?: boolean;
+  readonly today?: boolean;
+}
+
+/** Приложение открыто с виджета, плитки или push-уведомления: показать задачу, быстрое добавление или «Сегодня». */
+export async function onWidgetLaunch(fn: (e: WidgetLaunch) => void): Promise<() => void> {
   const w = (await nativePlugin<DelaWidgetPlugin>('DelaWidget'))?.p;
   if (!w) return () => undefined;
   const handle = await w.addListener('launch', fn);
   const first = await w.takeLaunch();
-  if (first.taskId || first.quickAdd || first.voice) fn(first);
+  if (first.taskId || first.quickAdd || first.voice || first.today) fn(first);
   return () => void handle.remove();
 }
 

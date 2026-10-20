@@ -161,7 +161,7 @@ export {
   type TodoistData,
 } from './transfer.ts';
 export { parseFilter, runFilter, FilterSyntaxError, type FilterResult } from './filter.ts';
-export { remindersBetween, offsetsOf, isReminderList, MAX_REMINDERS, type Reminder } from './reminders.ts';
+export { remindersBetween, digestsBetween, offsetsOf, isReminderList, MAX_REMINDERS, DIGEST_KEY_PREFIX, type Digest, type Reminder } from './reminders.ts';
 export { Workspace } from './workspace.ts';
 export type { FilterSource } from './filter.ts';
 export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';
