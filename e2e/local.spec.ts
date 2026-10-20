@@ -137,3 +137,28 @@ test('описание проекта переживает перезагруз�
   await page.locator('.project-desc').click();
   await expect(page.locator('textarea.project-desc')).toHaveValue('Бюджет **сто тысяч**');
 });
+
+test('в «Сегодня» подзадачи раскрываются под задачей, выполненный повтор остаётся отмеченным', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.keyboard.press('q');
+  await page.getByLabel('Новая задача').evaluate((el, text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, '- [ ] Разобрать шкаф сегодня\n  - [ ] сложить свитера завтра\n- [ ] Зарядка сегодня каждый день');
+  await page.getByRole('button', { name: 'Добавить все' }).click();
+  const row = (title: string) => page.locator('.task', { hasText: title });
+  await expect(row('Разобрать шкаф')).toBeVisible();
+  // Подзадача на завтра в «Сегодня» свёрнута под родителем.
+  await expect(row('сложить свитера')).toHaveCount(0);
+  await row('Разобрать шкаф').getByRole('button', { name: 'Показать подзадачи' }).click();
+  await expect(row('сложить свитера')).toBeVisible();
+  await expect(page.locator('.task-wrap', { hasText: 'сложить свитера' })).toHaveAttribute('style', /margin-left/);
+
+  await row('Зарядка').getByRole('button', { name: 'Выполнить' }).click();
+  await expect(page.getByText('Перенесено на следующий раз')).toBeVisible();
+  await expect(page.locator('.task.done', { hasText: 'Зарядка' })).toBeVisible();
+  await expect(row('Зарядка')).toHaveCount(1);
+});

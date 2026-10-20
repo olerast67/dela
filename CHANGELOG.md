@@ -4,6 +4,7 @@
 
 - Markdown in task descriptions and comments: headings, bold and italic, lists, links and bare URLs, code, quotes, tables and checklists. A checklist item in the description is checked with a click and saved with the task; in comments checklists are shown only. The description is shown formatted, a click on its text opens the editor. Raw HTML is shown as text, only http(s) and mailto links open, images from links are not loaded.
 - Project and section descriptions: a Markdown note under the project title and under a section heading, added with the "Description" button in the project header or next to the section. A click on the text opens the editor, Esc or leaving the field saves it; an empty description takes no space. In a shared project the description syncs to members like the name; it is kept in the JSON and Markdown export, in project templates, and the project description is imported from Todoist.
+- Subtasks in Today, Upcoming, filters and label views: a task with open subtasks gets the same expand arrow as in a project, and its subtasks are shown indented under it. A subtask that is itself in the list is shown under its parent instead of twice. Subtasks start collapsed in these lists, unless one of them is in the list too. A recurring task checked off today stays in Today as a checked row until the end of the day and counts in the progress ring; clicking its check returns the task to that occurrence, as long as its date has not been changed since.
 
 ## 0.7.0
 

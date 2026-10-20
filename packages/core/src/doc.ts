@@ -59,6 +59,8 @@ export interface TaskView extends Task {
   readonly commentCount?: number;
   /** Будущий экземпляр повторяющейся задачи, показанный в «Предстоящих»; сам по себе не существует. */
   readonly projected?: boolean;
+  /** Выполненный экземпляр повторяющейся задачи (дата экземпляра): строка «выполнено сегодня» в «Сегодня». */
+  readonly doneOccurrence?: string;
 }
 
 export interface TaskNode {
@@ -745,6 +747,47 @@ export class Doc {
     this.write(changes);
   }
 
+  /**
+   * Вернуть выполненный экземпляр повторяющейся задачи: срок снова на дату экземпляра, выполнение снимается.
+   * Можно только для последнего выполнения и пока срок стоит там, куда его перенесло выполнение:
+   * иначе потерялась бы чужая или более поздняя правка срока.
+   */
+  uncompleteOccurrence(taskId: string, occurrence: string): boolean {
+    const changes = this.uncompletePlan(taskId, occurrence);
+    if (!changes) return false;
+    this.write(changes);
+    return true;
+  }
+
+  canUncompleteOccurrence(taskId: string, occurrence: string): boolean {
+    return this.uncompletePlan(taskId, occurrence) !== null;
+  }
+
+  private uncompletePlan(taskId: string, occurrence: string): Change[] | null {
+    const s = this.snapshot();
+    const task = s.tasks.get(taskId);
+    const c = s.completions.get(Doc.completionId(taskId, occurrence));
+    if (!task || !c || !s.alive.has(taskId) || task.completedAt !== null || !task.recurrence || !task.due) return null;
+    for (const o of s.completions.values()) if (o.taskId === taskId && o.occurrence !== null && o.occurrence > occurrence) return null;
+    const rule = parseRule(task.recurrence.rule);
+    if (!rule) return null;
+    // Куда выполнение перенесло срок; если сейчас срок другой, его меняли после выполнения.
+    const day = todayIn(this.timeZone, c.completedAt);
+    const expected =
+      task.recurrence.mode === 'completion' ? nextOccurrence(rule, day, day) : nextOccurrence(rule, occurrence, occurrence > day ? occurrence : day);
+    if (expected !== task.due.date) return null;
+    const changes: Change[] = [
+      ['task', taskId, 'due', { ...task.due, date: occurrence } as unknown as Json],
+      // Запись о выполнении без отметки времени не считается выполнением: так же её снимает отмена действия.
+      ['completion', c.id, 'completed_at', null],
+    ];
+    if (task.start) {
+      const shifted = addDays(task.start.date, -daysBetween(occurrence, task.due.date));
+      changes.push(['task', taskId, 'start', { ...task.start, date: shifted } as unknown as Json]);
+    }
+    return changes;
+  }
+
   reopenTask(id: string): void {
     this.write([['task', id, 'completed_at', null]]);
   }
@@ -1103,6 +1146,28 @@ export class Doc {
     return { overdue: overdue.sort(sort), today: todays.sort(sort) };
   }
 
+  /**
+   * Повторяющиеся задачи, чей экземпляр выполнен в день todayDate: в «Сегодня» они остаются отмеченными до конца дня.
+   * Срок у строки — дата выполненного экземпляра, completedAt — время выполнения.
+   */
+  doneToday(todayDate: string, tz: string): TaskView[] {
+    const s = this.snapshot();
+    const open = new Set(this.openTasks().map((t) => t.id));
+    const out: TaskView[] = [];
+    for (const c of s.completions.values()) {
+      const t = s.tasks.get(c.taskId);
+      // Закрытая серия — обычная выполненная задача, её здесь нет.
+      if (!t || c.occurrence === null || !t.recurrence || !open.has(t.id) || todayIn(tz, c.completedAt) !== todayDate) continue;
+      out.push({ ...t, due: { ...(t.due ?? {}), date: c.occurrence }, completedAt: c.completedAt, doneOccurrence: c.occurrence });
+    }
+    return out.sort((a, b) => a.completedAt! - b.completedAt!);
+  }
+
+  /** Список задач деревом: под задачей её открытые подзадачи, без повторов (см. nestTasks). */
+  nested(tasks: readonly TaskView[]): TaskNode[] {
+    return nestTasks(this, tasks);
+  }
+
   /** Предстоящие: задачи по дням начиная с from, days дней. */
   upcoming(from: string, days: number, tz: string): Array<{ date: string; tasks: TaskView[] }> {
     const groups = new Map<string, TaskView[]>();
@@ -1209,6 +1274,27 @@ export class Doc {
     const files = roots.flatMap((task) => this.purgeTask(task.id));
     return { count: roots.length, files };
   }
+}
+
+/**
+ * Плоский список задач («Сегодня», «Предстоящие», фильтр) деревом: под задачей — все её открытые подзадачи.
+ * Задача, чей предок тоже в списке, отдельно не показывается: она уже в его поддереве.
+ * Порядок верхнего уровня — как в списке; будущие и выполненные экземпляры повторов идут без подзадач.
+ */
+export function nestTasks(src: { task(id: string): TaskView | undefined; subtasks(id: string): TaskNode[] }, tasks: readonly TaskView[]): TaskNode[] {
+  const plain = (t: TaskView) => t.projected || t.doneOccurrence !== undefined;
+  const ids = new Set(tasks.filter((t) => !plain(t)).map((t) => t.id));
+  const out: TaskNode[] = [];
+  for (const t of tasks) {
+    if (plain(t)) {
+      out.push({ task: t, children: [] });
+      continue;
+    }
+    let inside = false;
+    for (let p = t.parentId; p !== null && !inside; p = src.task(p)?.parentId ?? null) inside = ids.has(p);
+    if (!inside) out.push({ task: t, children: src.subtasks(t.id) });
+  }
+  return out;
 }
 
 export function normalizeText(s: string): string {

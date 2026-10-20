@@ -100,6 +100,7 @@ export {
 } from './model.ts';
 export {
   Doc,
+  nestTasks,
   normalizeText,
   type Change,
   type DocOptions,

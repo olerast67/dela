@@ -15,7 +15,7 @@ import { ShareDialog } from './Share.tsx';
 import { Description } from './Description.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
-import { ViewOptionsButton, forest, groupNodes, priorityTitle, sortNodes, sortTasks, useViewOptions, type SortBy, type TaskGroup, type ViewOptions } from './ViewOptions.tsx';
+import { ViewOptionsButton, groupNodes, priorityTitle, sortNodes, sortTasks, useViewOptions, type SortBy, type TaskGroup, type ViewOptions } from './ViewOptions.tsx';
 import { showToast } from './toast.tsx';
 import { LANG, LANG_CHOICE, LOCALE, setLang, tr, tn, type Lang } from '../i18n.ts';
 
@@ -45,7 +45,13 @@ function Empty({ children, art }: { children: React.ReactNode; art?: EmptyKind |
 }
 
 /** Задачи по группам: заголовок группы принимает брошенную задачу, если в группу можно перенести. */
-function Groups({ groups, onOpen, selectedId, showProject = true }: ViewProps & { groups: readonly TaskGroup[]; showProject?: boolean }) {
+function Groups({
+  groups,
+  onOpen,
+  selectedId,
+  showProject = true,
+  matched,
+}: ViewProps & { groups: readonly TaskGroup[]; showProject?: boolean; matched?: ReadonlySet<string> }) {
   return (
     <>
       {groups.map((g) => (
@@ -55,24 +61,41 @@ function Groups({ groups, onOpen, selectedId, showProject = true }: ViewProps & 
               {g.title} <span className="muted">{g.nodes.length}</span>
             </h2>
           )}
-          <TaskTree nodes={g.nodes} onOpen={onOpen} selectedId={selectedId} showProject={showProject} />
+          <TaskTree nodes={g.nodes} onOpen={onOpen} selectedId={selectedId} showProject={showProject} {...(matched ? { matched } : {})} />
         </section>
       ))}
     </>
   );
 }
 
-/** Плоский список с выбранной группировкой и сортировкой; без них — как раньше, строками. */
+const ids = (tasks: readonly TaskView[]): Set<string> => new Set(tasks.map((t) => t.id));
+
+/** Список задач деревом: под задачей её подзадачи (свёрнуты, пока среди них нет задачи из этого же списка). */
+function Nested({
+  tasks,
+  sort,
+  onOpen,
+  selectedId,
+  showDate = true,
+}: ViewProps & { tasks: readonly TaskView[]; sort: SortBy; showDate?: boolean }) {
+  const doc = useDoc();
+  return <TaskTree nodes={sortNodes(doc.nested(tasks), sort)} matched={ids(tasks)} onOpen={onOpen} selectedId={selectedId} showProject showDate={showDate} />;
+}
+
+/** Список с выбранной группировкой и сортировкой; без группировки — одним деревом. */
 function Arranged({ tasks, opts, onOpen, selectedId }: ViewProps & { tasks: readonly TaskView[]; opts: ViewOptions }) {
   const doc = useDoc();
-  if (opts.group === 'none' && opts.sort === 'manual') return <TaskList tasks={tasks} onOpen={onOpen} selectedId={selectedId} />;
-  return <Groups groups={groupNodes(doc, forest(tasks), opts.group, opts.sort, todayDate())} onOpen={onOpen} selectedId={selectedId} />;
+  if (opts.group === 'none') return <Nested tasks={tasks} sort={opts.sort} onOpen={onOpen} selectedId={selectedId} />;
+  return <Groups groups={groupNodes(doc, doc.nested(tasks), opts.group, opts.sort, todayDate())} matched={ids(tasks)} onOpen={onOpen} selectedId={selectedId} />;
 }
 
 /** Заголовок «Сегодня»: дата и кольцо прогресса (выполнено сегодня из запланированного на сегодня). */
 function TodayHead({ open, today, children }: { open: number; today: string; children?: React.ReactNode }) {
   const doc = useDoc();
-  const done = doc.completedTasks().filter((t) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(t.completedAt!)) === today).length;
+  // Выполненные сегодня: обычные задачи и экземпляры повторов (сама повторяющаяся задача остаётся открытой).
+  const done =
+    doc.completedTasks().filter((t) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(t.completedAt!)) === today).length +
+    doc.doneToday(today, TZ).length;
   const total = open + done;
   const r = 20;
   const c = 2 * Math.PI * r;
@@ -137,7 +160,14 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
   const [opts, setOpts] = useViewOptions('today', { group: 'date' });
   const overdue = sortTasks(overdueRaw, opts.sort);
   const todays = sortTasks(todaysRaw, opts.sort);
+  const doneRows = doc.doneToday(today, TZ);
   const board = opts.layout === 'board';
+  // Выполненные сегодня повторы остаются в списке отмеченными до конца дня.
+  const doneList = doneRows.length > 0 && (
+    <div className="done-today">
+      <TaskList tasks={doneRows} onOpen={onOpen} selectedId={selectedId} showDate={opts.group !== 'date'} />
+    </div>
+  );
   const head = (
     <TodayHead open={overdue.length + todays.length} today={today}>
       <ViewOptionsButton opts={opts} onChange={setOpts} {...(board ? { groups: [] } : {})} defaults={{ group: 'date' }} manualLabel={tr('По умолчанию')} />
@@ -162,11 +192,23 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
     return (
       <>
         {head}
-        <Groups groups={groupNodes(doc, forest([...overdue, ...todays]), opts.group, opts.sort, today)} onOpen={onOpen} selectedId={selectedId} />
+        <Groups
+          groups={groupNodes(doc, doc.nested([...overdue, ...todays]), opts.group, opts.sort, today)}
+          matched={ids([...overdue, ...todays])}
+          onOpen={onOpen}
+          selectedId={selectedId}
+        />
+        {doneList}
         <AddTask defaults={{ due: { date: today } }} />
         {overdue.length + todays.length === 0 && <Empty art="today">{tr('На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.')}</Empty>}
       </>
     );
+  // Подзадача встаёт под родителя, даже если он просрочен, а она на сегодня: один список на весь экран.
+  const matched = ids([...overdue, ...todays]);
+  const overdueIds = ids(overdue);
+  const nodes = sortNodes(doc.nested([...overdue, ...todays]), opts.sort);
+  const overdueNodes = nodes.filter((n) => overdueIds.has(n.task.id));
+  const todayNodes = nodes.filter((n) => !overdueIds.has(n.task.id));
   return (
     <>
       {head}
@@ -188,12 +230,13 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
               {tr('Перенести на сегодня')}
             </button>
           </div>
-          <TaskList tasks={overdue} onOpen={onOpen} selectedId={selectedId} />
+          <TaskTree nodes={overdueNodes} matched={matched} onOpen={onOpen} selectedId={selectedId} showProject />
         </section>
       )}
       <section>
         {overdue.length > 0 && <h2>{dayHeading(today)}</h2>}
-        <TaskList tasks={todays} onOpen={onOpen} selectedId={selectedId} showDate={false} />
+        <TaskTree nodes={todayNodes} matched={matched} onOpen={onOpen} selectedId={selectedId} showProject showDate={false} />
+        {doneList}
         <AddTask defaults={{ due: { date: today } }} />
       </section>
       {overdue.length + todays.length === 0 && <Empty art="today">{tr('На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.')}</Empty>}
@@ -226,13 +269,13 @@ export function UpcomingView({ onOpen, selectedId }: ViewProps) {
       {overdue.length > 0 && (
         <section>
           <h2>{tr('Просрочено')}</h2>
-          <TaskList tasks={overdue} onOpen={onOpen} selectedId={selectedId} />
+          <Nested tasks={overdue} sort={opts.sort} onOpen={onOpen} selectedId={selectedId} />
         </section>
       )}
       {groups.map((g) => (
         <section key={g.date} className="day">
           <h2 {...dropZone((t) => moveTo(t, g.date))}>{dayHeading(g.date, today)}</h2>
-          <TaskList tasks={g.tasks} onOpen={onOpen} selectedId={selectedId} showDate={false} />
+          <Nested tasks={g.tasks} sort={opts.sort} onOpen={onOpen} selectedId={selectedId} showDate={false} />
           <AddTask defaults={{ due: { date: g.date } }} />
         </section>
       ))}

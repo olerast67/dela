@@ -626,6 +626,11 @@ svg.c-gray, svg.c-red, svg.c-orange, svg.c-yellow, svg.c-green, svg.c-teal, svg.
   opacity: 0.6;
 }
 
+/* Выполненные сегодня повторы в «Сегодня»: остаются в конце списка приглушёнными. */
+.done-today .task {
+  opacity: 0.7;
+}
+
 .twisty,
 .twisty-space {
   width: 18px;

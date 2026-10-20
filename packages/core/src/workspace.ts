@@ -9,6 +9,7 @@
 import { localDate, instant } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import type { ActivityEvent, Change, Doc, Listener, Position, ProjectNode, ProjectTasks, TaskInput, TaskNode, TaskPatch, TaskView } from './doc.ts';
+import { nestTasks } from './doc.ts';
 import { compareOrder } from './fractional.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
 
@@ -206,6 +207,16 @@ export class Workspace {
     return { overdue: parts.flatMap((p) => p.overdue).sort(sort), today: parts.flatMap((p) => p.today).sort(sort) };
   }
 
+  doneToday(todayDate: string, tz: string): TaskView[] {
+    return this.docs()
+      .flatMap((d) => d.doneToday(todayDate, tz))
+      .sort((a, b) => a.completedAt! - b.completedAt!);
+  }
+
+  nested(tasks: readonly TaskView[]): TaskNode[] {
+    return nestTasks(this, tasks);
+  }
+
   upcoming(from: string, days: number, tz: string): Array<{ date: string; tasks: TaskView[] }> {
     const parts = this.docs().map((d) => d.upcoming(from, days, tz));
     const sort = byDue(tz);
@@ -261,6 +272,14 @@ export class Workspace {
 
   skipOccurrence(id: string): void {
     this.batch(() => this.docForTask(id).skipOccurrence(id));
+  }
+
+  uncompleteOccurrence(id: string, occurrence: string): boolean {
+    return this.batch(() => this.docForTask(id).uncompleteOccurrence(id, occurrence));
+  }
+
+  canUncompleteOccurrence(id: string, occurrence: string): boolean {
+    return this.docForTask(id).canUncompleteOccurrence(id, occurrence);
   }
 
   deleteTask(id: string): void {

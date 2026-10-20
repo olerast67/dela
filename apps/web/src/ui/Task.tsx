@@ -136,13 +136,21 @@ export function TaskRow({
   const [leaving, setLeaving] = useState(false);
   const [dropPos, setDropPos] = useState<DropWhere | null>(null);
   const done = task.completedAt !== null;
+  // Выполненный сегодня повтор: галочка возвращает срок на этот раз, если это ещё можно сделать.
+  const occurrence = task.doneOccurrence;
+  const reopenable = occurrence === undefined || doc.canUncompleteOccurrence(task.id, occurrence);
+  const reopen = () => {
+    if (occurrence === undefined) doc.reopenTask(task.id);
+    else doc.uncompleteOccurrence(task.id, occurrence);
+  };
+  const fixed = task.projected || occurrence !== undefined;
   const project = showProject ? doc.project(task.projectId) : undefined;
   const [resched, setResched] = useState(false);
   const swipe = useSwipe(
-    !task.projected,
+    !task.projected && reopenable,
     () => {
       haptic('success');
-      if (done) doc.reopenTask(task.id);
+      if (done) reopen();
       else completeWithUndo(doc, task);
     },
     () => setResched(true),
@@ -161,7 +169,7 @@ export function TaskRow({
   function toggle(e: MouseEvent) {
     e.stopPropagation();
     if (done) {
-      doc.reopenTask(task.id);
+      if (reopenable) reopen();
       return;
     }
     if (task.projected) return;
@@ -217,7 +225,7 @@ export function TaskRow({
       onClick={(e) => {
         // Ctrl или Cmd с щелчком выделяет задачу; пока что-то выделено, щелчок добавляет или снимает задачу.
         if (e.ctrlKey || e.metaKey || pickedIds().size > 0) {
-          if (!task.projected) togglePicked(task.id);
+          if (!fixed) togglePicked(task.id);
           return;
         }
         onOpen(task.id);
@@ -246,8 +254,9 @@ export function TaskRow({
       <button
         className={`check prio-${task.priority}${leaving || done ? ' checked' : ''}`}
         aria-label={done ? tr('Вернуть в работу') : tr('Выполнить')}
+        title={reopenable ? undefined : tr('Срок с тех пор меняли: этот раз уже не вернуть')}
         onClick={toggle}
-        disabled={task.projected}
+        disabled={task.projected || !reopenable}
       >
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6.5 12.5l3.6 3.6 7.4-7.6" />
@@ -308,8 +317,19 @@ export function TaskRow({
   );
 }
 
+/** Свёрнутые задачи в проекте (по умолчанию развёрнуты). Живёт до перезагрузки, как и в списках ниже. */
 const collapsedTasks = new Set<string>();
+/** Раскрытие подзадач в «Сегодня», «Предстоящих» и фильтрах: выбор пользователя поверх правила по умолчанию. */
+const listOpen = new Map<string, boolean>();
 
+function holds(node: TaskNode, ids: ReadonlySet<string>): boolean {
+  return node.children.some((c) => ids.has(c.task.id) || holds(c, ids));
+}
+
+/**
+ * Дерево задач. matched — задачи, попавшие в список («Сегодня», фильтр): тогда это список, а не проект,
+ * и подзадачи по умолчанию свёрнуты, кроме случая, когда среди них есть задача из списка: она не должна прятаться.
+ */
 export function TaskTree({
   nodes,
   onOpen,
@@ -317,6 +337,7 @@ export function TaskTree({
   depth = 0,
   showProject,
   showDate,
+  matched,
 }: {
   nodes: readonly TaskNode[];
   onOpen: (id: string) => void;
@@ -324,14 +345,15 @@ export function TaskTree({
   depth?: number;
   showProject?: boolean;
   showDate?: boolean;
+  matched?: ReadonlySet<string>;
 }) {
   const [, force] = useState(0);
   return (
     <>
       {nodes.map((n) => {
-        const collapsed = collapsedTasks.has(n.task.id);
+        const collapsed = matched ? !(listOpen.get(n.task.id) ?? holds(n, matched)) : collapsedTasks.has(n.task.id);
         return (
-          <div key={n.task.id}>
+          <div key={`${n.task.id}${n.task.projected || n.task.doneOccurrence ? `@${n.task.due?.date}` : ''}`}>
             <TaskRow
               task={n.task}
               onOpen={onOpen}
@@ -343,7 +365,8 @@ export function TaskTree({
                 ? {
                     collapsed,
                     onToggle: () => {
-                      if (collapsed) collapsedTasks.delete(n.task.id);
+                      if (matched) listOpen.set(n.task.id, collapsed);
+                      else if (collapsed) collapsedTasks.delete(n.task.id);
                       else collapsedTasks.add(n.task.id);
                       force((x) => x + 1);
                     },
@@ -356,7 +379,7 @@ export function TaskTree({
                 onOpen={onOpen}
                 selectedId={selectedId}
                 depth={depth + 1}
-                {...(showProject !== undefined ? { showProject } : {})}
+                {...(matched ? { matched, showProject: false } : showProject !== undefined ? { showProject } : {})}
                 {...(showDate !== undefined ? { showDate } : {})}
               />
             )}
@@ -384,7 +407,7 @@ export function TaskList({
     <>
       {tasks.map((t) => (
         <TaskRow
-          key={`${t.id}${t.projected ? `@${t.due?.date}` : ''}`}
+          key={`${t.id}${t.projected || t.doneOccurrence ? `@${t.due?.date}` : ''}`}
           task={t}
           onOpen={onOpen}
           selected={selectedId === t.id}

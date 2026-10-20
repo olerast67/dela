@@ -183,19 +183,6 @@ export function OptionsPopover({ label, title, on, children }: { label: string; 
 
 // ---------- порядок и группы ----------
 
-/** Плоский список задач как дерево: подзадача, чей родитель тоже в списке, встаёт под него. */
-export function forest(tasks: readonly TaskView[]): TaskNode[] {
-  const ids = new Set(tasks.filter((t) => !t.projected).map((t) => t.id));
-  const kids = new Map<string, TaskView[]>();
-  const roots: TaskView[] = [];
-  for (const t of tasks) {
-    if (t.parentId && ids.has(t.parentId) && !t.projected) kids.set(t.parentId, [...(kids.get(t.parentId) ?? []), t]);
-    else roots.push(t);
-  }
-  const build = (t: TaskView): TaskNode => ({ task: t, children: (kids.get(t.id) ?? []).map(build) });
-  return roots.map(build);
-}
-
 function dueKey(t: TaskView): string {
   if (!t.due) return '~';
   const minute = slotOf(t.due, TZ)?.minute ?? 24 * 60;

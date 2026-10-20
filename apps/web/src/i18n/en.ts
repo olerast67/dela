@@ -652,4 +652,5 @@ export const EN: Readonly<Record<string, string>> = {
   'Щёлкните, чтобы изменить': 'Click to edit',
   'Отметить пункт': 'Check item',
   'Снять отметку': 'Uncheck item',
+  'Срок с тех пор меняли: этот раз уже не вернуть': 'The date has changed since: this occurrence can no longer be reopened',
 };
