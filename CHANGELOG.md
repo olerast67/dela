@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Attachments larger than 7 MB: a file is uploaded in 4 MiB parts, and each part is encrypted on the device on its own (XChaCha20-Poly1305, one random key per file). Each part is bound to the file, its number, the number of parts and the file size, so the server cannot reorder, swap, drop, cut or add parts without the download failing. Upload and download show a progress bar in the comment and can be cancelled; after a dropped connection, sending the same file again uploads only the missing parts. The server checks the per-file limit (`DELA_MAX_FILE_MB`, 100 MB by default) and the space quota before it accepts any data, and deletes uploads left unfinished for a day. Old attachments open as before; new files of any size use the new format, which older apps cannot open.
+
 ## 0.8.0
 
 - Alarm for an urgent task on Android: the "Alarm" switch under Reminders in the task card makes the task's reminders ring as a full-screen alarm over the lock screen, with the task title and "Done", "Snooze for 10 minutes" and "Turn off". The sound plays through the alarm stream, so it rings in silent mode and with Do Not Disturb (which lets alarms through by default), with vibration; after 5 minutes without an answer it stops and leaves a "Missed alarm" notification. "Done" completes the task through the same queue as the widget, even when the app is closed. Alarms are exact (AlarmManager alarm clock, works in Doze) and are restored after a reboot. Permissions are asked when the alarm is first turned on; on Android 14+ without the full-screen permission the settings screen opens, and the alarm comes as a notification with sound. An urgent reminder rings once: no local notification is scheduled for it, and a push of the same reminder is not shown; if the task was added on another device while the app was closed, the push starts the alarm. The flag syncs to all devices; in the browser and the Windows program it is a regular reminder.

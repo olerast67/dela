@@ -17,7 +17,7 @@ import { HTTPException } from 'hono/http-exception';
 import { secureHeaders } from 'hono/secure-headers';
 import { randomBytes } from 'node:crypto';
 import { relative } from 'node:path';
-import { exceedsDrift, isTimestamp, uuidv7, type AccountBundle, type Envelope } from '#core';
+import { FILE_PART_BYTES, FILE_PART_OVERHEAD, exceedsDrift, isTimestamp, uuidv7, type AccountBundle, type Envelope } from '#core';
 import { RateLimiter, fakeSalt, hashAuthSecret, newToken, safeEqual, sha256 } from './auth.ts';
 import type { Config } from './config.ts';
 import { tx, type Db } from './db.ts';
@@ -1039,36 +1039,158 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
   // ---------- файлы ----------
 
-  /** Один файл до 7 МиБ шифротекста: общий предел тела запроса 8 МиБ. */
+  /** Один файл одним запросом (формат v1) до 7 МиБ шифротекста: общий предел тела запроса 8 МиБ. */
   const MAX_FILE_BYTES = 7 * 1024 * 1024;
+  /** Шифротекст одной части файла v2. */
+  const MAX_PART_BYTES = FILE_PART_BYTES + FILE_PART_OVERHEAD;
+  /** Загрузка, в которую сутки не приходило частей, считается брошенной. */
+  const UPLOAD_TTL = 24 * 3600 * 1000;
   const FILE_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-  app.put('/api/spaces/:id/files/:fileId', requireAuth, async (c) => {
+  interface FileRow {
+    size: number;
+    parts: number;
+    complete: number;
+    created_by: string | null;
+  }
+
+  function fileRow(spaceId: string, fileId: string): FileRow | undefined {
+    return db.prepare('SELECT size, parts, complete, created_by FROM files WHERE space_id = ? AND id = ?').get(spaceId, fileId) as FileRow | undefined;
+  }
+
+  /** Занято в пространстве, вместе с местом, отложенным под незаконченные загрузки. */
+  function fileBytesUsed(spaceId: string): number {
+    return Number((db.prepare('SELECT coalesce(sum(size), 0) AS n FROM files WHERE space_id = ?').get(spaceId) as { n: number }).n);
+  }
+
+  /** Удалить брошенные загрузки вместе с частями. */
+  function sweepUploads(): number {
+    return Number(db.prepare('DELETE FROM files WHERE complete = 0 AND touched_at < ?').run(now() - UPLOAD_TTL).changes);
+  }
+
+  /** Своя незаконченная загрузка файла v2: части добавляет и завершает только тот, кто её начал. */
+  function pendingUpload(spaceId: string, fileId: string, userId: string): FileRow {
+    const row = fileRow(spaceId, fileId);
+    if (!row || Number(row.parts) === 0) fail(404, 'not_found');
+    if (Number(row.complete) === 1) fail(409, 'file_exists');
+    if (row.created_by !== userId) fail(403, 'forbidden');
+    return row;
+  }
+
+  /** Участник с правом записи и правильный id файла. */
+  function fileWriter(c: Context<AppEnv>): { userId: string; spaceId: string; fileId: string } {
     const { userId } = c.get('auth');
     const spaceId = c.req.param('id') ?? '';
     const fileId = c.req.param('fileId') ?? '';
     const { role } = membership(spaceId, userId);
     if (role === 'viewer') fail(403, 'forbidden');
     if (!FILE_ID_RE.test(fileId)) bad('invalid file id');
+    return { userId, spaceId, fileId };
+  }
+
+  app.put('/api/spaces/:id/files/:fileId', requireAuth, async (c) => {
+    const { userId, spaceId, fileId } = fileWriter(c);
     const data = new Uint8Array(await c.req.arrayBuffer());
     if (data.length === 0) bad('empty file');
-    if (data.length > MAX_FILE_BYTES) fail(413, 'file_too_large');
-    const used = Number((db.prepare('SELECT coalesce(sum(size), 0) AS n FROM files WHERE space_id = ?').get(spaceId) as { n: number }).n);
-    if (used + data.length > config.maxFileBytesPerSpace) fail(413, 'space_full');
-    if (db.prepare('SELECT 1 FROM files WHERE space_id = ? AND id = ?').get(spaceId, fileId)) fail(409, 'file_exists');
+    if (data.length > Math.min(MAX_FILE_BYTES, config.maxFileBytes + FILE_PART_OVERHEAD)) fail(413, 'file_too_large', { maxFileBytes: config.maxFileBytes });
+    if (fileBytesUsed(spaceId) + data.length > config.maxFileBytesPerSpace) fail(413, 'space_full');
+    if (fileRow(spaceId, fileId)) fail(409, 'file_exists');
     db.prepare('INSERT INTO files (space_id, id, size, created_by, created_at, data) VALUES (?, ?, ?, ?, ?, ?)').run(spaceId, fileId, data.length, userId, now(), data);
     return c.json({ ok: true }, 201);
+  });
+
+  /**
+   * Начать загрузку файла по частям или узнать, какие части уже есть (после обрыва).
+   * size — шифротекст всех частей; квота и предел на файл проверяются здесь, до приёма данных.
+   */
+  app.post('/api/spaces/:id/files/:fileId/upload', requireAuth, async (c) => {
+    const { userId, spaceId, fileId } = fileWriter(c);
+    const b = await body(c);
+    const parts = int(b.parts, 'parts', 1, 1_000_000);
+    const size = int(b.size, 'size', FILE_PART_OVERHEAD, Number.MAX_SAFE_INTEGER);
+    // Все части полные, кроме последней: размер и число частей должны сходиться.
+    if (size <= (parts - 1) * MAX_PART_BYTES || size > parts * MAX_PART_BYTES) bad('size does not match parts');
+    if (size - parts * FILE_PART_OVERHEAD > config.maxFileBytes) fail(413, 'file_too_large', { maxFileBytes: config.maxFileBytes });
+    sweepUploads();
+    tx(db, () => {
+      const row = fileRow(spaceId, fileId);
+      if (row) {
+        const same = Number(row.complete) === 0 && row.created_by === userId && Number(row.size) === size && Number(row.parts) === parts;
+        if (!same) fail(409, 'file_exists');
+        db.prepare('UPDATE files SET touched_at = ? WHERE space_id = ? AND id = ?').run(now(), spaceId, fileId);
+        return;
+      }
+      if (fileBytesUsed(spaceId) + size > config.maxFileBytesPerSpace) fail(413, 'space_full');
+      db.prepare("INSERT INTO files (space_id, id, size, created_by, created_at, data, parts, complete, touched_at) VALUES (?, ?, ?, ?, ?, X'', ?, 0, ?)").run(
+        spaceId,
+        fileId,
+        size,
+        userId,
+        now(),
+        parts,
+        now(),
+      );
+    });
+    const have = db.prepare('SELECT idx FROM file_parts WHERE space_id = ? AND file_id = ? ORDER BY idx').all(spaceId, fileId) as Array<{ idx: number }>;
+    return c.json({ have: have.map((r) => Number(r.idx)), maxFileBytes: config.maxFileBytes });
+  });
+
+  app.put('/api/spaces/:id/files/:fileId/parts/:n', requireAuth, async (c) => {
+    const { userId, spaceId, fileId } = fileWriter(c);
+    const row = pendingUpload(spaceId, fileId, userId);
+    const parts = Number(row.parts);
+    const n = int(c.req.param('n'), 'part', 0, parts - 1);
+    const data = new Uint8Array(await c.req.arrayBuffer());
+    // Длина каждой части известна заранее: сверх места, отложенного в квоте, ничего не ляжет.
+    const expected = n < parts - 1 ? MAX_PART_BYTES : Number(row.size) - (parts - 1) * MAX_PART_BYTES;
+    if (data.length !== expected) bad('part has wrong size');
+    tx(db, () => {
+      pendingUpload(spaceId, fileId, userId);
+      db.prepare('INSERT OR REPLACE INTO file_parts (space_id, file_id, idx, data) VALUES (?, ?, ?, ?)').run(spaceId, fileId, n, data);
+      db.prepare('UPDATE files SET touched_at = ? WHERE space_id = ? AND id = ?').run(now(), spaceId, fileId);
+    });
+    return c.json({ ok: true });
+  });
+
+  app.post('/api/spaces/:id/files/:fileId/complete', requireAuth, (c) => {
+    const { userId, spaceId, fileId } = fileWriter(c);
+    tx(db, () => {
+      const row = pendingUpload(spaceId, fileId, userId);
+      const got = db.prepare('SELECT count(*) AS n, coalesce(sum(length(data)), 0) AS bytes FROM file_parts WHERE space_id = ? AND file_id = ?').get(spaceId, fileId) as {
+        n: number;
+        bytes: number;
+      };
+      if (Number(got.n) !== Number(row.parts) || Number(got.bytes) !== Number(row.size)) fail(409, 'incomplete');
+      db.prepare('UPDATE files SET complete = 1, touched_at = NULL WHERE space_id = ? AND id = ?').run(spaceId, fileId);
+    });
+    return c.json({ ok: true });
+  });
+
+  app.get('/api/spaces/:id/files/:fileId/parts/:n', requireAuth, (c) => {
+    const { userId } = c.get('auth');
+    const spaceId = c.req.param('id') ?? '';
+    const fileId = c.req.param('fileId') ?? '';
+    membership(spaceId, userId);
+    const row = fileRow(spaceId, fileId);
+    if (!row || Number(row.parts) === 0 || Number(row.complete) !== 1) fail(404, 'not_found');
+    const n = int(c.req.param('n'), 'part', 0, Number(row.parts) - 1);
+    const part = db.prepare('SELECT data FROM file_parts WHERE space_id = ? AND file_id = ? AND idx = ?').get(spaceId, fileId, n) as { data: Uint8Array } | undefined;
+    if (!part) fail(404, 'not_found');
+    return c.body(Buffer.from(part.data), 200, { 'content-type': 'application/octet-stream' });
   });
 
   app.get('/api/spaces/:id/files/:fileId', requireAuth, (c) => {
     const { userId } = c.get('auth');
     const spaceId = c.req.param('id') ?? '';
     membership(spaceId, userId);
-    const row = db.prepare('SELECT data FROM files WHERE space_id = ? AND id = ?').get(spaceId, c.req.param('fileId') ?? '') as { data: Uint8Array } | undefined;
+    const row = db.prepare('SELECT data, parts FROM files WHERE space_id = ? AND id = ?').get(spaceId, c.req.param('fileId') ?? '') as { data: Uint8Array; parts: number } | undefined;
     if (!row) fail(404, 'not_found');
-    return c.body(Buffer.from(row!.data), 200, { 'content-type': 'application/octet-stream' });
+    // Файл по частям одним запросом не отдаётся: старый клиент формат v2 всё равно не расшифрует.
+    if (Number(row.parts) > 0) fail(409, 'file_in_parts');
+    return c.body(Buffer.from(row.data), 200, { 'content-type': 'application/octet-stream' });
   });
 
+  /** Удалить файл; для незаконченной загрузки это отмена (части удаляются каскадом). */
   app.delete('/api/spaces/:id/files/:fileId', requireAuth, (c) => {
     const { userId } = c.get('auth');
     const spaceId = c.req.param('id') ?? '';
@@ -1322,5 +1444,5 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
 
   app.notFound((c) => c.json({ error: 'not_found' }, 404));
 
-  return { app, injectWebSocket, hub, pushTick };
+  return { app, injectWebSocket, hub, pushTick, sweepUploads };
 }

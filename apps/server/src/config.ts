@@ -36,6 +36,8 @@ export interface Config {
   readonly maxRecordsPerSpace: number;
   /** Сколько байт файлов может лежать в одном пространстве. */
   readonly maxFileBytesPerSpace: number;
+  /** Предел одного файла (открытый текст), байт. */
+  readonly maxFileBytes: number;
   /** Свои распространители UnifiedPush: имена хостов через запятую в DELA_PUSH_HOSTS. */
   readonly pushHosts: readonly string[];
   /** Адрес, с которого открывают веб-клиент (https://tasks.example.com): нужен для passkey. */
@@ -67,6 +69,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     adminEmail: (env.DELA_ADMIN_EMAIL ?? '').trim().toLowerCase(),
     maxRecordsPerSpace: Number(env.DELA_MAX_RECORDS_PER_SPACE ?? 500_000),
     maxFileBytesPerSpace: Number(env.DELA_MAX_FILE_MB_PER_SPACE ?? 1024) * 1024 * 1024,
+    maxFileBytes: Number(env.DELA_MAX_FILE_MB ?? 100) * 1024 * 1024,
     maxSharedSpaces: Number(env.DELA_MAX_SHARED_SPACES ?? 200),
     publicUrl: (env.DELA_PUBLIC_URL ?? '').replace(/\/+$/, ''),
     pushHosts: (env.DELA_PUSH_HOSTS ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean),
@@ -90,6 +93,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     adminEmail: '',
     maxRecordsPerSpace: 500_000,
     maxFileBytesPerSpace: 1024 * 1024 * 1024,
+    maxFileBytes: 100 * 1024 * 1024,
     pushHosts: [],
     publicUrl: 'http://localhost',
     maxSharedSpaces: 200,

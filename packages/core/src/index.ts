@@ -60,6 +60,13 @@ export {
   openAccountWithPasskey,
   sealFile,
   openFile,
+  FILE_PART_BYTES,
+  FILE_PART_OVERHEAD,
+  filePartCount,
+  fileSealedSize,
+  newFileKey,
+  sealFilePart,
+  openFilePart,
   verifyPin,
   PIN_KDF,
 } from './crypto.ts';

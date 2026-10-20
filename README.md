@@ -109,7 +109,8 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 | `DELA_BACKUP_KEEP` | `7` | Daily database snapshots to keep, `0` disables them |
 | `DELA_SESSION_TTL_DAYS` | `180` | Device session lifetime |
 | `DELA_MAX_RECORDS_PER_SPACE` | `500000` | Limit of stored fields per project space |
-| `DELA_MAX_FILE_MB_PER_SPACE` | `1024` | Limit of encrypted files per project space, MB. One file is up to 7 MB |
+| `DELA_MAX_FILE_MB_PER_SPACE` | `1024` | Limit of encrypted files per project space, MB |
+| `DELA_MAX_FILE_MB` | `100` | Limit of one file attached to a comment, MB. Files are uploaded in encrypted 4 MB parts |
 | `DELA_VAPID_SUBJECT` | repository URL | Contact for push services, `mailto:` or `https:` |
 | `DELA_PUBLIC_URL` | empty | Address the web app is opened at, for example `https://tasks.example.com`. Needed for passkeys |
 | `DELA_MAX_SHARED_SPACES` | `200` | Shared projects one user can create |

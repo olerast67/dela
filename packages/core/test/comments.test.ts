@@ -73,4 +73,19 @@ describe('комментарии и исполнитель', () => {
     const master = newKey();
     expect(toB64(signingKeys(master).publicKey)).toBe(toB64(signingKeys(master).publicKey));
   });
+  it('файл по частям: формат и число частей в записи, подпись та же, что у старых клиентов', () => {
+    const doc = make();
+    const task = doc.createTask({ title: 'Видео' });
+    const alice = signingKeys(newKey());
+    const file = { id: '01929c3e-0000-7000-8000-0000000000f3', name: 'ролик.mp4', size: 9_000_000, type: 'video/mp4', key: 'a2V5'.repeat(11), v: 2 as const, parts: 3 };
+    const id = doc.addComment(task, { text: '', author: 'alice', file, sign: (c) => signComment(alice.secretKey, c) });
+    const c = doc.comments(task).find((x) => x.id === id)!;
+    expect(c.file).toEqual(file);
+    const signed = { spaceId: doc.spaceId, id: c.id, taskId: c.taskId, author: c.author, createdAt: c.createdAt, text: c.text };
+    expect(verifyComment(toB64(alice.publicKey), c.sig!, { ...signed, file: c.file })).toBe(true);
+    // Старый клиент не знает полей v и parts: подпись у него тоже сходится.
+    const { v: _v, parts: _p, ...old } = file;
+    expect(verifyComment(toB64(alice.publicKey), c.sig!, { ...signed, file: old })).toBe(true);
+    expect(verifyComment(toB64(alice.publicKey), c.sig!, { ...signed, file: { ...file, size: 1 } })).toBe(false);
+  });
 });

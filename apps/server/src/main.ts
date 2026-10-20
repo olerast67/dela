@@ -9,7 +9,16 @@ import { join } from 'node:path';
 const config = loadConfig();
 if (config.dbPath !== ':memory:') mkdirSync(config.dataDir, { recursive: true });
 const db = openDb(config.dbPath);
-const { app, injectWebSocket, pushTick } = createApp(db, config);
+const { app, injectWebSocket, pushTick, sweepUploads } = createApp(db, config);
+// Брошенные загрузки файлов по частям удаляются через сутки; проверка раз в час.
+sweepUploads();
+setInterval(() => {
+  try {
+    sweepUploads();
+  } catch (err) {
+    console.error('upload sweep failed', err);
+  }
+}, 3600_000).unref();
 let pushing = false;
 setInterval(() => {
   if (pushing) return;

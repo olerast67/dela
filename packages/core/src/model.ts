@@ -201,6 +201,10 @@ export interface Attachment {
   readonly type: string;
   /** Ключ файла (base64). Лежит в зашифрованной записи комментария. */
   readonly key: string;
+  /** 2 — файл по частям (sealFilePart); без поля — одним шифротекстом (sealFile). */
+  readonly v?: 2;
+  /** Число частей у формата v2: должно сходиться с размером. */
+  readonly parts?: number;
 }
 
 export interface Comment {
@@ -224,7 +228,8 @@ function attachment(v: Json | undefined): Attachment | null {
   if (typeof o.id !== 'string' || typeof o.key !== 'string' || typeof o.name !== 'string') return null;
   // id файла попадает в адрес запроса: только UUID, иначе участник подсунул бы путь вроде «../members/…».
   if (!FILE_ID.test(o.id) || !/^[A-Za-z0-9+/=_-]{20,100}$/.test(o.key)) return null;
-  return { id: o.id.slice(0, 64), name: o.name.slice(0, 300), size: typeof o.size === 'number' ? o.size : 0, type: typeof o.type === 'string' ? o.type.slice(0, 100) : '', key: o.key };
+  const file: Attachment = { id: o.id.slice(0, 64), name: o.name.slice(0, 300), size: typeof o.size === 'number' ? o.size : 0, type: typeof o.type === 'string' ? o.type.slice(0, 100) : '', key: o.key };
+  return o.v === 2 ? { ...file, v: 2, parts: typeof o.parts === 'number' ? o.parts : 0 } : file;
 }
 
 export function toComment(id: string, r: Rec): Comment {

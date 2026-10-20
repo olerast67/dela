@@ -171,6 +171,22 @@ const MIGRATIONS: readonly string[] = [
   -- Минуты до срока, которые выбраны на этом устройстве: JSON-массив чисел.
   ALTER TABLE push_subscriptions ADD COLUMN offsets TEXT;
   `,
+  `
+  -- Большие файлы по частям: у них parts > 0, а data пустой. Пока загрузка не закончена, complete = 0,
+  -- размер (весь шифротекст) уже занят в квоте; touched_at — время последней части, по нему брошенные загрузки удаляются.
+  ALTER TABLE files ADD COLUMN parts INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE files ADD COLUMN complete INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE files ADD COLUMN touched_at INTEGER;
+  CREATE INDEX files_pending ON files(touched_at) WHERE complete = 0;
+  CREATE TABLE file_parts (
+    space_id TEXT NOT NULL,
+    file_id  TEXT NOT NULL,
+    idx      INTEGER NOT NULL,
+    data     BLOB NOT NULL,
+    PRIMARY KEY (space_id, file_id, idx),
+    FOREIGN KEY (space_id, file_id) REFERENCES files(space_id, id) ON DELETE CASCADE
+  ) STRICT;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

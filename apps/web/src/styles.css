@@ -2956,6 +2956,43 @@ kbd {
   justify-content: space-between;
 }
 
+.file-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+  font-size: 13px;
+}
+
+.file-progress progress {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  border: none;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--surface-2);
+  accent-color: var(--accent);
+}
+
+.file-progress progress::-webkit-progress-bar {
+  background: var(--surface-2);
+}
+
+.file-progress progress::-webkit-progress-value {
+  background: var(--accent);
+}
+
+.file-progress progress::-moz-progress-bar {
+  background: var(--accent);
+}
+
+.file-progress button {
+  padding: 2px 10px;
+  font-size: 13px;
+}
+
 /* ---------- перетаскивание пальцем ---------- */
 
 .drag-ghost {

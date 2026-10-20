@@ -95,34 +95,57 @@ export class ApiClient {
     return json as T;
   }
 
-  /** Загрузить зашифрованный файл в пространство. id задаёт клиент: он входит в AAD шифротекста. */
-  async uploadFile(spaceId: string, fileId: string, blob: Uint8Array): Promise<void> {
-    const headers: Record<string, string> = { 'content-type': 'application/octet-stream' };
+  /** Запрос с двоичным телом или ответом (файлы). */
+  private async binary(method: string, path: string, body?: Uint8Array, signal?: AbortSignal): Promise<Response> {
+    const headers: Record<string, string> = {};
+    if (body) headers['content-type'] = 'application/octet-stream';
     if (this.token) headers.authorization = `Bearer ${this.token}`;
     let res: Response;
     try {
-      res = await this.fetcher(`${this.baseUrl}/api/spaces/${encodeURIComponent(spaceId)}/files/${encodeURIComponent(fileId)}`, { method: 'PUT', headers, body: blob as BodyInit });
+      res = await this.fetcher(this.baseUrl + path, { method, headers, ...(body ? { body: body as BodyInit } : {}), ...(signal ? { signal } : {}) });
     } catch (err) {
       throw new NetworkError(err);
     }
     if (!res.ok) throw new ApiError(res.status, ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>);
+    return res;
+  }
+
+  private filePath(spaceId: string, fileId: string): string {
+    return `/api/spaces/${encodeURIComponent(spaceId)}/files/${encodeURIComponent(fileId)}`;
+  }
+
+  /** Загрузить зашифрованный файл в пространство. id задаёт клиент: он входит в AAD шифротекста. */
+  async uploadFile(spaceId: string, fileId: string, blob: Uint8Array): Promise<void> {
+    await this.binary('PUT', this.filePath(spaceId, fileId), blob);
   }
 
   async downloadFile(spaceId: string, fileId: string): Promise<Uint8Array> {
-    const headers: Record<string, string> = {};
-    if (this.token) headers.authorization = `Bearer ${this.token}`;
-    let res: Response;
-    try {
-      res = await this.fetcher(`${this.baseUrl}/api/spaces/${encodeURIComponent(spaceId)}/files/${encodeURIComponent(fileId)}`, { headers });
-    } catch (err) {
-      throw new NetworkError(err);
-    }
-    if (!res.ok) throw new ApiError(res.status, ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>);
-    return new Uint8Array(await res.arrayBuffer());
+    return new Uint8Array(await (await this.binary('GET', this.filePath(spaceId, fileId))).arrayBuffer());
   }
 
+  /**
+   * Начать загрузку файла по частям или продолжить её: сервер отвечает, какие части уже есть.
+   * size — шифротекст всех частей (fileSealedSize).
+   */
+  startUpload(spaceId: string, fileId: string, input: { size: number; parts: number }): Promise<{ have: number[]; maxFileBytes: number }> {
+    return this.call('POST', `${this.filePath(spaceId, fileId)}/upload`, input);
+  }
+
+  async uploadPart(spaceId: string, fileId: string, index: number, data: Uint8Array, signal?: AbortSignal): Promise<void> {
+    await this.binary('PUT', `${this.filePath(spaceId, fileId)}/parts/${index}`, data, signal);
+  }
+
+  completeUpload(spaceId: string, fileId: string): Promise<{ ok: true }> {
+    return this.call('POST', `${this.filePath(spaceId, fileId)}/complete`, {});
+  }
+
+  async downloadPart(spaceId: string, fileId: string, index: number, signal?: AbortSignal): Promise<Uint8Array> {
+    return new Uint8Array(await (await this.binary('GET', `${this.filePath(spaceId, fileId)}/parts/${index}`, undefined, signal)).arrayBuffer());
+  }
+
+  /** Удалить файл; незаконченная загрузка так отменяется. */
   deleteFile(spaceId: string, fileId: string): Promise<{ ok: true }> {
-    return this.call('DELETE', `/api/spaces/${encodeURIComponent(spaceId)}/files/${encodeURIComponent(fileId)}`);
+    return this.call('DELETE', this.filePath(spaceId, fileId));
   }
 
   passkeyRegisterOptions(input: { authSecret: string; totp?: string }): Promise<{ options: Record<string, unknown> }> {

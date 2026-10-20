@@ -18,6 +18,13 @@ import {
   uuidv7,
   wrapSpaceKey,
   changePassword,
+  FILE_PART_BYTES,
+  FILE_PART_OVERHEAD,
+  filePartCount,
+  fileSealedSize,
+  newFileKey,
+  openFilePart,
+  sealFilePart,
   type AccountBundle,
 } from '#core';
 import { createApp } from '../src/app.ts';
@@ -638,6 +645,165 @@ describe('файлы', () => {
     expect((await put(ta, new Uint8Array(7 * 1024 * 1024 + 1), uuidv7(NOW + 1))).status).toBe(413);
     expect((await s.call('DELETE', `/api/spaces/${spaceId}/files/${fileId}`, undefined, ta)).status).toBe(200);
     expect((await s.app.request(`/api/spaces/${spaceId}/files/${fileId}`, { headers: { authorization: `Bearer ${ta}` } })).status).toBe(404);
+  });
+});
+
+describe('файлы по частям', () => {
+  const PART = FILE_PART_BYTES + FILE_PART_OVERHEAD;
+
+  async function setup(overrides: Partial<Config> = {}) {
+    const s = makeServer({ openRegistration: true, ...overrides });
+    const a = await register(s, 'a@x.yz', 'пароль-а');
+    const b = await register(s, 'b@x.yz', 'пароль-б');
+    const ta = a.res.json.token as string;
+    const tb = b.res.json.token as string;
+    const spaceId = uuidv7(NOW);
+    await s.call('POST', '/api/spaces', { id: spaceId, kind: 'shared', key: wrapSpaceKey(newKey(), a.acc.keys.masterKey, spaceId) }, ta);
+    const raw = (method: string, path: string, token: string, body?: Uint8Array) =>
+      s.app.request(path, { method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' }, ...(body ? { body: body as BodyInit } : {}) });
+    const base = (fileId: string, space = spaceId) => `/api/spaces/${space}/files/${fileId}`;
+    return { s, a, b, ta, tb, spaceId, raw, base };
+  }
+
+  function sealed(size: number, spaceId: string, fileId: string) {
+    const data = new Uint8Array(size).map((_, i) => (i * 7) & 0xff);
+    const key = newFileKey();
+    const parts = Array.from({ length: filePartCount(size) }, (_, i) =>
+      sealFilePart(data.subarray(i * FILE_PART_BYTES, Math.min(size, (i + 1) * FILE_PART_BYTES)), key, spaceId, fileId, size, i),
+    );
+    return { data, key, parts, size: fileSealedSize(size) };
+  }
+
+  it('загрузка с продолжением после обрыва, скачивание по частям, старый путь отказывает', async () => {
+    const { s, ta, tb, spaceId, raw, base, b } = await setup();
+    const fileId = uuidv7(NOW);
+    const f = sealed(FILE_PART_BYTES + 1000, spaceId, fileId);
+    const start = () => s.call('POST', `${base(fileId)}/upload`, { size: f.size, parts: 2 }, ta);
+    expect((await start()).json).toEqual({ have: [], maxFileBytes: 100 * 1024 * 1024 });
+    // Обрыв: дошла только вторая часть. Повторный старт сообщает, что уже есть.
+    expect((await raw('PUT', `${base(fileId)}/parts/1`, ta, f.parts[1])).status).toBe(200);
+    expect((await start()).json.have).toEqual([1]);
+    // Скачивать незаконченный файл нельзя, завершить без всех частей тоже.
+    expect((await raw('GET', `${base(fileId)}/parts/1`, ta)).status).toBe(404);
+    expect((await s.call('POST', `${base(fileId)}/complete`, {}, ta)).json).toEqual({ error: 'incomplete' });
+    expect((await raw('PUT', `${base(fileId)}/parts/0`, ta, f.parts[0])).status).toBe(200);
+    expect((await s.call('POST', `${base(fileId)}/complete`, {}, ta)).json).toEqual({ ok: true });
+    // После завершения части не меняются и загрузка не начинается заново.
+    expect((await raw('PUT', `${base(fileId)}/parts/0`, ta, f.parts[0])).status).toBe(409);
+    expect((await start()).json).toEqual({ error: 'file_exists' });
+
+    // Участник общего проекта скачивает и расшифровывает части.
+    await s.call('POST', `/api/spaces/${spaceId}/members`, { userId: b.res.json.userId, key: toB64(newKey()) }, ta);
+    const got: Uint8Array[] = [];
+    for (let i = 0; i < 2; i++) {
+      const res = await raw('GET', `${base(fileId)}/parts/${i}`, tb);
+      expect(res.status).toBe(200);
+      got.push(openFilePart(new Uint8Array(await res.arrayBuffer()), f.key, spaceId, fileId, FILE_PART_BYTES + 1000, i));
+    }
+    expect(Buffer.concat(got).equals(Buffer.from(f.data))).toBe(true);
+    expect((await raw('GET', `${base(fileId)}/parts/2`, tb)).status).toBe(400);
+    // Старый клиент получает понятный отказ, а не шифротекст в чужом формате.
+    expect((await s.call('GET', base(fileId), undefined, ta)).json).toEqual({ error: 'file_in_parts' });
+    // Удаление снимает файл вместе с частями.
+    expect((await s.call('DELETE', base(fileId), undefined, ta)).status).toBe(200);
+    expect((await raw('GET', `${base(fileId)}/parts/0`, ta)).status).toBe(404);
+    expect(Number((s.db.prepare('SELECT count(*) AS n FROM file_parts').get() as { n: number }).n)).toBe(0);
+  });
+
+  it('предел на файл и квота проверяются до приёма данных, части строго своей длины', async () => {
+    const { s, ta, spaceId, raw, base } = await setup({ maxFileBytes: 5 * 1024 * 1024, maxFileBytesPerSpace: 7 * 1024 * 1024 });
+    const big = uuidv7(NOW);
+    const sixMb = fileSealedSize(6 * 1024 * 1024);
+    expect((await s.call('POST', `${base(big)}/upload`, { size: sixMb, parts: 2 }, ta)).json).toEqual({ error: 'file_too_large', maxFileBytes: 5 * 1024 * 1024 });
+    // Размер, который не сходится с числом частей.
+    expect((await s.call('POST', `${base(big)}/upload`, { size: 100, parts: 2 }, ta)).status).toBe(400);
+    expect((await s.call('POST', `${base(big)}/upload`, { size: 3 * PART, parts: 2 }, ta)).status).toBe(400);
+
+    // Первая загрузка занимает место в квоте сразу, вторая уже не помещается.
+    const first = uuidv7(NOW + 1);
+    const f = sealed(FILE_PART_BYTES + 10, spaceId, first);
+    expect((await s.call('POST', `${base(first)}/upload`, { size: f.size, parts: 2 }, ta)).status).toBe(200);
+    const second = uuidv7(NOW + 2);
+    expect((await s.call('POST', `${base(second)}/upload`, { size: fileSealedSize(3 * 1024 * 1024), parts: 1 }, ta)).json).toEqual({ error: 'space_full' });
+    // Старый путь тоже видит занятое место.
+    expect((await raw('PUT', base(second), ta, new Uint8Array(3 * 1024 * 1024))).status).toBe(413);
+
+    // Часть не своей длины и номер за пределами файла.
+    expect((await raw('PUT', `${base(first)}/parts/0`, ta, f.parts[1])).status).toBe(400);
+    expect((await raw('PUT', `${base(first)}/parts/1`, ta, f.parts[0])).status).toBe(400);
+    expect((await raw('PUT', `${base(first)}/parts/2`, ta, f.parts[1])).status).toBe(400);
+    expect((await raw('PUT', `${base(first)}/parts/-1`, ta, f.parts[1])).status).toBe(400);
+  });
+
+  it('чужое пространство и чужая загрузка недоступны, читатель не загружает', async () => {
+    const { s, ta, tb, spaceId, raw, base, b } = await setup();
+    const fileId = uuidv7(NOW);
+    const f = sealed(10, spaceId, fileId);
+    // B не участник: пространство для него не существует.
+    expect((await s.call('POST', `${base(fileId)}/upload`, { size: f.size, parts: 1 }, tb)).status).toBe(404);
+    expect((await s.call('POST', `${base(fileId)}/upload`, { size: f.size, parts: 1 }, ta)).status).toBe(200);
+    expect((await raw('PUT', `${base(fileId)}/parts/0`, tb, f.parts[0])).status).toBe(404);
+    // Своё пространство B не открывает файлы пространства A.
+    const own = uuidv7(NOW + 5);
+    await s.call('POST', '/api/spaces', { id: own, key: wrapSpaceKey(newKey(), b.acc.keys.masterKey, own) }, tb);
+    expect((await raw('PUT', `${base(fileId, own)}/parts/0`, tb, f.parts[0])).status).toBe(404);
+    // Участник проекта не может дописать чужую загрузку.
+    await s.call('POST', `/api/spaces/${spaceId}/members`, { userId: b.res.json.userId, key: toB64(newKey()) }, ta);
+    expect((await raw('PUT', `${base(fileId)}/parts/0`, tb, f.parts[0])).status).toBe(403);
+    expect((await s.call('POST', `${base(fileId)}/upload`, { size: f.size, parts: 1 }, tb)).json).toEqual({ error: 'file_exists' });
+    expect((await raw('PUT', `${base(fileId)}/parts/0`, ta, f.parts[0])).status).toBe(200);
+    expect((await s.call('POST', `${base(fileId)}/complete`, {}, tb)).status).toBe(403);
+    expect((await s.call('POST', `${base(fileId)}/complete`, {}, ta)).status).toBe(200);
+    expect((await raw('GET', `${base(fileId)}/parts/0`, tb)).status).toBe(200);
+    expect((await raw('GET', `${base(fileId, own)}/parts/0`, tb)).status).toBe(404);
+    // Читатель скачивает, но не загружает.
+    s.db.prepare("UPDATE members SET role = 'viewer' WHERE user_id = ?").run(b.res.json.userId);
+    const another = uuidv7(NOW + 9);
+    expect((await s.call('POST', `${base(another)}/upload`, { size: f.size, parts: 1 }, tb)).status).toBe(403);
+    expect((await raw('GET', `${base(fileId)}/parts/0`, tb)).status).toBe(200);
+  });
+
+  it('брошенная загрузка удаляется через сутки и освобождает квоту', async () => {
+    const { s, ta, spaceId, raw, base } = await setup({ maxFileBytesPerSpace: 6 * 1024 * 1024, sessionTtl: 30 * 24 * 3600_000 });
+    const fileId = uuidv7(NOW);
+    const f = sealed(FILE_PART_BYTES + 10, spaceId, fileId);
+    expect((await s.call('POST', `${base(fileId)}/upload`, { size: f.size, parts: 2 }, ta)).status).toBe(200);
+    expect((await raw('PUT', `${base(fileId)}/parts/0`, ta, f.parts[0])).status).toBe(200);
+    // Части продлевают загрузку: через 23 часа она ещё жива.
+    s.advance(23 * 3600_000);
+    expect(s.sweepUploads()).toBe(0);
+    expect((await raw('PUT', `${base(fileId)}/parts/1`, ta, f.parts[1])).status).toBe(200);
+    s.advance(23 * 3600_000);
+    expect(s.sweepUploads()).toBe(0);
+    s.advance(2 * 3600_000);
+    expect(s.sweepUploads()).toBe(1);
+    expect(Number((s.db.prepare('SELECT count(*) AS n FROM file_parts').get() as { n: number }).n)).toBe(0);
+    expect((await s.call('POST', `${base(fileId)}/complete`, {}, ta)).status).toBe(404);
+    // Место снова свободно: другой файл того же размера помещается.
+    const other = uuidv7(NOW + 1);
+    expect((await s.call('POST', `${base(other)}/upload`, { size: f.size, parts: 2 }, ta)).json.have).toEqual([]);
+    // Законченные файлы очистка не трогает.
+    const done = uuidv7(NOW + 2);
+    const g = sealed(5, spaceId, done);
+    expect((await s.call('DELETE', base(other), undefined, ta)).status).toBe(200);
+    expect((await s.call('POST', `${base(done)}/upload`, { size: g.size, parts: 1 }, ta)).status).toBe(200);
+    expect((await raw('PUT', `${base(done)}/parts/0`, ta, g.parts[0])).status).toBe(200);
+    expect((await s.call('POST', `${base(done)}/complete`, {}, ta)).status).toBe(200);
+    s.advance(48 * 3600_000);
+    expect(s.sweepUploads()).toBe(0);
+    expect((await raw('GET', `${base(done)}/parts/0`, ta)).status).toBe(200);
+  });
+
+  it('старые файлы одним запросом работают как раньше и подчиняются пределу на файл', async () => {
+    const { s, ta, raw, base } = await setup({ maxFileBytes: 1024 * 1024 });
+    const fileId = uuidv7(NOW);
+    expect((await raw('PUT', base(fileId), ta, new Uint8Array([1, 2, 3]))).status).toBe(201);
+    expect(new Uint8Array(await (await raw('GET', base(fileId), ta)).arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+    // Старый файл не продолжается частями.
+    expect((await s.call('POST', `${base(fileId)}/upload`, { size: FILE_PART_OVERHEAD + 3, parts: 1 }, ta)).json).toEqual({ error: 'file_exists' });
+    expect((await raw('PUT', `${base(fileId)}/parts/0`, ta, new Uint8Array(43))).status).toBe(404);
+    expect((await raw('GET', `${base(fileId)}/parts/0`, ta)).status).toBe(404);
+    expect((await raw('PUT', base(uuidv7(NOW + 1)), ta, new Uint8Array(2 * 1024 * 1024))).status).toBe(413);
   });
 });
 

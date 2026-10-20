@@ -1,19 +1,18 @@
 /**
  * Комментарии к задаче и файлы. Файл шифруется на устройстве своим ключом и уходит на сервер
- * шифротекстом; ключ файла лежит в записи комментария, которая зашифрована ключом пространства.
+ * шифротекстом по частям; ключ файла лежит в записи комментария, которая зашифрована ключом пространства.
  */
 import { useEffect, useRef, useState } from 'react';
-import { openFile, sealFile, uuidv7, type Attachment, type Comment } from '#core';
+import { ApiError, type Attachment, type Comment } from '#core';
 import { controller } from '../controller.ts';
+import { RASTER, downloadAttachment, newUpload, uploadAttachment, uploadErrorCode, type PendingUpload } from '../files.ts';
 import { useDoc } from '../hooks.ts';
 import { IconX } from './icons.tsx';
 import { Markdown } from './Markdown.tsx';
 import { LOCALE, tr } from '../i18n.ts';
 
-/** Шифротекст файла не больше 7 МиБ: столько принимает сервер. */
-const MAX_FILE = 7 * 1024 * 1024 - 1024;
-/** SVG не показывается: в нём бывают скрипты и внешние ссылки. */
-const RASTER = /^image\/(png|jpeg|gif|webp|avif)$/;
+/** Картинку больше 10 МиБ не расшифровываем для показа сами: только по нажатию. */
+const PREVIEW_MAX = 10 * 1024 * 1024;
 
 function sizeLabel(n: number): string {
   if (n < 1024) return tr('{n} Б', { n: n });
@@ -21,42 +20,60 @@ function sizeLabel(n: number): string {
   return tr('{n} МБ', { n: (n / 1024 / 1024).toFixed(1) });
 }
 
-async function decrypt(spaceId: string, file: Attachment): Promise<Blob> {
-  const blob = await controller.api.downloadFile(spaceId, file.id);
-  // Тип файла задаёт автор комментария: показываем только растровые картинки, остальное как двоичный файл.
-  return new Blob([openFile(blob, file.key, spaceId, file.id) as BlobPart], { type: RASTER.test(file.type) ? file.type : 'application/octet-stream' });
+/** Полоска прогресса загрузки или скачивания с кнопкой отмены. */
+function FileProgress({ share, label, onCancel }: { share: number; label: string; onCancel: () => void }) {
+  return (
+    <div className="file-progress">
+      <progress value={share} max={1} aria-label={label} />
+      <span className="muted">{Math.round(share * 100)}%</span>
+      <button type="button" className="small" onClick={onCancel}>
+        {tr('Отмена')}
+      </button>
+    </div>
+  );
 }
 
 function FileView({ spaceId, file }: { spaceId: string; file: Attachment }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const [progress, setProgress] = useState<number | null>(null);
+  const abort = useRef<AbortController | null>(null);
   const image = RASTER.test(file.type);
   useEffect(() => {
-    if (!image) return;
-    let alive = true;
+    if (!image || file.size > PREVIEW_MAX) return;
+    const ctrl = new AbortController();
     let made: string | null = null;
-    decrypt(spaceId, file)
+    downloadAttachment(spaceId, file, () => undefined, ctrl.signal)
       .then((b) => {
         made = URL.createObjectURL(b);
-        if (alive) setUrl(made);
+        if (!ctrl.signal.aborted) setUrl(made);
       })
-      .catch(() => alive && setError(true));
+      .catch(() => !ctrl.signal.aborted && setError(true));
     return () => {
-      alive = false;
+      ctrl.abort();
       if (made) URL.revokeObjectURL(made);
     };
   }, [spaceId, file.id]);
+  useEffect(() => () => abort.current?.abort(), []);
   const download = async () => {
+    if (abort.current) return;
+    const ctrl = new AbortController();
+    abort.current = ctrl;
+    setError(false);
+    setProgress(0);
     try {
-      const b = await decrypt(spaceId, file);
+      const b = await downloadAttachment(spaceId, file, setProgress, ctrl.signal);
       const href = URL.createObjectURL(b);
       const a = document.createElement('a');
       a.href = href;
       a.download = file.name;
       a.click();
-      setTimeout(() => URL.revokeObjectURL(href), 10_000);
+      setTimeout(() => URL.revokeObjectURL(href), 60_000);
     } catch {
-      setError(true);
+      if (!ctrl.signal.aborted) setError(true);
+    } finally {
+      abort.current = null;
+      setProgress(null);
     }
   };
   return (
@@ -65,6 +82,7 @@ function FileView({ spaceId, file }: { spaceId: string; file: Attachment }) {
       <button className="file-chip" onClick={() => void download()} title={tr('Скачать')}>
         {file.name} <span className="muted">· {sizeLabel(file.size)}</span>
       </button>
+      {progress !== null && <FileProgress share={progress} label={tr('Скачивание файла')} onCancel={() => abort.current?.abort()} />}
       {error && <span className="error">{tr('Не удалось открыть файл')}</span>}
     </div>
   );
@@ -116,7 +134,19 @@ export function Comments({ taskId }: { taskId: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  /** Начатая загрузка: повторная отправка того же файла докачивает недостающие части. */
+  const pending = useRef<{ spaceId: string; up: PendingUpload } | null>(null);
+  const abort = useRef<AbortController | null>(null);
+
+  /** Брошенную загрузку убираем с сервера сразу, не дожидаясь суточной очистки. */
+  const dropPending = () => {
+    const p = pending.current;
+    pending.current = null;
+    if (p) void controller.api.deleteFile(p.spaceId, p.up.id).catch(() => undefined);
+  };
+  useEffect(() => () => abort.current?.abort(), []);
 
   const submit = async () => {
     if (!text.trim() && !file) return;
@@ -125,22 +155,33 @@ export function Comments({ taskId }: { taskId: string }) {
     try {
       let attachment: Attachment | null = null;
       if (file) {
-        if (file.size > MAX_FILE) {
-          setMsg(tr('Файл больше 7 МБ. Такие файлы пока не помещаются.'));
-          return;
-        }
-        const id = uuidv7();
-        const sealed = sealFile(new Uint8Array(await file.arrayBuffer()), spaceId, id);
-        await controller.api.uploadFile(spaceId, id, sealed.blob);
-        attachment = { id, name: file.name, size: file.size, type: file.type, key: sealed.key };
+        if (pending.current && (pending.current.up.file !== file || pending.current.spaceId !== spaceId)) dropPending();
+        const p = (pending.current ??= { spaceId, up: newUpload(file) });
+        const ctrl = new AbortController();
+        abort.current = ctrl;
+        setProgress(0);
+        attachment = await uploadAttachment(spaceId, p.up, setProgress, ctrl.signal);
+        pending.current = null;
       }
       doc.addComment(taskId, { text, author: controller.userId, file: attachment, sign: controller.commentSigner() });
       setText('');
       setFile(null);
       if (picker.current) picker.current.value = '';
-    } catch {
-      setMsg(tr('Файл не загрузился. Нужна связь с сервером.'));
+    } catch (err) {
+      const code = uploadErrorCode(err);
+      if (code === 'cancelled') dropPending();
+      else if (code === 'too_large') {
+        pending.current = null;
+        const max = err instanceof ApiError && typeof err.body.maxFileBytes === 'number' ? err.body.maxFileBytes : 0;
+        setMsg(tr('Файл больше {n} МБ: такой предел на этом сервере.', { n: Math.floor(max / 1024 / 1024) }));
+      } else if (code === 'space_full') {
+        pending.current = null;
+        setMsg(tr('В этом проекте кончилось место для файлов.'));
+      } else if (code === 'offline') setMsg(tr('Файл не загрузился. Нужна связь с сервером. Отправьте ещё раз, и загрузка продолжится.'));
+      else setMsg(tr('Файл не загрузился.'));
     } finally {
+      abort.current = null;
+      setProgress(null);
       setBusy(false);
     }
   };
@@ -188,13 +229,14 @@ export function Comments({ taskId }: { taskId: string }) {
         />
         <div className="row">
           <input ref={picker} type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} aria-label={tr('Файл')} />
-          <button type="button" onClick={() => picker.current?.click()}>
+          <button type="button" disabled={busy} onClick={() => picker.current?.click()}>
             {file ? `${file.name} · ${sizeLabel(file.size)}` : tr('Прикрепить файл или снимок')}
           </button>
           <button type="button" className="primary" disabled={busy || (!text.trim() && !file)} onClick={() => void submit()}>
             {busy ? tr('Отправка...') : tr('Отправить')}
           </button>
         </div>
+        {progress !== null && <FileProgress share={progress} label={tr('Загрузка файла')} onCancel={() => abort.current?.abort()} />}
         {msg && (
           <p className="error" role="alert">
             {msg}

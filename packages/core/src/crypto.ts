@@ -464,6 +464,57 @@ export function openFile(blob: Uint8Array, key: string, spaceId: string, fileId:
   return open(blob, fromB64(key), `dela/file/v1\n${spaceId}\n${fileId}`);
 }
 
+/**
+ * Файл формата v2: открытый текст режется на части по FILE_PART_BYTES, каждая часть шифруется
+ * отдельно XChaCha20-Poly1305 со своим случайным nonce и одним ключом файла. В AAD части —
+ * пространство, id файла, размер файла, число частей, номер части и признак последней. Поэтому
+ * сервер не может незаметно переставить, подменить, выбросить, обрезать или добавить части:
+ * любая такая правка не проходит проверку тега. Части независимы: загрузку можно продолжить
+ * после обрыва, не храня состояния шифра (secretstream этого не даёт).
+ */
+export const FILE_PART_BYTES = 4 * 1024 * 1024;
+/** Сколько байт шифрование добавляет к части: nonce и тег. */
+export const FILE_PART_OVERHEAD = NONCE_BYTES + 16;
+
+/** Число частей файла размером size; у пустого файла одна пустая часть. */
+export function filePartCount(size: number): number {
+  return Math.max(1, Math.ceil(size / FILE_PART_BYTES));
+}
+
+/** Размер шифротекста всех частей: столько сервер резервирует в квоте пространства. */
+export function fileSealedSize(size: number): number {
+  return size + filePartCount(size) * FILE_PART_OVERHEAD;
+}
+
+/** Длина открытого текста части index: все части полные, кроме последней. */
+function partPlainSize(size: number, index: number): number {
+  const total = filePartCount(size);
+  if (!Number.isSafeInteger(size) || size < 0 || !Number.isInteger(index) || index < 0 || index >= total) throw new RangeError('file part out of range');
+  return index < total - 1 ? FILE_PART_BYTES : size - (total - 1) * FILE_PART_BYTES;
+}
+
+function partAd(spaceId: string, fileId: string, size: number, index: number): string {
+  const total = filePartCount(size);
+  return `dela/file/v2\n${spaceId}\n${fileId}\n${size}\n${total}\n${index}\n${index === total - 1 ? 'last' : 'more'}`;
+}
+
+/** Новый ключ файла (base64): кладётся в запись комментария. */
+export function newFileKey(): string {
+  return toB64(newKey());
+}
+
+export function sealFilePart(plain: Uint8Array, key: string, spaceId: string, fileId: string, size: number, index: number): Uint8Array {
+  if (plain.length !== partPlainSize(size, index)) throw new RangeError('file part has wrong length');
+  return seal(plain, fromB64(key), partAd(spaceId, fileId, size, index));
+}
+
+export function openFilePart(sealed: Uint8Array, key: string, spaceId: string, fileId: string, size: number, index: number): Uint8Array {
+  const expected = partPlainSize(size, index);
+  const plain = open(sealed, fromB64(key), partAd(spaceId, fileId, size, index));
+  if (plain.length !== expected) throw new DecryptError('file part has wrong length');
+  return plain;
+}
+
 // ---------- passkey с PRF ----------
 
 /**
@@ -523,6 +574,10 @@ export interface CommentSigned {
   readonly file: { readonly id: string; readonly name: string; readonly size: number; readonly type: string; readonly key: string } | null;
 }
 
+/**
+ * Формат файла (v, parts) в подпись не входит: так подписи новых комментариев сходятся и у старых клиентов.
+ * Подмена ничего не даёт: число частей следует из подписанного размера, а v1 и v2 разведены по AAD.
+ */
 function commentBytes(c: CommentSigned): Uint8Array {
   const file = c.file ? [c.file.id, c.file.name, c.file.size, c.file.type, c.file.key] : null;
   return na().from_string(JSON.stringify(['dela/comment/v1', c.spaceId, c.id, c.taskId, c.author, c.createdAt, c.text, file]));
