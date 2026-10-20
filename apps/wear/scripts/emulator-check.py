@@ -209,7 +209,7 @@ def main() -> None:
         screenshot('03-after-sign-in.png')
         return
     time.sleep(3)
-    to_top()
+    # Как видит пользователь сразу после входа, без прокрутки.
     screenshot('03-today.png')
 
     listed = scan()
@@ -289,6 +289,19 @@ def main() -> None:
     time.sleep(3)
     screenshot('09-notifications.png')
     log(f'уведомления: {texts(dump())}')
+
+    # «Готово» в уведомлении: задача выполняется в фоне (WorkManager), без открытия приложения.
+    done = find(dump(), 'Done', exact=True)
+    if check(done is not None, 'в уведомлении есть кнопка «Done»'):
+        shell(f'input tap {done.cx} {done.cy}')
+        end = time.time() + 60
+        ok = False
+        while time.time() < end and not ok:
+            time.sleep(3)
+            call = [t for t in seed('status')['tasks'] if t['title'] == 'Созвон с командой']
+            ok = bool(call) and call[0]['completed']
+        check(ok, 'на сервере «Созвон с командой» выполнена из уведомления')
+        screenshot('10-after-done.png')
 
 
 try:
