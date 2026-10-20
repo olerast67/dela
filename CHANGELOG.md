@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Attachments larger than 7 MB: a file is uploaded in 4 MiB parts, and each part is encrypted on the device on its own (XChaCha20-Poly1305, one random key per file). Each part is bound to the file, its number, the number of parts and the file size, so the server cannot reorder, swap, drop, cut or add parts without the download failing. Upload and download show a progress bar in the comment and can be cancelled; after a dropped connection, sending the same file again uploads only the missing parts. The server checks the per-file limit (`DELA_MAX_FILE_MB`, 100 MB by default) and the space quota before it accepts any data, and deletes uploads left unfinished for a day. Old attachments open as before; new files of any size use the new format, which older apps cannot open.
+- dela-mcp, an MCP server for AI assistants (`packages/mcp`, `npx dela-mcp`): it runs on your computer, signs in to your Dela server as a new device (revocable in Settings → Devices) and gives Claude Desktop and other MCP clients the tools `search_tasks`, `list_projects`, `add_task` (quick-add phrases in English or Russian), `update_task`, `complete_task` (a repeating task moves to its next date) and `today`. Keys and the task cache stay on the computer in a file encrypted with a key held by Windows DPAPI, the macOS Keychain or the Linux Secret Service, or in a 600 file where there is none. It syncs before every call and pushes after a change with the apps' sync engine; shared projects work as in the app. There are no delete tools.
 
 ## 0.8.0
 

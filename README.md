@@ -124,6 +124,22 @@ docker compose pull && docker compose --profile https up -d
 
 The `latest` image is the latest release; a specific version is available by its number, for example `ghcr.io/olerast67/dela:0.8.0`. Migrations run at startup, and the server copies the database to `/data/dela.sqlite.before-vN-<time>.bak` first. Once a day it writes a snapshot to `/data/backups`. A plaintext export is available in the app under Settings → Export.
 
+## AI assistants (MCP)
+
+`dela-mcp` connects Claude Desktop and other MCP clients to your tasks. It runs on your computer, signs in to your server as a new device, keeps the keys there and decrypts locally; no service from the author is involved.
+
+```sh
+npx dela-mcp login     # server address, email, password (and the 2FA code if it is on)
+```
+
+Then add to `claude_desktop_config.json` and restart Claude Desktop:
+
+```json
+{ "mcpServers": { "dela": { "command": "npx", "args": ["-y", "dela-mcp"] } } }
+```
+
+Tools: `search_tasks`, `list_projects`, `add_task` (a quick-add phrase in English or Russian), `update_task`, `complete_task` and `today`. There are no delete tools. The device can be revoked in Settings → Devices; `npx dela-mcp logout` revokes it too. How the session and keys are stored on the computer is in [packages/mcp/README.md](packages/mcp/README.md).
+
 ## Security
 
 Argon2id derives two keys from the password on the device: one proves the login to the server, the other unlocks the account master key. Every change is encrypted with XChaCha20-Poly1305 using the key of its space (libsodium). A passkey with the PRF extension can replace the password: the account key is wrapped with a secret that the passkey produces on the device and the server never sees.

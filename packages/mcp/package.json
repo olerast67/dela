@@ -1,0 +1,41 @@
+{
+  "name": "dela-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the Dela task manager: Claude Desktop and other MCP clients can find, add, change and complete your end-to-end encrypted tasks. Runs on your computer and keeps the keys there.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "bin": {
+    "dela-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "dela",
+    "todo",
+    "tasks",
+    "end-to-end-encryption"
+  ],
+  "homepage": "https://github.com/olerast67/dela/tree/main/packages/mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/olerast67/dela.git",
+    "directory": "packages/mcp"
+  },
+  "bugs": "https://github.com/olerast67/dela/issues",
+  "scripts": {
+    "build": "vite build --config vite.config.ts",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "libsodium-wrappers-sumo": "0.8.4",
+    "zod": "4.6.5"
+  }
+}
