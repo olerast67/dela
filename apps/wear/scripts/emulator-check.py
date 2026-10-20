@@ -83,15 +83,17 @@ class Node:
 
 def dump() -> list[Node]:
     """Дерево экрана через UI Automator. Пока крутится индикатор, «idle» не наступает — повторяем."""
+    out = ''
     for _ in range(10):
         out = shell('uiautomator dump /sdcard/ui.xml', check=False)
         if 'dumped to' in out:
             xml = adb('exec-out', 'cat', '/sdcard/ui.xml')
             try:
                 return [Node(e) for e in ET.fromstring(xml).iter('node')]
-            except ET.ParseError:
-                pass
+            except ET.ParseError as e:
+                out = f'{e}: {xml[:300]}'
         time.sleep(1)
+    log(f'uiautomator dump не удался: {out.strip()}')
     return []
 
 
@@ -160,6 +162,7 @@ def wait_for(text: str | list[str], timeout: int, exact: bool = False) -> bool:
         if any(find(nodes, t, exact) for t in ([text] if isinstance(text, str) else text)):
             return True
         time.sleep(2)
+    log(f'не дождались {text}; на экране: {texts(nodes)}')
     return False
 
 
@@ -276,6 +279,12 @@ except Exception as e:  # noqa: BLE001
     except Exception:  # noqa: BLE001
         pass
 finally:
+    try:
+        screenshot('zz-last.png')
+        log(f'последний экран: {texts(dump())}')
+        log(f'окно: {shell("dumpsys window | grep -E mCurrentFocus", check=False).strip()}')
+    except Exception:  # noqa: BLE001
+        pass
     with open(os.path.join(OUT, 'logcat.txt'), 'w', encoding='utf-8') as f:
         f.write(adb('logcat', '-d', '-v', 'threadtime', check=False))
     crash = adb('logcat', '-b', 'crash', '-d', check=False)
