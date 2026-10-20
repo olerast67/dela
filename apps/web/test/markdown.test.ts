@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Markdown, previewLine, safeHref, taskOffsets, toggleTask } from '../src/ui/Markdown.tsx';
+import { Markdown, linkHost, previewLine, safeHref, taskOffsets, toggleTask } from '../src/ui/Markdown.tsx';
 
 const html = (text: string, toggle = false) => renderToStaticMarkup(createElement(Markdown, toggle ? { text, onToggle: () => undefined } : { text }));
 
@@ -23,7 +23,7 @@ describe('Markdown: XSS', () => {
 
   it('http(s) и mailto открываются как ссылки с noopener', () => {
     const out = html('[сайт](https://olerast.com) и https://example.org/a?b=1 и <mailto:me@example.org>');
-    expect(out).toContain('<a href="https://olerast.com/" target="_blank" rel="noopener noreferrer">сайт</a>');
+    expect(out).toContain('<a href="https://olerast.com/" target="_blank" rel="noopener noreferrer" title="https://olerast.com/">сайт</a><span class="muted"> (olerast.com)</span>');
     expect(out).toContain('href="https://example.org/a?b=1"');
     expect(out).toContain('href="mailto:me@example.org"');
   });
@@ -112,5 +112,16 @@ describe('previewLine', () => {
     expect(previewLine('\n## План на **неделю**\nдальше')).toBe('План на неделю');
     expect(previewLine('- [ ] купить [хлеб](https://x.ru) и `молоко`')).toBe('купить хлеб и молоко');
     expect(previewLine('1. *первый* шаг, snake_case_name')).toBe('первый шаг, snake_case_name');
+  });
+});
+
+describe('linkHost', () => {
+  it('показывает настоящий адрес, если текст ссылки другой', () => {
+    expect(linkHost('google.com', 'https://evil.example/')).toBe('evil.example');
+    expect(linkHost('хлеб', 'https://www.shop.ru/bread')).toBe('shop.ru');
+    expect(linkHost('https://example.com', 'https://example.com/')).toBeNull();
+    expect(linkHost('example.com', 'https://www.example.com/')).toBeNull();
+    expect(linkHost('a@b.ru', 'mailto:a@b.ru')).toBeNull();
+    expect(html('[google.com](https://evil.example)')).toContain('(evil.example)');
   });
 });

@@ -15,6 +15,17 @@ function lex(text: string): Token[] {
   return Lexer.lex(text, OPTIONS);
 }
 
+/**
+ * Куда на самом деле ведёт ссылка, если её текст говорит другое: «[google.com](https://evil.example)»
+ * в общем проекте или комментарии иначе выглядит как google.com. null, если текст и есть адрес.
+ */
+export function linkHost(text: string, href: string): string | null {
+  const bare = (s: string) => s.trim().toLowerCase().replace(/^(https?:\/\/|mailto:)/, '').replace(/^www\./, '').replace(/\/+$/, '');
+  if (bare(text) === bare(href)) return null;
+  const u = new URL(href);
+  return u.protocol === 'mailto:' ? u.pathname : u.host.replace(/^www\./, '');
+}
+
 /** Первая непустая строка описания без разметки: под названием задачи в списке. */
 export function previewLine(text: string): string {
   const line = text.split('\n').find((l) => l.trim() !== '') ?? '';
@@ -116,20 +127,23 @@ function inlineToken(t: Token, key: number, ctx: Ctx): ReactNode {
       const href = safeHref(t.href);
       const label = t.type === 'image' ? t.text || t.href : inline(t.tokens, ctx);
       if (!href) return <span key={key}>{label}</span>;
+      const host = linkHost(t.type === 'image' ? t.text || t.href : t.text, href);
       return (
-        <a
-          key={key}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={t.title ?? undefined}
-          onClick={(e) => {
-            e.preventDefault();
-            void openExternal(href);
-          }}
-        >
-          {label}
-        </a>
+        <span key={key}>
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={href}
+            onClick={(e) => {
+              e.preventDefault();
+              void openExternal(href);
+            }}
+          >
+            {label}
+          </a>
+          {host && <span className="muted"> ({host})</span>}
+        </span>
       );
     }
     // Сырой HTML и всё незнакомое показываются как написано.
