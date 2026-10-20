@@ -168,3 +168,24 @@ export const IconUsers = (p: P) => (
     <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5a6.5 6.5 0 0 1 3.5 5.5" />
   </Svg>
 );
+export const IconTimer = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="13.5" r="7" />
+    <path d="M12 10v3.5l2.2 1.6M10 3.5h4M18.5 6.5l1.2-1.2" />
+  </Svg>
+);
+export const IconPlay = (p: P) => (
+  <Svg {...p}>
+    <path d="M8 5.5v13l10.5-6.5z" />
+  </Svg>
+);
+export const IconPause = (p: P) => (
+  <Svg {...p}>
+    <path d="M9 5.5v13M15 5.5v13" />
+  </Svg>
+);
+export const IconStop = (p: P) => (
+  <Svg {...p}>
+    <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" />
+  </Svg>
+);

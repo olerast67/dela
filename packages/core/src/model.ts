@@ -273,3 +273,25 @@ export function toCompletion(id: string, r: Rec): Completion | null {
   if (!taskId || completedAt === null) return null;
   return { id, taskId, occurrence: isDate(r.occurrence) ? (r.occurrence as string) : null, completedAt };
 }
+
+/**
+ * Отрезок работы над задачей (помодоро или правка вручную). Каждый отрезок — отдельная запись
+ * со своим id: прибавления с двух устройств сливаются без потерь, а не перетирают одно число.
+ */
+export interface WorkLog {
+  readonly id: string;
+  readonly taskId: string;
+  /** Целые минуты, больше нуля. */
+  readonly minutes: number;
+  /** Когда отрезок закончился: по этой отметке время попадает в статистику. */
+  readonly at: number;
+}
+
+export function toWorkLog(id: string, r: Rec): WorkLog | null {
+  const taskId = idOrNull(r.task);
+  const minutes = num(r.minutes);
+  if (!taskId || minutes === null || r.deleted_at != null) return null;
+  const m = Math.round(minutes);
+  if (m <= 0 || m > 1_000_000) return null;
+  return { id, taskId, minutes: m, at: num(r.at) ?? 0 };
+}

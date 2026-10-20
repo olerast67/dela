@@ -3324,3 +3324,128 @@ body:has(.selection-bar) .content {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ---------- помодоро ---------- */
+
+/* Таймер поверх любого экрана: на компьютере внизу боковой панели, на телефоне над вкладками слева от «+». */
+.pomo-chip {
+  position: fixed;
+  left: 12px;
+  bottom: 12px;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 250px;
+  padding: 4px 4px 4px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.pomo-chip .pomo-open {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  color: var(--text);
+  text-align: left;
+}
+
+.pomo-chip .pomo-open:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.pomo-chip svg {
+  flex: none;
+}
+
+.pomo-work .pomo-open svg,
+.pomo-big.pomo-work {
+  color: var(--p1);
+}
+
+.pomo-break .pomo-open svg,
+.pomo-big.pomo-break {
+  color: var(--accent);
+}
+
+.pomo-time {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pomo-task {
+  color: var(--text-muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pomo-chip.paused .pomo-time {
+  color: var(--text-muted);
+}
+
+.pomo-big {
+  font-size: 22px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.pomo-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pomo-rest {
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.pomo-num,
+.fields input.pomo-num {
+  width: 64px;
+}
+
+.pomo-spent {
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-work {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.stats-work .stats-card b {
+  font-size: 20px;
+}
+
+/* Последний пункт меню не прячется под таймером. */
+body:has(.pomo-chip) .sidebar {
+  padding-bottom: 72px;
+}
+
+@media (max-width: 760px) {
+  .pomo-chip {
+    left: 16px;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    max-width: calc(100% - 112px);
+  }
+
+  .pomo-chip .pomo-open {
+    min-height: 44px;
+  }
+}
+
+@media (pointer: coarse) {
+  html.typing .pomo-chip {
+    display: none;
+  }
+}

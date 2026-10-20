@@ -241,7 +241,7 @@ export class Workspace {
 
   /** Статистика выполненного по личному и общим проектам вместе. */
   stats(tz: string, today: string, opts?: StatsOptions): Stats {
-    return computeStats(this.docs().flatMap((d) => d.doneEvents()), tz, today, opts);
+    return computeStats(this.docs().flatMap((d) => d.doneEvents()), tz, today, { ...opts, work: this.docs().flatMap((d) => d.workEvents()) });
   }
 
   trash(): TaskView[] {
@@ -313,6 +313,18 @@ export class Workspace {
 
   comments(taskId: string): Comment[] {
     return this.docForTask(taskId).comments(taskId);
+  }
+
+  /** Записать отрезок работы над задачей (таймер помодоро). */
+  logWork(taskId: string, minutes: number, input: { id?: string; at?: number } = {}): string | null {
+    let id: string | null = null;
+    this.batch(() => (id = this.docForTask(taskId).logWork(taskId, minutes, input)));
+    return id;
+  }
+
+  /** Поправить затраченное время вручную; 0 — сбросить. */
+  setSpent(taskId: string, minutes: number): void {
+    this.batch(() => this.docForTask(taskId).setSpent(taskId, minutes));
   }
 
   /** История действий по всем пространствам, новые первыми. */
@@ -417,6 +429,8 @@ export class Workspace {
     const extra: Change[] = [['task', newId, 'created_at', t.createdAt]];
     if (t.completedAt !== null) extra.push(['task', newId, 'completed_at', t.completedAt]);
     dst.write(extra, { undoable: true });
+    // Затраченное время переезжает одним отрезком: отдельные записи старого пространства там и остаются удалёнными.
+    if (t.spent) dst.logWork(newId, t.spent, { at: t.createdAt });
     for (const child of src.subtasks(id, { completed: true })) {
       this.copyTree(src, dst, child.task.id, { projectId: undefined, sectionId: null, parentId: newId });
     }

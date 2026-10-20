@@ -1,6 +1,6 @@
 /** Экран «Статистика»: выполненное по дням и неделям, серии и проекты. Считается на устройстве, на сервер не уходит. */
 import { useState } from 'react';
-import { TZ, todayDate } from '../format.ts';
+import { TZ, durationLabel, todayDate } from '../format.ts';
 import { navigate, useDoc } from '../hooks.ts';
 import { LOCALE, tn, tr } from '../i18n.ts';
 
@@ -88,6 +88,26 @@ export function StatsView() {
           <span>{tr('лучшая серия')}</span>
         </div>
       </div>
+
+      {s.work.period + s.work.week > 0 && (
+        <>
+          <h2 className="stats-h">{tr('Затраченное время')}</h2>
+          <div className="stats-cards stats-work">
+            <div className="stats-card">
+              <b>{s.work.today ? durationLabel(s.work.today) : '0'}</b>
+              <span>{tr('сегодня')}</span>
+            </div>
+            <div className="stats-card">
+              <b>{s.work.week ? durationLabel(s.work.week) : '0'}</b>
+              <span>{tr('на этой неделе')}</span>
+            </div>
+            <div className="stats-card">
+              <b>{s.work.period ? durationLabel(s.work.period) : '0'}</b>
+              <span>{tr('за {period}', { period: tn(period, 'день', 'дня', 'дней') })}</span>
+            </div>
+          </div>
+        </>
+      )}
 
       <h2 className="stats-h">{tr('По дням')}</h2>
       <Bars bars={days} name={tr('Выполнено по дням за 4 недели')} />

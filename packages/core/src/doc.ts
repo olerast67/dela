@@ -5,7 +5,7 @@
  * и попадают в очередь исходящих. Запросы читают разобранный снимок, который
  * пересобирается лениво после изменений.
  */
-import { computeStats, type DoneEvent, type Stats, type StatsOptions } from './stats.ts';
+import { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkEvent } from './stats.ts';
 import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import { compareOrder, keyBetween } from './fractional.ts';
@@ -18,6 +18,7 @@ import {
   toProject,
   toSection,
   toTask,
+  toWorkLog,
   type Completion,
   type Label,
   type Priority,
@@ -30,6 +31,7 @@ import {
   toComment,
   type Attachment,
   type Comment,
+  type WorkLog,
 } from './model.ts';
 import type { Json, Op } from './op.ts';
 import { nextOccurrence, occurrencesBetween, parseRule } from './recurrence.ts';
@@ -58,6 +60,8 @@ export interface TaskView extends Task {
   readonly childCount: number;
   /** Сколько комментариев у задачи. */
   readonly commentCount?: number;
+  /** Затраченное время в минутах: сумма отрезков работы (помодоро и правок вручную). */
+  readonly spent?: number;
   /** Будущий экземпляр повторяющейся задачи, показанный в «Предстоящих»; сам по себе не существует. */
   readonly projected?: boolean;
   /** Выполненный экземпляр повторяющейся задачи (дата экземпляра): строка «выполнено сегодня» в «Сегодня». */
@@ -117,7 +121,7 @@ export interface TaskPatch {
 const PROJECT_PALETTE = ['blue', 'green', 'orange', 'violet', 'teal', 'red', 'pink', 'yellow', 'brown'] as const;
 
 /** Таблицы с мягким удалением: отмена создания помечает запись удалённой. */
-const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template']);
+const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template', 'work']);
 
 const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   title: 'title',
@@ -139,6 +143,7 @@ interface Snapshot {
   readonly labels: ReadonlyMap<string, Label>;
   readonly filters: ReadonlyMap<string, SavedFilter>;
   readonly completions: ReadonlyMap<string, Completion>;
+  readonly work: ReadonlyMap<string, WorkLog>;
   /** Действующий родитель задачи после разрыва циклов. */
   readonly taskParent: ReadonlyMap<string, string | null>;
   readonly taskChildren: ReadonlyMap<string, readonly string[]>;
@@ -349,6 +354,14 @@ export class Doc {
       const c = toCompletion(id, rec);
       if (c) completions.set(id, c);
     }
+    const work = new Map<string, WorkLog>();
+    const spent = new Map<string, number>();
+    for (const [id, rec] of r.all('work')) {
+      const w = toWorkLog(id, rec);
+      if (!w) continue;
+      work.set(id, w);
+      spent.set(w.taskId, (spent.get(w.taskId) ?? 0) + w.minutes);
+    }
 
     const projectParent = acyclicParents(
       projects.keys(),
@@ -412,6 +425,7 @@ export class Doc {
         depth: depthOf(id),
         childCount: (taskChildren.get(id) ?? []).filter((c) => rawTasks.get(c)!.deletedAt === null).length,
         commentCount: commentCount.get(id) ?? 0,
+        spent: spent.get(id) ?? 0,
       });
     }
     for (const [id, t] of tasks) {
@@ -429,6 +443,7 @@ export class Doc {
       labels,
       filters,
       completions,
+      work,
       taskParent,
       taskChildren,
       projectParent,
@@ -958,6 +973,51 @@ export class Doc {
     return out.sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
   }
 
+  // ---------- затраченное время ----------
+
+  /**
+   * Записать отрезок работы над задачей. Id задаёт вызывающий: таймер передаёт id своего отрезка,
+   * поэтому повторная запись того же отрезка (две вкладки, перезапуск) не удваивает время.
+   */
+  logWork(taskId: string, minutes: number, input: { id?: string; at?: number } = {}): string | null {
+    const m = Math.round(minutes);
+    if (m <= 0) return null;
+    const id = input.id ?? uuidv7(this.now());
+    const changes: Change[] = [
+      ['work', id, 'task', taskId],
+      ['work', id, 'minutes', m],
+      ['work', id, 'at', input.at ?? this.now()],
+    ];
+    if (this.actor && this.kind === 'shared') changes.push(['work', id, 'by', this.actor]);
+    // Время от таймера не отменяется Ctrl+Z вместе с соседними правками.
+    this.write(changes, { undoable: false });
+    return id;
+  }
+
+  /**
+   * Поправить затраченное время вручную: известные отрезки помечаются удалёнными, вместо них один новый.
+   * Отрезок, который другое устройство записало, пока эта правка не дошла, сохранится и прибавится.
+   */
+  setSpent(taskId: string, minutes: number): void {
+    const t = this.now();
+    const changes: Change[] = [];
+    for (const w of this.snapshot().work.values()) if (w.taskId === taskId) changes.push(['work', w.id, 'deleted_at', t]);
+    const m = Math.round(minutes);
+    if (m > 0) {
+      const id = uuidv7(t);
+      changes.push(['work', id, 'task', taskId], ['work', id, 'minutes', m], ['work', id, 'at', t]);
+    }
+    this.write(changes);
+  }
+
+  /** Отрезки работы для статистики: без задач из корзины. */
+  workEvents(): WorkEvent[] {
+    const s = this.snapshot();
+    const out: WorkEvent[] = [];
+    for (const w of s.work.values()) if (s.alive.has(w.taskId)) out.push({ at: w.at, minutes: w.minutes });
+    return out;
+  }
+
   // ---------- метки и фильтры ----------
 
   createLabel(name: string, color = 'gray'): string {
@@ -1237,7 +1297,7 @@ export class Doc {
 
   /** Статистика выполненного по дням и неделям в поясе tz на дату today. */
   stats(tz: string, today: string, opts?: StatsOptions): Stats {
-    return computeStats(this.doneEvents(), tz, today, opts);
+    return computeStats(this.doneEvents(), tz, today, { ...opts, work: this.workEvents() });
   }
 
   /** Удалённые задачи для корзины. */
@@ -1288,6 +1348,9 @@ export class Doc {
         if (value !== null && field !== 'deleted_at' && field !== 'task') changes.push(['comment', cid, field, null]);
       }
       if (rec.deleted_at == null) changes.push(['comment', cid, 'deleted_at', t]);
+    }
+    for (const [wid, rec] of this.replica.all('work')) {
+      if (typeof rec.task === 'string' && ids.has(rec.task) && rec.deleted_at == null) changes.push(['work', wid, 'deleted_at', t]);
     }
     this.write(changes, { undoable: false });
     return files;

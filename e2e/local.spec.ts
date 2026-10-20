@@ -213,3 +213,48 @@ test('статистика: выполненная задача считаетс
   await page.setViewportSize({ width: 390, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
+
+test('помодоро: идёт отсчёт, по окончании время записано в задачу', async ({ page }) => {
+  await page.clock.install();
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  // Короткая работа через настройки, чтобы не ждать 25 минут даже на перемотанных часах.
+  await page.goto('/#/settings');
+  await page.getByLabel('Работа, минут').fill('2');
+  // Переход ссылкой уводит фокус из поля, иначе Q напечаталась бы в нём.
+  await page.getByRole('link', { name: /Сегодня/ }).click();
+  await expect(page.getByRole('heading', { name: 'Сегодня' })).toBeVisible();
+  await page.keyboard.press('q');
+  await page.getByLabel('Новая задача').fill('Фокус на отчёте сегодня');
+  await page.getByLabel('Новая задача').press('Enter');
+  await page.getByLabel('Новая задача').press('Escape');
+  await page.locator('.task', { hasText: 'Фокус на отчёте' }).getByText('Фокус на отчёте').click();
+  const panel = page.locator('.panel');
+  await expect(panel.locator('.pomo-spent')).toHaveText('нет');
+  await panel.getByRole('button', { name: 'Помодоро 2 мин' }).click();
+  const chip = page.locator('.pomo-chip');
+  await expect(chip.locator('.pomo-time')).toHaveText(/^(2:00|1:5\d)$/);
+  await page.clock.fastForward('00:30');
+  await expect(chip.locator('.pomo-time')).toHaveText(/^1:[23]\d$/);
+  await expect(panel.locator('.pomo-big')).toHaveText(/^1:[23]\d$/);
+  // Пауза: отсчёт стоит.
+  await chip.getByRole('button', { name: 'Пауза' }).click();
+  const paused = await chip.locator('.pomo-time').textContent();
+  await page.clock.fastForward('01:00');
+  await expect(chip.locator('.pomo-time')).toHaveText(paused!);
+  await chip.getByRole('button', { name: 'Продолжить таймер' }).click();
+  // Таймер переживает перезагрузку: хранится время окончания.
+  await page.reload();
+  await expect(page.locator('.pomo-chip .pomo-time')).toHaveText(/^1:[23]\d$/);
+  await page.clock.fastForward('02:00');
+  await expect(chip.getByRole('button', { name: 'Перерыв 5 мин' })).toBeVisible();
+  await chip.locator('.pomo-open').click();
+  await expect(panel.locator('.pomo-spent')).toHaveText('2 мин');
+  await chip.getByRole('button', { name: 'Перерыв 5 мин' }).click();
+  await expect(chip.locator('.pomo-task')).toHaveText('Перерыв');
+  await page.clock.fastForward('05:30');
+  await expect(page.getByText('Перерыв окончен')).toBeVisible();
+  await expect(chip).toHaveCount(0);
+  await expect(panel.locator('.pomo-spent')).toHaveText('2 мин');
+});

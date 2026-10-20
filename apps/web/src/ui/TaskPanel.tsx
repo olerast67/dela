@@ -7,6 +7,7 @@ import { TZ, dateLabel, durationLabel, todayDate } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
 import { IconLink, IconRepeat, IconTrash, IconX } from './icons.tsx';
+import { PomodoroField } from './Pomodoro.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
 import { RepeatEditor } from './RepeatEditor.tsx';
 import { TaskTree, completeWithUndo } from './Task.tsx';
@@ -434,6 +435,8 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
                 ))}
             </select>
           </dd>
+
+          <PomodoroField taskId={id} spent={task.spent ?? 0} />
         </dl>
 
         <section className="subtasks">

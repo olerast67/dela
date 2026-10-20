@@ -67,6 +67,7 @@ import {
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
 import { createPasskey, getPasskey } from './passkey.ts';
+import { loadPomodoro, onPomodoroChange, pomodoroSettings } from './pomodoro.ts';
 import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
 import { LANG, tn, tr } from './i18n.ts';
 
@@ -189,6 +190,9 @@ export class Controller {
   private readonly fired = new Set<string>(loadFired());
   /** Показать напоминание внутри приложения (уведомление в интерфейсе). */
   onReminder: ((r: Reminder) => void) | null = null;
+  /** Таймер помодоро запущен, на паузе или снят: пересчитать уведомление об окончании. */
+  private readonly pomodoroWatch = onPomodoroChange(() => this.pomodoroChanged());
+  private lastPomodoroAlert: Reminder | null = null;
 
   // ---------- подписки для React ----------
 
@@ -991,19 +995,54 @@ export class Controller {
    * Напоминания задач и утренние сводки этого устройства в [from, to), по времени.
    * Сводка — синтетическое напоминание без задачи (taskId пустой): по нажатию открывается «Сегодня».
    */
-  private alerts(from: number, to: number, offsets: number[]): Reminder[] {
+  private alerts(from: number, to: number, offsets: number[], pomodoro = false): Reminder[] {
     const list = remindersBetween(this.doc!, from, to, TZ, offsets);
     const digest = this.morningDigest();
-    if (!digest.on) return list;
-    const digests = digestsBetween(this.doc!, from, to, TZ, digest.time).map(
-      (d): Reminder => ({ key: d.key, taskId: '', at: d.at, title: digestText(d.today, d.overdue), dueAt: d.at, offset: 0 }),
-    );
-    return [...list, ...digests].sort((a, b) => a.at - b.at || a.key.localeCompare(b.key));
+    const extra: Reminder[] = [];
+    if (digest.on) {
+      extra.push(
+        ...digestsBetween(this.doc!, from, to, TZ, digest.time).map(
+          (d): Reminder => ({ key: d.key, taskId: '', at: d.at, title: digestText(d.today, d.overdue), dueAt: d.at, offset: 0 }),
+        ),
+      );
+    }
+    // Конец помодоро только для этого устройства: в расписание push на сервер он не уходит.
+    const pomo = pomodoro ? this.pomodoroAlert() : null;
+    if (pomo && pomo.at >= from && pomo.at < to) extra.push(pomo);
+    if (extra.length === 0) return list;
+    return [...list, ...extra].sort((a, b) => a.at - b.at || a.key.localeCompare(b.key));
+  }
+
+  /** Уведомление об окончании работы или перерыва; ключ меняется после паузы, чтобы уведомление пришло снова. */
+  private pomodoroAlert(): Reminder | null {
+    const s = loadPomodoro();
+    if (!s || s.endsAt === null) return null;
+    const title = s.phase === 'work' ? tr('Перерыв {n} мин', { n: pomodoroSettings().rest }) : tr('Перерыв окончен');
+    return { key: `pomodoro:${s.id}:${s.phase}:${s.endsAt}`, taskId: s.taskId, at: s.endsAt, title, dueAt: s.endsAt, offset: 0 };
+  }
+
+  /**
+   * Таймер снимается, как только перерыв кончился, и уведомление пропало бы из расписания,
+   * не успев сработать: такое наступившее уведомление показываем сразу.
+   */
+  private pomodoroChanged(): void {
+    const prev = this.lastPomodoroAlert;
+    this.lastPomodoroAlert = this.doc ? this.pomodoroAlert() : null;
+    if (prev && this.leader && prev.at <= Date.now() && !this.fired.has(prev.key)) {
+      this.fired.add(prev.key);
+      saveFired(this.fired);
+      void this.fire(prev);
+    }
+    this.scheduleReminders();
   }
 
   /** Текст уведомления под заголовком. */
   private bodyOf(r: Reminder): string {
     if (!r.taskId) return tr('Утренняя сводка');
+    if (r.key.startsWith('pomodoro:')) {
+      const title = this.doc?.task(r.taskId)?.title || tr('Задача');
+      return r.key.includes(':work:') ? tr('Помодоро закончен: {title}', { title }) : title;
+    }
     return r.offset === 0 ? tr('Пора') : tr('Через {n}', { n: r.offset >= 60 ? tr('{n} ч', { n: r.offset / 60 }) : tr('{offset} мин', { offset: r.offset }) });
   }
 
@@ -1183,6 +1222,7 @@ export class Controller {
   scheduleReminders(): void {
     clearTimeout(this.reminderTimer);
     if (!this.doc || !this.leader) return;
+    this.lastPomodoroAlert = this.pomodoroAlert();
     const now = Date.now();
     // Раз в час расписание push обновляется: окно в неделю сдвигается.
     if (now - this.lastPushUpload > 3600_000) {
@@ -1190,7 +1230,7 @@ export class Controller {
       this.schedulePushSoon();
     }
     // Пропущенные за последние 10 минут (вкладка спала) тоже показываем.
-    const list = this.alerts(now - 10 * 60_000, now + 48 * 3600_000, this.reminderDefaults());
+    const list = this.alerts(now - 10 * 60_000, now + 48 * 3600_000, this.reminderDefaults(), true);
     for (const r of list) {
       if (r.at > now) break;
       if (this.fired.has(r.key)) continue;
@@ -1235,7 +1275,7 @@ export class Controller {
     if (!this.doc) return;
     this.syncWidget();
     const now = Date.now();
-    const list = this.alerts(now, now + 7 * 24 * 3600_000, this.reminderDefaults());
+    const list = this.alerts(now, now + 7 * 24 * 3600_000, this.reminderDefaults(), true);
     await syncNativeReminders(
       list.map((r) => ({
         key: r.key,
@@ -1248,7 +1288,8 @@ export class Controller {
   }
 
   private async fire(r: Reminder): Promise<void> {
-    this.onReminder?.(r);
+    // Внутри приложения конец помодоро показывает сам таймер.
+    if (!r.key.startsWith('pomodoro:')) this.onReminder?.(r);
     const body = this.bodyOf(r);
     if (await nativeNotify(r.title || tr('Задача'), body).catch(() => false)) return;
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;

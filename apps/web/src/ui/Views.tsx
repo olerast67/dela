@@ -14,6 +14,7 @@ import { allowExactReminders, checkDesktopUpdate, exactRemindersAllowed, platfor
 import { ShareDialog } from './Share.tsx';
 import { Description } from './Description.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
+import { PomodoroSettings } from './Pomodoro.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
 import { ViewOptionsButton, groupNodes, priorityTitle, sortNodes, sortTasks, useViewOptions, type SortBy, type TaskGroup, type ViewOptions } from './ViewOptions.tsx';
 import { showToast } from './toast.tsx';
@@ -714,6 +715,7 @@ export function SettingsView() {
           </button>
         </section>
         <ThemeSettings />
+        <PomodoroSettings />
         <LockSettings />
         <ImportExport />
       </>
@@ -761,6 +763,7 @@ export function SettingsView() {
         ))}
       </section>
       <ReminderSettings />
+      <PomodoroSettings />
       <ChangePassword />
       <TwoFactor />
       <Passkeys />

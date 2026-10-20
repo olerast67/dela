@@ -8,6 +8,12 @@ export interface DoneEvent {
   readonly projectId: string;
 }
 
+/** Отрезок работы над задачей: минуты и время окончания. */
+export interface WorkEvent {
+  readonly at: number;
+  readonly minutes: number;
+}
+
 export interface Stats {
   /** Последние `days` дней, старые первыми, последний — сегодня. */
   days: Array<{ date: string; count: number }>;
@@ -21,12 +27,16 @@ export interface Stats {
   total: number;
   /** Разбивка по проектам за последние `period` дней, больше выполнено — выше. */
   projects: Array<{ projectId: string; count: number }>;
+  /** Затраченное время в минутах: сегодня, на этой неделе и за последние `period` дней. */
+  work: { today: number; week: number; period: number };
 }
 
 export interface StatsOptions {
   days?: number;
   weeks?: number;
   period?: number;
+  /** Отрезки работы (помодоро): из них считается затраченное время. */
+  work?: readonly WorkEvent[];
 }
 
 export function computeStats(events: readonly DoneEvent[], tz: string, today: string, opts: StatsOptions = {}): Stats {
@@ -74,5 +84,14 @@ export function computeStats(events: readonly DoneEvent[], tz: string, today: st
   }
   const projects = [...byProject].map(([projectId, n]) => ({ projectId, count: n })).sort((a, b) => b.count - a.count);
 
-  return { days, weeks, today: count(today), thisWeek: weeks[weeks.length - 1]?.count ?? 0, streak, bestStreak: best, total: events.length, projects };
+  const work = { today: 0, week: 0, period: 0 };
+  for (const w of opts.work ?? []) {
+    const d = todayIn(tz, w.at);
+    if (d > today) continue;
+    if (d === today) work.today += w.minutes;
+    if (d >= thisMonday) work.week += w.minutes;
+    if (d >= from) work.period += w.minutes;
+  }
+
+  return { work, days, weeks, today: count(today), thisWeek: weeks[weeks.length - 1]?.count ?? 0, streak, bestStreak: best, total: events.length, projects };
 }

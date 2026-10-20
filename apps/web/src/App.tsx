@@ -7,6 +7,7 @@ import { TabBar } from './ui/TabBar.tsx';
 import { QuickAdd } from './ui/QuickAdd.tsx';
 import { Sidebar } from './ui/Sidebar.tsx';
 import { TaskPanel } from './ui/TaskPanel.tsx';
+import { PomodoroChip } from './ui/Pomodoro.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
 import { SelectionBar } from './ui/SelectionBar.tsx';
 import { clearPicked, pickedIds } from './ui/selection.ts';
@@ -395,6 +396,7 @@ function Shell() {
       {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} onCopyLink={copyCurrentLink} />}
       {help && <ShortcutsHelp onClose={() => setHelp(false)} />}
       <SelectionBar />
+      <PomodoroChip onOpen={open} />
       <ToastHost />
     </div>
   );
