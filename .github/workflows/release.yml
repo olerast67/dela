@@ -269,6 +269,8 @@ jobs:
         working-directory: packages/mcp
         run: |
           npm version "$VERSION" --no-git-tag-version --allow-same-version
+          # Версия, которую программа печатает в --help и сообщает клиентам MCP.
+          sed -i "s/^export const VERSION = .*/export const VERSION = '$VERSION';/" src/tools.ts
           npm pack --silent
           mkdir -p ../../out
           mv "dela-mcp-$VERSION.tgz" ../../out/dela-mcp.tgz

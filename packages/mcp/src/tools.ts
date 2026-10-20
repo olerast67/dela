@@ -19,7 +19,7 @@ import {
 } from '../../core/src/index.ts';
 import type { Dela, SyncReport } from './dela.ts';
 
-export const VERSION = '0.1.0';
+export const VERSION = '1.0.0';
 
 const INBOX_NAMES = ['inbox', 'входящие'];
 
