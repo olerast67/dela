@@ -248,17 +248,26 @@ def main() -> None:
         check(bool(done) and done[0]['completed'], f'на сервере «{DONE_TITLE}» выполнена')
         check(any('Wear OS' in d for d in status['devices']), 'часы видны в списке устройств аккаунта')
 
-    # Плитка: отладочная команда Wear OS добавляет её в карусель и показывает.
-    shell(f'am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE --es operation set-tile --ecn component {TILE} --ei index 0', check=False)
+    # Плитка: отладочные команды Wear OS добавляют её в карусель и показывают (имена операций разные по версиям).
+    shell('input keyevent KEYCODE_HOME', check=False)
     time.sleep(2)
-    out = shell('am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE --es operation show-tile --ei index 0', check=False)
-    log(f'плитка: {out.strip()}')
+    for op in ('add-tile', 'set-tile'):
+        shell(f'am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE --es operation {op} --ecn component {TILE} --ei index 0', check=False)
+    time.sleep(2)
+    for action in ('DEBUG_SYSUI', 'DEBUG_SURFACE'):
+        shell(f'am broadcast -a com.google.android.wearable.app.{action} --es operation show-tile --ei index 0', check=False)
     time.sleep(5)
     screenshot('07-tile.png')
     tile = texts(dump())
     log(f'на плитке: {tile}')
     with open(os.path.join(OUT, 'tile.txt'), 'w', encoding='utf-8') as f:
-        f.write('\n'.join(tile))
+        f.write('
+'.join(tile))
+    focus = shell('dumpsys window | grep mCurrentFocus', check=False)
+    # Плитка не обязательна для успеха: отладочные команды есть не во всех образах.
+    tile_ok = PKG not in focus and any('Оплатить интернет' in t for t in tile)
+    log(('OK   ' if tile_ok else 'WARN ') + f'плитка показана ({focus.strip()})')
+    shell(f'am start -n {ACTIVITY}', check=False)
 
     # Напоминание срабатывает в своё время: уведомление от приложения.
     deadline = time.time() + (REMINDER_MIN + 3) * 60
