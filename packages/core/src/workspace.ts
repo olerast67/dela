@@ -10,6 +10,7 @@ import { localDate, instant } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import type { ActivityEvent, Change, Doc, Listener, Position, ProjectNode, ProjectTasks, TaskInput, TaskNode, TaskPatch, TaskView } from './doc.ts';
 import { nestTasks } from './doc.ts';
+import { computeStats, type Stats, type StatsOptions } from './stats.ts';
 import { compareOrder } from './fractional.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
 
@@ -236,6 +237,11 @@ export class Workspace {
   completedTasks(projectId?: string): TaskView[] {
     const docs = projectId === undefined ? this.docs() : [this.docForProject(projectId)];
     return docs.flatMap((d) => d.completedTasks(projectId)).sort((a, b) => b.completedAt! - a.completedAt!);
+  }
+
+  /** Статистика выполненного по личному и общим проектам вместе. */
+  stats(tz: string, today: string, opts?: StatsOptions): Stats {
+    return computeStats(this.docs().flatMap((d) => d.doneEvents()), tz, today, opts);
   }
 
   trash(): TaskView[] {

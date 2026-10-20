@@ -5,6 +5,7 @@
  * и попадают в очередь исходящих. Запросы читают разобранный снимок, который
  * пересобирается лениво после изменений.
  */
+import { computeStats, type DoneEvent, type Stats, type StatsOptions } from './stats.ts';
 import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import { compareOrder, keyBetween } from './fractional.ts';
@@ -1212,6 +1213,31 @@ export class Doc {
     return this.allTasks()
       .filter((t) => t.completedAt !== null && (projectId === undefined || t.projectId === projectId))
       .sort((a, b) => b.completedAt! - a.completedAt!);
+  }
+
+  /**
+   * Выполнения для статистики: выполненные задачи и каждый выполненный экземпляр повторяющихся.
+   * Как и «Выполненные», без задач из корзины. Закрытая серия записана и задачей, и экземпляром с тем же временем — считается один раз.
+   */
+  doneEvents(): DoneEvent[] {
+    const s = this.snapshot();
+    const out: DoneEvent[] = [];
+    const closed = new Set<string>();
+    for (const c of s.completions.values()) {
+      const t = s.tasks.get(c.taskId);
+      if (!t || !s.alive.has(t.id)) continue;
+      out.push({ at: c.completedAt, projectId: t.projectId });
+      closed.add(`${t.id}:${c.completedAt}`);
+    }
+    for (const t of this.allTasks()) {
+      if (t.completedAt !== null && !closed.has(`${t.id}:${t.completedAt}`)) out.push({ at: t.completedAt, projectId: t.projectId });
+    }
+    return out;
+  }
+
+  /** Статистика выполненного по дням и неделям в поясе tz на дату today. */
+  stats(tz: string, today: string, opts?: StatsOptions): Stats {
+    return computeStats(this.doneEvents(), tz, today, opts);
   }
 
   /** Удалённые задачи для корзины. */

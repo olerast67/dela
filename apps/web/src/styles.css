@@ -3170,3 +3170,157 @@ body:has(.selection-bar) .content {
 .panel-head .panel-link {
   margin-left: auto;
 }
+
+/* ---------- статистика ---------- */
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+.stats-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stats-card b {
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--accent);
+}
+
+.stats-card span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.stats-h {
+  font-size: 16px;
+  margin: 22px 0 8px;
+}
+
+.stats-chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 12px 12px 8px;
+}
+
+.stats-bars {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 110px;
+}
+
+.stats-col {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+}
+
+.stats-col:hover,
+.stats-col.sel {
+  background: var(--accent-soft);
+}
+
+.stats-bar {
+  display: block;
+  width: 100%;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+}
+
+.stats-col .stats-bar:not([style*='height: 0%']) {
+  min-height: 3px;
+}
+
+/* День без выполненных задач: тонкая черта, чтобы шкала не выглядела обрезанной. */
+.stats-col .stats-bar[style*='height: 0%'] {
+  min-height: 2px;
+  background: var(--border);
+}
+
+.stats-axis {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.stats-axis span {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.stats-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  min-height: 16px;
+}
+
+.stats-projects-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stats-project {
+  display: grid;
+  grid-template-columns: minmax(80px, 34%) 1fr 36px;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.stats-project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.stats-project-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.stats-project-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--c, var(--accent));
+}
+
+.stats-project-n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 520px) {
+  .stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

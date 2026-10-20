@@ -172,3 +172,4 @@ export { widgetSnapshot, WIDGET_TASK_LIMIT, type WidgetSnapshot, type WidgetTask
 export { applyTemplate, parseTemplate, projectToTemplate, BUILTIN_TEMPLATES, builtinTemplates, type ProjectTemplate, type TemplateTask } from './templates.ts';
 export type { ActivityEvent } from './doc.ts';
 export { phonePushKey, signingKeys, signComment, verifyComment, type SigningKeys, type CommentSigned } from './crypto.ts';
+export { computeStats, type DoneEvent, type Stats, type StatsOptions } from './stats.ts';

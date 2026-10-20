@@ -93,6 +93,11 @@ export const IconHistory = (p: P) => (
     <path d="M12 8v4l3 2" />
   </Svg>
 );
+export const IconStats = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 20V11M12 20V4M19 20v-6" />
+  </Svg>
+);
 export const IconTemplate = (p: P) => (
   <Svg {...p}>
     <rect x="4" y="4" width="16" height="16" rx="2.5" />

@@ -194,3 +194,22 @@ test('ссылка на задачу по Ctrl+Shift+C открывает её �
   await other.getByLabel('Команда').press('Enter');
   await expect.poll(() => other.evaluate(() => navigator.clipboard.readText())).toMatch(/\/#\/upcoming$/);
 });
+
+test('статистика: выполненная задача считается за сегодня', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.keyboard.press('q');
+  await page.getByLabel('Новая задача').fill('Для статистики сегодня');
+  await page.getByLabel('Новая задача').press('Enter');
+  await page.getByLabel('Новая задача').press('Escape');
+  await page.locator('.task', { hasText: 'Для статистики' }).getByRole('button', { name: 'Выполнить' }).click();
+  await page.getByRole('link', { name: 'Статистика' }).click();
+  await expect(page).toHaveURL(/#\/stats/);
+  await expect(page.getByRole('heading', { name: 'Статистика' })).toBeVisible();
+  await expect(page.locator('.stats-card', { hasText: 'сегодня' }).locator('b')).toHaveText('1');
+  await expect(page.locator('.stats-card', { hasText: 'лучшая серия' }).locator('b')).toHaveText('1');
+  // На телефоне экран помещается без горизонтальной прокрутки.
+  await page.setViewportSize({ width: 390, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

@@ -37,6 +37,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen, onCopyLink }: { on
       { id: 'upcoming', label: tr('Предстоящие'), group: tr('Перейти'), run: go({ view: 'upcoming' }) },
       { id: 'calendar', label: tr('Календарь'), group: tr('Перейти'), run: go({ view: 'calendar', mode: null, date: null }) },
       { id: 'completed', label: tr('Выполненные'), group: tr('Перейти'), run: go({ view: 'completed' }) },
+      { id: 'stats', label: tr('Статистика'), group: tr('Перейти'), run: go({ view: 'stats' }) },
       { id: 'activity', label: tr('История'), group: tr('Перейти'), run: go({ view: 'activity' }) },
       { id: 'templates', label: tr('Шаблоны'), group: tr('Перейти'), run: go({ view: 'templates' }) },
       { id: 'trash', label: tr('Корзина'), group: tr('Перейти'), run: go({ view: 'trash' }) },
