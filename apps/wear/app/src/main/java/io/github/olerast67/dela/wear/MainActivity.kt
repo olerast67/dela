@@ -38,8 +38,9 @@ class MainActivity : ComponentActivity() {
         // Только в отладочной сборке: форма из интента для проверки в эмуляторе.
         DebugLogin.credentials(intent)?.let { form = it }
         setContent {
-            DelaScreen { list ->
-                when (val s = screen) {
+            val s = screen
+            DelaScreen(page = s::class) { list ->
+                when (s) {
                     Screen.Loading -> LoadingScreen()
                     is Screen.SignIn -> SignInScreen(list, form, s.needTotp, busy, message, { form = it }, ::signIn)
                     is Screen.Today -> TodayScreen(list, s.snap, completing, busy, message, confirmSignOut, ::complete, ::refresh, ::signOut)

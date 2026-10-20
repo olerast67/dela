@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -49,11 +50,15 @@ private val Green = Color(0xFF5FC28E)
 
 data class Credentials(val server: String = "", val email: String = "", val password: String = "", val totp: String = "")
 
-/** Оболочка экрана часов: время сверху, индикатор прокрутки, список с увеличением в центре. */
+/**
+ * Оболочка экрана часов: время сверху, индикатор прокрутки, список с увеличением в центре.
+ * page — какой экран показан: у каждого своя прокрутка, иначе «Сегодня» после входа открывался
+ * прокрученным до кнопки входа и просроченные оказывались за верхним краем.
+ */
 @Composable
-fun DelaScreen(content: @Composable (ScalingLazyListState) -> Unit) {
+fun DelaScreen(page: Any = Unit, content: @Composable (ScalingLazyListState) -> Unit) {
     MaterialTheme(colors = Colors(primary = Green, primaryVariant = Color(0xFF2E7D5B), secondary = Green)) {
-        val list = rememberScalingLazyListState()
+        val list = key(page) { rememberScalingLazyListState() }
         // Фон задан явно: тема окна на разных часах бывает и светлой.
         Scaffold(
             modifier = Modifier.background(MaterialTheme.colors.background),
