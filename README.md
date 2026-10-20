@@ -123,7 +123,7 @@ The first account can be registered only with the address from `DELA_ADMIN_EMAIL
 docker compose pull && docker compose --profile https up -d
 ```
 
-The `latest` image is the latest release; a specific version is available by its number, for example `ghcr.io/olerast67/dela:0.8.0`. Migrations run at startup, and the server copies the database to `/data/dela.sqlite.before-vN-<time>.bak` first. Once a day it writes a snapshot to `/data/backups`. A plaintext export is available in the app under Settings → Export.
+The `latest` image is the latest release; a specific version is available by its number, for example `ghcr.io/olerast67/dela:0.9.0`. Migrations run at startup, and the server copies the database to `/data/dela.sqlite.before-vN-<time>.bak` first. Once a day it writes a snapshot to `/data/backups`. A plaintext export is available in the app under Settings → Export.
 
 ## AI assistants (MCP)
 
