@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { extractLinks, parseTask, type DateSpec, type Priority } from '#core';
-import { canOpenViewWindow, openExternal, openViewWindow } from '../platform.ts';
+import { canOpenViewWindow, openExternal, openViewWindow, platform, prepareAlarms } from '../platform.ts';
 import { Comments } from './Comments.tsx';
 import { Markdown, toggleTask } from './Markdown.tsx';
 import { TZ, dateLabel, durationLabel, todayDate } from '../format.ts';
@@ -17,6 +17,13 @@ import { LOCALE, tr } from '../i18n.ts';
 import { taskHash } from '../links.ts';
 
 const DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240];
+
+/** Разрешения для будильника спрашиваются, когда его включают у задачи, а не при запуске приложения. */
+async function enableAlarm(): Promise<void> {
+  const r = await prepareAlarms().catch(() => null);
+  if (r === 'notifications') showToast(tr('Без разрешения на уведомления будильник не зазвонит'), undefined, 6000);
+  else if (r === 'fullscreen') showToast(tr('Разрешите Dela показ на весь экран, иначе будильник придёт уведомлением со звуком'), undefined, 6000);
+}
 
 export const REMINDER_OPTIONS: Array<[number, string]> = [
   [0, tr('в срок')],
@@ -355,6 +362,31 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
               </>
             )}
           </dd>
+
+          {task.due?.time && (platform() === 'capacitor' || task.alarm) && (
+            <>
+              <dt>{tr('Будильник')}</dt>
+              {platform() === 'capacitor' ? (
+                <dd>
+                  <label className="checkline">
+                    <input
+                      type="checkbox"
+                      checked={task.alarm}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        doc.updateTask(id, { alarm: on });
+                        if (on) void enableAlarm();
+                      }}
+                    />
+                    {tr('Звонить на весь экран, даже в беззвучном режиме')}
+                  </label>
+                </dd>
+              ) : (
+                // Флаг общий для устройств, а звонит будильник только в приложении для Android.
+                <dd className="muted">{tr('Зазвонит на телефоне с Android, здесь придёт обычное напоминание')}</dd>
+              )}
+            </>
+          )}
 
           <dt>{tr('Приоритет')}</dt>
           <dd className="row prio-picker">

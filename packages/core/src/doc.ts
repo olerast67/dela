@@ -107,6 +107,7 @@ export interface TaskInput {
   readonly recurrence?: Recurrence | null;
   readonly habit?: Habit | null;
   readonly reminders?: readonly number[] | null;
+  readonly alarm?: boolean;
   readonly position?: Position;
 }
 
@@ -121,6 +122,7 @@ export interface TaskPatch {
   readonly recurrence?: Recurrence | null;
   readonly habit?: Habit | null;
   readonly reminders?: readonly number[] | null;
+  readonly alarm?: boolean;
   readonly assignee?: string | null;
 }
 
@@ -140,6 +142,7 @@ const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   recurrence: 'recurrence',
   habit: 'habit',
   reminders: 'reminders',
+  alarm: 'alarm',
   assignee: 'assignee',
 };
 
@@ -652,6 +655,7 @@ export class Doc {
     if (input.recurrence) changes.push(['task', id, 'recurrence', input.recurrence as unknown as Json]);
     if (input.habit) changes.push(['task', id, 'habit', input.habit as unknown as Json]);
     if (input.reminders) changes.push(['task', id, 'reminders', [...input.reminders]]);
+    if (input.alarm) changes.push(['task', id, 'alarm', true]);
     for (const label of input.labels ?? []) changes.push(['task', id, LABEL_PREFIX + label, true]);
     this.write(changes);
     return id;

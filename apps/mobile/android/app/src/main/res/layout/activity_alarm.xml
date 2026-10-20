@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Будильник срочной задачи: время, название задачи, кнопки «Выполнено», «Отложить», «Выключить». -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1C1B18"
+    android:fitsSystemWindows="true"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextClock
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="72dp"
+        android:textColor="#EDE8DD"
+        android:textSize="64sp" />
+
+    <TextView
+        android:id="@+id/alarm_title"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="24dp"
+        android:ellipsize="end"
+        android:gravity="center_horizontal"
+        android:maxLines="6"
+        android:textColor="#EDE8DD"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+
+    <Button
+        android:id="@+id/alarm_done"
+        style="@style/AlarmButton"
+        android:backgroundTint="#2E7D5B"
+        android:text="@string/alarm_done"
+        android:textColor="#FFFFFF" />
+
+    <Button
+        android:id="@+id/alarm_snooze"
+        style="@style/AlarmButton"
+        android:backgroundTint="#3A3832"
+        android:text="@string/alarm_snooze"
+        android:textColor="#EDE8DD" />
+
+    <Button
+        android:id="@+id/alarm_dismiss"
+        style="@style/AlarmButton"
+        android:backgroundTint="#3A3832"
+        android:text="@string/alarm_dismiss"
+        android:textColor="#EDE8DD" />
+</LinearLayout>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="alarm_channel">Будильники срочных задач</string>
+    <string name="alarm_text">Будильник</string>
+    <string name="alarm_done">Выполнено</string>
+    <string name="alarm_snooze">Отложить на 10 минут</string>
+    <string name="alarm_dismiss">Выключить</string>
+    <string name="alarm_missed">Пропущенный будильник</string>
+</resources>

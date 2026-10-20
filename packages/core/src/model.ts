@@ -75,6 +75,8 @@ export interface Task {
   readonly habit: Habit | null;
   /** Минуты до срока для напоминаний; null — по умолчанию пользователя, [] — без напоминаний. */
   readonly reminders: readonly number[] | null;
+  /** Срочное напоминание: на Android звенит будильником на весь экран, на других устройствах приходит обычным уведомлением. */
+  readonly alarm: boolean;
   /** Исполнитель в общем проекте (id пользователя). */
   readonly assignee: string | null;
   readonly order: string;
@@ -261,6 +263,7 @@ export function toTask(id: string, r: Rec): Task {
     recurrence: recurrence(r.recurrence),
     habit: habit(r.habit),
     reminders: isReminderList(r.reminders) ? [...new Set(r.reminders as number[])].sort((a, b) => a - b) : null,
+    alarm: bool(r.alarm),
     assignee: idOrNull(r.assignee),
     order: order(r.order),
     completedAt: num(r.completed_at),

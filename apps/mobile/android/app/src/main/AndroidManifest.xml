@@ -96,6 +96,35 @@
             </intent-filter>
         </service>
 
+        <!-- Будильник срочной задачи: звонок, экран поверх блокировки, перепостановка после перезагрузки -->
+        <receiver
+            android:name=".AlarmReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".AlarmBootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".AlarmService"
+            android:foregroundServiceType="systemExempted"
+            android:exported="false" />
+
+        <activity
+            android:name=".AlarmActivity"
+            android:theme="@style/AlarmTheme"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -117,4 +146,16 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Будильник срочной задачи. USE_EXACT_ALARM (Android 13+) выдаётся при установке и не отзывается:
+         приложение ставится не из Google Play, где его разрешают только будильникам и календарям.
+         На Android 12 работает SCHEDULE_EXACT_ALARM из плагина уведомлений (там оно выдано по умолчанию). -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

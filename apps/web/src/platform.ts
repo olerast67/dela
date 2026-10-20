@@ -1,3 +1,4 @@
+import { splitAlarms } from './alarms.ts';
 import { LOCALE, tr } from './i18n.ts';
 import { isViewWindow, viewWindowLabel, viewWindowUrl } from './viewWindow.ts';
 /**
@@ -94,6 +95,8 @@ export interface NativeReminder {
   readonly body: string;
   /** null — утренняя сводка: нажатие открывает «Сегодня». */
   readonly taskId: string | null;
+  /** Срочное напоминание: на Android звенит будильником, а не приходит уведомлением. */
+  readonly alarm?: boolean;
 }
 
 let permissionAsked = false;
@@ -103,9 +106,9 @@ let permissionAsked = false;
  * при закрытом приложении и без связи с сервером. Android держит ограниченное число
  * будильников, поэтому ставятся ближайшие 60.
  */
-export function syncNativeReminders(list: readonly NativeReminder[]): Promise<void> {
+export function syncNativeReminders(list: readonly NativeReminder[], alarmTasks: readonly string[] = []): Promise<void> {
   // Пересчёты идут по очереди: иначе отмена из одного вызова снимала бы то, что поставил другой.
-  const run = reminderQueue.then(() => replaceNativeReminders(list));
+  const run = reminderQueue.then(() => replaceNativeReminders(list, alarmTasks));
   reminderQueue = run.catch(() => undefined);
   return run;
 }
@@ -129,7 +132,7 @@ function saveScheduled(m: ReadonlyMap<number, number>): void {
   }
 }
 
-async function replaceNativeReminders(list: readonly NativeReminder[]): Promise<void> {
+async function replaceNativeReminders(list: readonly NativeReminder[], alarmTasks: readonly string[]): Promise<void> {
   if (platform() !== 'capacitor') return;
   const { LocalNotifications } = await import('@capacitor/local-notifications');
   let perm = await LocalNotifications.checkPermissions();
@@ -137,9 +140,17 @@ async function replaceNativeReminders(list: readonly NativeReminder[]): Promise<
     permissionAsked = true;
     perm = await LocalNotifications.requestPermissions();
   }
-  if (perm.display !== 'granted') return;
   const now = Date.now();
-  const next = list.filter((r) => r.at > now).slice(0, 60);
+  const upcoming = list.filter((r) => r.at > now);
+  // Срочные ставятся будильником, и уведомление для них не ставится: иначе пришло бы и то и другое.
+  // Без уведомлений будильник не покажется на весь экран, поэтому без разрешения будильники только снимаются.
+  const split = splitAlarms(upcoming, perm.display === 'granted' && (await alarmsAllowed()));
+  const alarmsSet = await setNativeAlarms(perm.display === 'granted' ? split.alarms : [], alarmTasks).catch((err) => {
+    console.error('alarms failed', err);
+    return false;
+  });
+  if (perm.display !== 'granted') return;
+  const next = (alarmsSet ? split.notifications : upcoming).slice(0, 60);
   const wanted = new Set(next.map((r) => notificationId(r.key)));
   const known = loadScheduled();
   // Наступившие напоминания не отменяются: Android показывает их с задержкой до минуты,
@@ -168,6 +179,50 @@ async function replaceNativeReminders(list: readonly NativeReminder[]): Promise<
       smallIcon: 'ic_stat_dela',
     })),
   });
+}
+
+interface DelaAlarmPlugin {
+  set(o: { alarms: Array<{ key: string; at: number; title: string; taskId: string }>; active: readonly string[] }): Promise<{ ok: boolean }>;
+  status(): Promise<{ exact: boolean; fullScreen: boolean }>;
+  openFullScreenSettings(): Promise<void>;
+}
+
+/** Может ли телефон ставить будильники: нужен точный будильник (на Android 13+ разрешён всегда). */
+async function alarmsAllowed(): Promise<boolean> {
+  const a = (await nativePlugin<DelaAlarmPlugin>('DelaAlarm'))?.p;
+  return a ? (await a.status().catch(() => ({ exact: false }))).exact : false;
+}
+
+/**
+ * Заменить будильники в Android. active — открытые задачи с флагом: отложенные на 10 минут звонки
+ * других задач (выполненных, удалённых, без флага) снимаются. false — будильники не поставлены.
+ */
+async function setNativeAlarms(alarms: readonly NativeReminder[], active: readonly string[]): Promise<boolean> {
+  const a = (await nativePlugin<DelaAlarmPlugin>('DelaAlarm'))?.p;
+  if (!a) return false;
+  const { ok } = await a.set({ alarms: alarms.map((r) => ({ key: r.key, at: r.at, title: r.title, taskId: r.taskId ?? '' })), active });
+  return ok;
+}
+
+/**
+ * Телефон: разрешения для будильника, спрашиваются при включении будильника у задачи.
+ * 'fullscreen' — Android 14+ запретил показ на весь экран: открывается системный экран, где это разрешают.
+ * null вне Android.
+ */
+export async function prepareAlarms(): Promise<'ok' | 'notifications' | 'fullscreen' | null> {
+  const a = (await nativePlugin<DelaAlarmPlugin>('DelaAlarm'))?.p;
+  if (!a) return null;
+  const { LocalNotifications } = await import('@capacitor/local-notifications');
+  let perm = await LocalNotifications.checkPermissions();
+  if (perm.display !== 'granted') perm = await LocalNotifications.requestPermissions();
+  if (perm.display !== 'granted') return 'notifications';
+  // Android 12: точные будильники разрешают в настройках (на 13+ разрешение USE_EXACT_ALARM есть всегда).
+  if (!(await a.status()).exact) await LocalNotifications.changeExactNotificationSetting();
+  if (!(await a.status()).fullScreen) {
+    await a.openFullScreenSettings();
+    return 'fullscreen';
+  }
+  return 'ok';
 }
 
 /** Телефон: можно ли ставить напоминания на точное время. null вне Android. */

@@ -441,6 +441,7 @@ export class Workspace {
       recurrence: t.recurrence,
       habit: t.habit,
       reminders: t.reminders,
+      alarm: t.alarm,
       ...(at.position ? { position: at.position } : {}),
     });
     const extra: Change[] = [['task', newId, 'created_at', t.createdAt]];

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Будильник срочной задачи. Английский по умолчанию, русский в values-ru; язык как в приложении (WidgetStore.localized). -->
+<resources>
+    <string name="alarm_channel">Alarms for urgent tasks</string>
+    <string name="alarm_text">Alarm</string>
+    <string name="alarm_done">Done</string>
+    <string name="alarm_snooze">Snooze for 10 minutes</string>
+    <string name="alarm_dismiss">Turn off</string>
+    <string name="alarm_missed">Missed alarm</string>
+</resources>

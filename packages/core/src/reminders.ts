@@ -15,6 +15,8 @@ export interface Reminder {
   /** Момент срока. */
   readonly dueAt: number;
   readonly offset: number;
+  /** Срочное напоминание задачи: на Android — будильник. */
+  readonly alarm?: boolean;
 }
 
 export const MAX_REMINDERS = 5;
@@ -41,10 +43,15 @@ export function remindersBetween(doc: Pick<Doc, 'openTasks'>, from: number, to: 
     for (const offset of new Set(offsetsOf(t, defaults))) {
       const at = dueAt - offset * 60_000;
       if (at < from || at >= to) continue;
-      out.push({ key: `${t.id}:${t.due.date}T${t.due.time}:${offset}`, taskId: t.id, at, title: t.title, dueAt, offset });
+      out.push({ key: `${t.id}:${t.due.date}T${t.due.time}:${offset}`, taskId: t.id, at, title: t.title, dueAt, offset, ...(t.alarm ? { alarm: true } : {}) });
     }
   }
   return out.sort((a, b) => a.at - b.at || a.key.localeCompare(b.key));
+}
+
+/** Открытые задачи со срочным напоминанием. Отложенные будильники остальных задач (выполненных, удалённых, без флага) телефон снимает. */
+export function alarmTasks(doc: Pick<Doc, 'openTasks'>): string[] {
+  return doc.openTasks().filter((t) => t.alarm).map((t) => t.id);
 }
 
 /** Утренняя сводка за день: сколько задач на этот день и сколько просрочено к моменту сводки. */

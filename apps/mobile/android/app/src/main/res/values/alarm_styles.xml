@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Экран будильника срочной задачи: тёмный, без заголовка, поверх экрана блокировки. -->
+<resources>
+    <style name="AlarmTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:statusBarColor">#1C1B18</item>
+        <item name="android:navigationBarColor">#1C1B18</item>
+        <item name="android:colorAccent">#2E7D5B</item>
+    </style>
+
+    <style name="AlarmButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">64dp</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+</resources>

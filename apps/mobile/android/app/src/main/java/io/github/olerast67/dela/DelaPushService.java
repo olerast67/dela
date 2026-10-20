@@ -60,6 +60,14 @@ public class DelaPushService extends PushService {
         try {
             JSONObject outer = new JSONObject(new String(message.getContent(), StandardCharsets.UTF_8));
             JSONObject r = new JSONObject(decrypt(outer.getString("p")));
+            String key = r.optString("k", "dela");
+            // Будильник этого напоминания уже стоит в телефоне или прозвенел: уведомление было бы вторым сигналом.
+            if (AlarmStore.known(this, key)) return;
+            String task = r.optString("id", "");
+            if (r.optBoolean("a", false) && !task.isEmpty() && AlarmStore.canSchedule(this)) {
+                AlarmStore.ringSoon(this, key, r.optString("t", getString(R.string.notify_task)), task);
+                return;
+            }
             show(r.optString("t", getString(R.string.notify_task)), r.optString("b", ""), r.optString("id", null), r.optString("k", "dela"), r.optBoolean("today", false));
         } catch (Exception err) {
             // Без ключа или с чужим ключом показываем общее напоминание: текст на сервере не виден.

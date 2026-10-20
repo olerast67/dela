@@ -46,6 +46,7 @@ import {
   recoverAccount,
   welcomeTasks,
   remindersBetween,
+  alarmTasks,
   digestsBetween,
   isTime,
   type Reminder,
@@ -1197,8 +1198,9 @@ export class Controller {
         const body = this.bodyOf(r);
         // Сервер принимает до 1 КБ на напоминание: длинное название обрезается, иначе отклонилось бы всё расписание.
         // У сводки нет задачи: флаг today открывает «Сегодня» (service worker и служба push на Android).
+        // Флаг a: служба push на Android звонит будильником, если он ещё не стоит в телефоне (задачу добавили на другом устройстве).
         const content = r.taskId
-          ? { t: (r.title || tr('Задача')).slice(0, 200), b: body, k: r.key, id: r.taskId }
+          ? { t: (r.title || tr('Задача')).slice(0, 200), b: body, k: r.key, id: r.taskId, ...(r.alarm ? { a: true } : {}) }
           : { t: r.title, b: body, k: r.key, today: true };
         return { id, fireAt: r.at, payload: await seal(content) };
       }),
@@ -1283,7 +1285,9 @@ export class Controller {
         title: r.title || tr('Задача'),
         body: this.bodyOf(r),
         taskId: r.taskId || null,
+        ...(r.alarm ? { alarm: true } : {}),
       })),
+      alarmTasks(this.doc),
     ).catch((err) => console.error('native reminders failed', err));
   }
 
