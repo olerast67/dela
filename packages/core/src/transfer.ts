@@ -310,6 +310,8 @@ export interface ExportData {
   readonly labels: unknown[];
   readonly filters: unknown[];
   readonly completions: unknown[];
+  /** Явные пропуски экземпляров привычек. */
+  readonly skips: unknown[];
 }
 
 /** Полный экспорт в открытом формате JSON. Делается на устройстве, поэтому работает и с шифрованием. */
@@ -327,11 +329,12 @@ export function exportJson(doc: Doc, now = Date.now()): ExportData {
     labels: doc.labels(),
     filters: doc.filters(),
     completions: doc.completions(),
+    skips: doc.skips(),
   };
 }
 
 /** Экспорт в Markdown: проекты заголовками, задачи списками с отметками. */
-export function exportMarkdown(doc: Doc, inboxName = 'Входящие'): string {
+export function exportMarkdown(doc: Doc, inboxName = 'Входящие', habitName = 'привычка'): string {
   const lines: string[] = ['# Dela', ''];
   const labelName = (id: string) => doc.label(id)?.name ?? id;
   const write = (projectId: string, title: string) => {
@@ -346,6 +349,7 @@ export function exportMarkdown(doc: Doc, inboxName = 'Входящие'): string
         const meta = [
           t.due ? `📅 ${t.due.date}${t.due.time ? ` ${t.due.time}` : ''}` : '',
           t.recurrence ? `🔁 ${t.recurrence.text}` : '',
+          t.habit && t.recurrence ? `🔥 ${habitName}` : '',
           t.priority < 4 ? `p${t.priority}` : '',
           ...t.labels.map((l) => `@${labelName(l)}`),
         ].filter(Boolean);

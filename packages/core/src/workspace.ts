@@ -10,6 +10,7 @@ import { localDate, instant } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import type { ActivityEvent, Change, Doc, Listener, Position, ProjectNode, ProjectTasks, TaskInput, TaskNode, TaskPatch, TaskView } from './doc.ts';
 import { nestTasks } from './doc.ts';
+import type { HabitStreak } from './habits.ts';
 import { computeStats, type Stats, type StatsOptions } from './stats.ts';
 import { compareOrder } from './fractional.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
@@ -244,6 +245,21 @@ export class Workspace {
     return computeStats(this.docs().flatMap((d) => d.doneEvents()), tz, today, { ...opts, work: this.docs().flatMap((d) => d.workEvents()) });
   }
 
+  /** Серия привычки в поясе tz на дату today; null, если задача не привычка. */
+  habitStreak(taskId: string, today: string, tz: string): HabitStreak | null {
+    return this.docForTask(taskId).habitStreak(taskId, today, tz);
+  }
+
+  /** Открытые привычки всех пространств с сериями: длиннее текущая серия — выше. */
+  habits(today: string, tz: string): Array<{ task: TaskView; streak: HabitStreak }> {
+    const out: Array<{ task: TaskView; streak: HabitStreak }> = [];
+    for (const t of this.openTasks()) {
+      const streak = t.habit ? this.habitStreak(t.id, today, tz) : null;
+      if (streak) out.push({ task: t, streak });
+    }
+    return out.sort((a, b) => b.streak.current - a.streak.current || b.streak.best - a.streak.best || a.task.title.localeCompare(b.task.title));
+  }
+
   trash(): TaskView[] {
     return this.docs()
       .flatMap((d) => d.trash())
@@ -423,6 +439,7 @@ export class Workspace {
       deadline: t.deadline,
       duration: t.duration,
       recurrence: t.recurrence,
+      habit: t.habit,
       reminders: t.reminders,
       ...(at.position ? { position: at.position } : {}),
     });
@@ -431,6 +448,8 @@ export class Workspace {
     dst.write(extra, { undoable: true });
     // Затраченное время переезжает одним отрезком: отдельные записи старого пространства там и остаются удалёнными.
     if (t.spent) dst.logWork(newId, t.spent, { at: t.createdAt });
+    // Серия привычки считается по выполнениям и пропускам: они переезжают вместе с задачей.
+    if (t.habit) dst.importHabitHistory(newId, src.completions(id), src.skips(id));
     for (const child of src.subtasks(id, { completed: true })) {
       this.copyTree(src, dst, child.task.id, { projectId: undefined, sectionId: null, parentId: newId });
     }

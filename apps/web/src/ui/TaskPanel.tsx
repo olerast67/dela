@@ -7,6 +7,7 @@ import { TZ, dateLabel, durationLabel, todayDate } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
 import { IconLink, IconRepeat, IconTrash, IconX } from './icons.tsx';
+import { HabitField } from './Habit.tsx';
 import { PomodoroField } from './Pomodoro.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
 import { RepeatEditor } from './RepeatEditor.tsx';
@@ -278,11 +279,12 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
                   <IconRepeat /> {task.recurrence.text || task.recurrence.rule}
                   {task.recurrence.mode === 'completion' ? tr(' (от выполнения)') : ''}
                 </span>
-                <button onClick={() => doc.skipOccurrence(id)}>{tr('Пропустить раз')}</button>
+                {/* У привычки пропуск — в её блоке ниже: там он отмечается и серию не обрывает. */}
+                {!task.habit && <button onClick={() => doc.skipOccurrence(id)}>{tr('Пропустить раз')}</button>}
                 <button onClick={() => setRepeatEditor((v) => !v)} aria-expanded={repeatEditor}>
                   {tr('Настроить')}
                 </button>
-                <button className="icon small" onClick={() => doc.updateTask(id, { recurrence: null })} aria-label={tr('Убрать повтор')}>
+                <button className="icon small" onClick={() => doc.updateTask(id, { recurrence: null, ...(task.habit ? { habit: null } : {}) })} aria-label={tr('Убрать повтор')}>
                   <IconX width={14} height={14} />
                 </button>
               </div>
@@ -317,6 +319,8 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
               />
             )}
           </dd>
+
+          <HabitField task={task} />
 
           <dt>{tr('Напоминания')}</dt>
           <dd className="row wrap">

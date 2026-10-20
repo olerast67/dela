@@ -4,7 +4,7 @@
  */
 import { addDays, daysBetween, localDate, type DateSpec } from './dates.ts';
 import type { TaskNode } from './doc.ts';
-import type { Priority, Recurrence } from './model.ts';
+import { MAX_HABIT_SKIPS, type Habit, type Priority, type Recurrence } from './model.ts';
 import { firstOnOrAfter, parseRule } from './recurrence.ts';
 import type { Workspace } from './workspace.ts';
 
@@ -19,6 +19,8 @@ export interface TemplateTask {
   readonly time?: string;
   readonly duration?: number;
   readonly recurrence?: Recurrence;
+  /** Привычка: сама серия в шаблон не попадает, только отметка и правило пропусков. */
+  readonly habit?: Habit;
   readonly children?: readonly TemplateTask[];
 }
 
@@ -52,6 +54,7 @@ export function projectToTemplate(ws: Workspace, projectId: string, today: strin
       ...(t.due?.time ? { time: t.due.time } : {}),
       ...(t.duration ? { duration: t.duration } : {}),
       ...(t.recurrence ? { recurrence: t.recurrence } : {}),
+      ...(t.habit && t.recurrence ? { habit: t.habit } : {}),
       ...(n.children.length ? { children: n.children.map(toTpl) } : {}),
     };
   };
@@ -97,6 +100,7 @@ export function applyTemplate(ws: Workspace, tpl: ProjectTemplate, today: string
       due,
       duration: t.duration ?? null,
       recurrence: t.recurrence ?? null,
+      ...(t.habit && t.recurrence ? { habit: t.habit } : {}),
     });
     for (const c of t.children ?? []) add(c, null, id);
   };
@@ -128,6 +132,9 @@ export function parseTemplate(raw: unknown): ProjectTemplate {
       ...(typeof t.time === 'string' && /^\d{2}:\d{2}$/.test(t.time) ? { time: t.time } : {}),
       ...(typeof t.duration === 'number' && t.duration > 0 && t.duration <= 1440 ? { duration: Math.round(t.duration) } : {}),
       ...(t.recurrence && typeof t.recurrence === 'object' ? { recurrence: t.recurrence } : {}),
+      ...(t.habit && typeof t.habit === 'object'
+        ? { habit: { skipsPerWeek: Math.min(MAX_HABIT_SKIPS, Math.max(0, Math.round(Number(t.habit.skipsPerWeek) || 0))) } }
+        : {}),
       ...(Array.isArray(t.children) ? { children: t.children.map(task) } : {}),
     };
   };

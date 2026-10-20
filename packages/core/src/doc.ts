@@ -5,6 +5,7 @@
  * и попадают в очередь исходящих. Запросы читают разобранный снимок, который
  * пересобирается лениво после изменений.
  */
+import { habitStreak, type HabitStreak } from './habits.ts';
 import { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkEvent } from './stats.ts';
 import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
@@ -19,7 +20,10 @@ import {
   toSection,
   toTask,
   toWorkLog,
+  toSkip,
   type Completion,
+  type Habit,
+  type Skip,
   type Label,
   type Priority,
   type Project,
@@ -101,6 +105,7 @@ export interface TaskInput {
   readonly deadline?: string | null;
   readonly duration?: number | null;
   readonly recurrence?: Recurrence | null;
+  readonly habit?: Habit | null;
   readonly reminders?: readonly number[] | null;
   readonly position?: Position;
 }
@@ -114,6 +119,7 @@ export interface TaskPatch {
   readonly deadline?: string | null;
   readonly duration?: number | null;
   readonly recurrence?: Recurrence | null;
+  readonly habit?: Habit | null;
   readonly reminders?: readonly number[] | null;
   readonly assignee?: string | null;
 }
@@ -132,6 +138,7 @@ const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   deadline: 'deadline',
   duration: 'duration',
   recurrence: 'recurrence',
+  habit: 'habit',
   reminders: 'reminders',
   assignee: 'assignee',
 };
@@ -144,6 +151,9 @@ interface Snapshot {
   readonly filters: ReadonlyMap<string, SavedFilter>;
   readonly completions: ReadonlyMap<string, Completion>;
   readonly work: ReadonlyMap<string, WorkLog>;
+  readonly skips: ReadonlyMap<string, Skip>;
+  /** Серии привычек, посчитанные для этого снимка: ключ — задача и сегодняшняя дата. */
+  readonly habits: Map<string, HabitStreak>;
   /** Действующий родитель задачи после разрыва циклов. */
   readonly taskParent: ReadonlyMap<string, string | null>;
   readonly taskChildren: ReadonlyMap<string, readonly string[]>;
@@ -354,6 +364,11 @@ export class Doc {
       const c = toCompletion(id, rec);
       if (c) completions.set(id, c);
     }
+    const skips = new Map<string, Skip>();
+    for (const [id, rec] of r.all('skip')) {
+      const k = toSkip(id, rec);
+      if (k) skips.set(id, k);
+    }
     const work = new Map<string, WorkLog>();
     const spent = new Map<string, number>();
     for (const [id, rec] of r.all('work')) {
@@ -444,6 +459,8 @@ export class Doc {
       filters,
       completions,
       work,
+      skips,
+      habits: new Map(),
       taskParent,
       taskChildren,
       projectParent,
@@ -633,6 +650,7 @@ export class Doc {
     if (input.deadline) changes.push(['task', id, 'deadline', input.deadline]);
     if (input.duration) changes.push(['task', id, 'duration', input.duration]);
     if (input.recurrence) changes.push(['task', id, 'recurrence', input.recurrence as unknown as Json]);
+    if (input.habit) changes.push(['task', id, 'habit', input.habit as unknown as Json]);
     if (input.reminders) changes.push(['task', id, 'reminders', [...input.reminders]]);
     for (const label of input.labels ?? []) changes.push(['task', id, LABEL_PREFIX + label, true]);
     this.write(changes);
@@ -737,6 +755,11 @@ export class Doc {
       const cid = Doc.completionId(task.id, occurrence);
       changes.push(['completion', cid, 'task', task.id], ['completion', cid, 'occurrence', occurrence], ['completion', cid, 'completed_at', t]);
       if (this.actor && this.kind === 'shared') changes.push(['completion', cid, 'by', this.actor]);
+    } else if (task.habit) {
+      // Пропуск привычки помнится отдельной записью на экземпляр: серия его не считает обрывом.
+      const sid = Doc.completionId(task.id, occurrence);
+      changes.push(['skip', sid, 'task', task.id], ['skip', sid, 'occurrence', occurrence], ['skip', sid, 'at', t]);
+      if (this.actor && this.kind === 'shared') changes.push(['skip', sid, 'by', this.actor]);
     }
     let next: string | null = null;
     if (rule) {
@@ -1006,6 +1029,55 @@ export class Doc {
     if (m > 0) {
       const id = uuidv7(t);
       changes.push(['work', id, 'task', taskId], ['work', id, 'minutes', m], ['work', id, 'at', t]);
+    }
+    this.write(changes);
+  }
+
+  // ---------- привычки ----------
+
+  /** Явные пропуски экземпляров, новые первыми. */
+  skips(taskId?: string): Skip[] {
+    return [...this.snapshot().skips.values()].filter((k) => taskId === undefined || k.taskId === taskId).sort((a, b) => b.at - a.at);
+  }
+
+  /**
+   * Серия привычки на дату today (по умолчанию сегодня в поясе пространства).
+   * null, если задача не привычка или у неё нет повтора.
+   */
+  habitStreak(taskId: string, today = todayIn(this.timeZone, this.now()), tz = this.timeZone): HabitStreak | null {
+    const s = this.snapshot();
+    const task = s.tasks.get(taskId);
+    if (!task?.habit || !task.recurrence) return null;
+    const key = `${taskId}|${today}|${tz}`;
+    const cached = s.habits.get(key);
+    if (cached) return cached;
+    const occurrences: string[] = [];
+    const doneDays: string[] = [];
+    for (const c of s.completions.values()) {
+      if (c.taskId !== taskId) continue;
+      if (c.occurrence !== null) occurrences.push(c.occurrence);
+      doneDays.push(todayIn(tz, c.completedAt));
+    }
+    const skips = [...s.skips.values()].filter((k) => k.taskId === taskId).map((k) => k.occurrence);
+    const result = habitStreak({ recurrence: task.recurrence, habit: task.habit, occurrences, doneDays, skips, due: task.due?.date ?? null, today });
+    s.habits.set(key, result);
+    return result;
+  }
+
+  /**
+   * Перенести историю привычки (выполнения и пропуски) к копии задачи в этом пространстве:
+   * id записей считаются от нового id задачи, отметки времени прежние.
+   */
+  importHabitHistory(taskId: string, completions: readonly Completion[], skips: readonly Skip[]): void {
+    const changes: Change[] = [];
+    for (const c of completions) {
+      if (c.occurrence === null) continue;
+      const cid = Doc.completionId(taskId, c.occurrence);
+      changes.push(['completion', cid, 'task', taskId], ['completion', cid, 'occurrence', c.occurrence], ['completion', cid, 'completed_at', c.completedAt]);
+    }
+    for (const k of skips) {
+      const sid = Doc.completionId(taskId, k.occurrence);
+      changes.push(['skip', sid, 'task', taskId], ['skip', sid, 'occurrence', k.occurrence], ['skip', sid, 'at', k.at]);
     }
     this.write(changes);
   }

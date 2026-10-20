@@ -19,6 +19,14 @@ export interface Recurrence {
   readonly text: string;
 }
 
+/** Привычка: повторяющаяся задача, у которой считается серия выполнений подряд. */
+export interface Habit {
+  /** Сколько пропущенных экземпляров в неделю не обрывают серию (но и не прибавляют). */
+  readonly skipsPerWeek: number;
+}
+
+export const MAX_HABIT_SKIPS = 6;
+
 export interface Project {
   readonly id: string;
   readonly name: string;
@@ -63,6 +71,8 @@ export interface Task {
   /** Длительность в минутах. */
   readonly duration: number | null;
   readonly recurrence: Recurrence | null;
+  /** Отметка «привычка»; null у обычных задач и у записей до привычек. */
+  readonly habit: Habit | null;
   /** Минуты до срока для напоминаний; null — по умолчанию пользователя, [] — без напоминаний. */
   readonly reminders: readonly number[] | null;
   /** Исполнитель в общем проекте (id пользователя). */
@@ -144,6 +154,12 @@ function recurrence(v: Json | undefined): Recurrence | null {
   if (typeof rule !== 'string' || rule.length > 500) return null;
   if (mode !== 'schedule' && mode !== 'completion') return null;
   return { rule, mode, text: typeof text === 'string' ? text.slice(0, 200) : '' };
+}
+
+function habit(v: Json | undefined): Habit | null {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null;
+  const n = typeof v.skipsPerWeek === 'number' && Number.isFinite(v.skipsPerWeek) ? Math.round(v.skipsPerWeek) : 0;
+  return { skipsPerWeek: Math.min(MAX_HABIT_SKIPS, Math.max(0, n)) };
 }
 
 export function toProject(id: string, r: Rec): Project {
@@ -243,6 +259,7 @@ export function toTask(id: string, r: Rec): Task {
     deadline: isDate(r.deadline) ? (r.deadline as string) : null,
     duration: duration !== null && duration > 0 && duration <= 24 * 60 * 31 ? Math.round(duration) : null,
     recurrence: recurrence(r.recurrence),
+    habit: habit(r.habit),
     reminders: isReminderList(r.reminders) ? [...new Set(r.reminders as number[])].sort((a, b) => a - b) : null,
     assignee: idOrNull(r.assignee),
     order: order(r.order),
@@ -294,4 +311,23 @@ export function toWorkLog(id: string, r: Rec): WorkLog | null {
   const m = Math.round(minutes);
   if (m <= 0 || m > 1_000_000) return null;
   return { id, taskId, minutes: m, at: num(r.at) ?? 0 };
+}
+
+/**
+ * Явный пропуск экземпляра привычки («Пропустить сегодня»): серию не обрывает и не растит.
+ * Id детерминирован, как у выполнения: skip с двух устройств сливается в одну запись.
+ */
+export interface Skip {
+  readonly id: string;
+  readonly taskId: string;
+  readonly occurrence: string;
+  readonly at: number;
+}
+
+export function toSkip(id: string, r: Rec): Skip | null {
+  const taskId = idOrNull(r.task);
+  const at = num(r.at);
+  // Без отметки времени пропуск снят (так его снимает отмена действия).
+  if (!taskId || at === null || !isDate(r.occurrence)) return null;
+  return { id, taskId, occurrence: r.occurrence as string, at };
 }

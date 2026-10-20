@@ -98,6 +98,9 @@ export {
   type Attachment,
   type Comment,
   type WorkLog,
+  type Habit,
+  type Skip,
+  MAX_HABIT_SKIPS,
 } from './model.ts';
 export {
   Doc,
@@ -173,6 +176,7 @@ export { widgetSnapshot, WIDGET_TASK_LIMIT, type WidgetSnapshot, type WidgetTask
 export { applyTemplate, parseTemplate, projectToTemplate, BUILTIN_TEMPLATES, builtinTemplates, type ProjectTemplate, type TemplateTask } from './templates.ts';
 export type { ActivityEvent } from './doc.ts';
 export { phonePushKey, signingKeys, signComment, verifyComment, type SigningKeys, type CommentSigned } from './crypto.ts';
+export { habitStreak, type HabitDayState, type HabitInput, type HabitStreak } from './habits.ts';
 export { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkEvent } from './stats.ts';
 export {
   clockLabel,

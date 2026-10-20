@@ -8,6 +8,7 @@ import { useDoc } from '../hooks.ts';
 import { IconChevron, IconComment, IconDeadline, IconRepeat, IconSubtasks, IconTag } from './icons.tsx';
 import { controller } from '../controller.ts';
 import { DRAG_TYPE, draggedId, registerTouchTask, setDragged, startTouchDrag, useDropOnTask, type DropWhere } from './dnd.ts';
+import { HabitBadge } from './Habit.tsx';
 import { showToast } from './toast.tsx';
 import { pickedIds, togglePicked, usePicked } from './selection.ts';
 import { tr } from '../i18n.ts';
@@ -278,6 +279,7 @@ export function TaskRow({
               <IconRepeat />
             </span>
           )}
+          {task.habit && <HabitBadge task={task} />}
           {task.duration && <span>{durationLabel(task.duration)}</span>}
           {task.deadline && (
             <span className="deadline">

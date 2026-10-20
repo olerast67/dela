@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { TZ, durationLabel, todayDate } from '../format.ts';
 import { navigate, useDoc } from '../hooks.ts';
 import { LOCALE, tn, tr } from '../i18n.ts';
+import { HabitStrip } from './Habit.tsx';
+import { IconFlame } from './icons.tsx';
 
 const PERIODS = [7, 30, 90] as const;
 
@@ -58,6 +60,7 @@ export function StatsView() {
     label: i % 3 === 0 ? short(w.start) : '',
     hint: `${tr('Неделя с {date}', { date: short(w.start) })}: ${tasks(w.count)}`,
   }));
+  const habits = doc.habits(today, TZ);
   const peak = Math.max(1, ...s.projects.map((p) => p.count));
   const num = (n: number) => n.toLocaleString(LOCALE);
   return (
@@ -106,6 +109,31 @@ export function StatsView() {
               <span>{tr('за {period}', { period: tn(period, 'день', 'дня', 'дней') })}</span>
             </div>
           </div>
+        </>
+      )}
+
+      {habits.length > 0 && (
+        <>
+          <h2 className="stats-h">{tr('Привычки')}</h2>
+          {habits.map(({ task, streak }) => (
+            <div key={task.id} className="stats-habit">
+              <a
+                className="stats-project-name"
+                href={`#/task/${encodeURIComponent(task.id)}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate({ view: 'task', id: task.id });
+                }}
+              >
+                {task.title || tr('Без названия')}
+              </a>
+              <span className={`habit-now${streak.current > 0 ? ' on' : ''}`} title={tr('серия')}>
+                <IconFlame /> <b>{num(streak.current)}</b>
+              </span>
+              <span className="muted">{tr('лучшая: {n}', { n: num(streak.best) })}</span>
+              <HabitStrip streak={streak} />
+            </div>
+          ))}
         </>
       )}
 

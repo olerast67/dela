@@ -3449,3 +3449,137 @@ body:has(.pomo-chip) .sidebar {
     display: none;
   }
 }
+
+/* ---------- привычки ---------- */
+
+.task-meta .habit-badge {
+  font-variant-numeric: tabular-nums;
+}
+
+.habit-badge.on,
+.habit-now.on {
+  color: var(--p2);
+}
+
+.habit-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.habit-note {
+  margin: 0;
+  font-size: 13px;
+}
+
+.habit-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+.habit-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.habit-now b {
+  font-size: 18px;
+}
+
+/* Полоска: семь дней в строке, неделя под неделей. */
+.habit-strip {
+  display: grid;
+  grid-template-columns: repeat(7, 14px);
+  gap: 3px;
+}
+
+.habit-day {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: transparent;
+  border: 1px dashed var(--border);
+}
+
+.habit-day.s-done {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.habit-day.s-skipped {
+  background: var(--surface-2);
+  border: 1px solid var(--text-muted);
+}
+
+.habit-day.s-allowed {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.habit-day.s-missed {
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+.habit-day.s-today {
+  border: 2px solid var(--accent);
+}
+
+/* Будущий день по расписанию: пустая клетка со сплошной рамкой, не путается с пропуском. */
+.habit-day.s-planned {
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+.habit-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+
+.habit-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.habit-legend .habit-day {
+  width: 10px;
+  height: 10px;
+}
+
+.habit-skips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.stats-habit {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) auto auto;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-habit .habit-strip {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(35, minmax(0, 12px));
+  grid-auto-flow: row;
+}
+
+.stats-habit .habit-day {
+  width: 100%;
+  max-width: 12px;
+  height: 12px;
+}

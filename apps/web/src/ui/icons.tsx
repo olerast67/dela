@@ -189,3 +189,8 @@ export const IconStop = (p: P) => (
     <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" />
   </Svg>
 );
+export const IconFlame = (p: P) => (
+  <Svg width="14" height="14" {...p}>
+    <path d="M12 21a6 6 0 0 0 6-6c0-3.5-2.5-5.5-3.5-8.5-1.8 1.3-2.5 3-2.5 4.5-1-.6-1.8-1.8-2-3C8 10 6 12.4 6 15a6 6 0 0 0 6 6z" />
+  </Svg>
+);

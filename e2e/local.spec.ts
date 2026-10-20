@@ -258,3 +258,26 @@ test('помодоро: идёт отсчёт, по окончании врем�
   await expect(chip).toHaveCount(0);
   await expect(panel.locator('.pomo-spent')).toHaveText('2 мин');
 });
+
+test('привычка: выполнение даёт серию 1 в строке задачи', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.goto('/#/today');
+  await page.keyboard.press('q');
+  await page.getByLabel('Новая задача').fill('Зарядка каждый день');
+  await page.getByLabel('Новая задача').press('Enter');
+  await page.getByLabel('Новая задача').press('Escape');
+  const row = page.locator('.task', { hasText: 'Зарядка' });
+  await row.getByText('Зарядка').click();
+  const panel = page.locator('.panel');
+  await panel.getByLabel('Считать серию дней подряд').check();
+  await expect(panel.locator('.habit-now b')).toHaveText('0');
+  await expect(row.locator('.habit-badge')).toHaveText('0');
+  await panel.getByRole('button', { name: 'Закрыть' }).click();
+  await row.getByRole('button', { name: 'Выполнить' }).click();
+  await expect(page.locator('.task.done', { hasText: 'Зарядка' }).locator('.habit-badge')).toHaveText('1');
+  await row.getByText('Зарядка').click();
+  await expect(panel.locator('.habit-now b')).toHaveText('1');
+  await expect(panel.locator('.habit-day.s-done')).toHaveCount(2); // в полоске и в подписи
+});

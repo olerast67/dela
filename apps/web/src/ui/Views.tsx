@@ -885,7 +885,7 @@ export function ImportExport() {
       <p className="muted">{tr('Выгрузка собирается на этом устройстве из расшифрованных данных.')}</p>
       <div className="row">
         <button onClick={() => download(`dela-${todayDate()}.json`, JSON.stringify({ ...exportJson(doc.personal), shared: doc.docs().filter((d) => d.kind === 'shared').map((d) => exportJson(d)) }, null, 2), 'application/json')}>JSON</button>
-        <button onClick={() => download(`dela-${todayDate()}.md`, doc.docs().map((d) => exportMarkdown(d, tr('Входящие'))).join(String.fromCharCode(10)), 'text/markdown')}>Markdown</button>
+        <button onClick={() => download(`dela-${todayDate()}.md`, doc.docs().map((d) => exportMarkdown(d, tr('Входящие'), tr('привычка'))).join(String.fromCharCode(10)), 'text/markdown')}>Markdown</button>
       </div>
     </section>
   );
