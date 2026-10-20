@@ -179,6 +179,12 @@ def main() -> None:
     shell('svc power stayon true', check=False)
     shell('settings put system screen_off_timeout 1800000', check=False)
     shell('input keyevent KEYCODE_WAKEUP', check=False)
+    # Эмулятор «заряжается», и системный экран зарядки закрывает приложение: отключаем питание.
+    shell('dumpsys battery unplug', check=False)
+    shell('dumpsys battery set status 3', check=False)
+    time.sleep(2)
+    if 'ChargingActivity' in shell('dumpsys window | grep mCurrentFocus', check=False):
+        shell('input keyevent KEYCODE_BACK', check=False)
 
     seeded = seed('seed')
     log(f'засеяно: {[t["title"] for t in seeded["tasks"]]} на {seeded["date"]} ({seeded["tz"]})')
