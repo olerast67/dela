@@ -9,6 +9,7 @@ import { Sidebar } from './ui/Sidebar.tsx';
 import { TaskPanel } from './ui/TaskPanel.tsx';
 import { PomodoroChip } from './ui/Pomodoro.tsx';
 import { ToastHost, showToast } from './ui/toast.tsx';
+import { RecognizeBar, recognition } from './ui/Recognition.tsx';
 import { SelectionBar } from './ui/SelectionBar.tsx';
 import { clearPicked, pickedIds } from './ui/selection.ts';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
@@ -43,6 +44,10 @@ function Shell() {
   const [menu, setMenu] = useState(false);
   const [palette, setPalette] = useState(false);
   const [sharedText, setSharedText] = useState('');
+  // Текст с картинки открывается сразу для правки: распознавание ошибается.
+  const [sharedEdit, setSharedEdit] = useState(false);
+  // Новое присланное открывает быстрое добавление заново, даже если оно уже открыто.
+  const [sharedSeq, setSharedSeq] = useState(0);
   const [help, setHelp] = useState(false);
 
   const open = useCallback((id: string) => setSelected(id), []);
@@ -233,11 +238,27 @@ function Shell() {
       }),
     );
     keep(
-      onSharedText((text) => {
-        setSharedText(text);
-        setQuickAdd(true);
-      }),
+      onSharedText(
+        (text) => {
+          setSharedText(text);
+          setSharedEdit(false);
+          setSharedSeq((n) => n + 1);
+          setQuickAdd(true);
+        },
+        (kind) => void recognition.shared(kind),
+      ),
     );
+    // Картинка и голосовое распознаются в фоне; готовый текст открывается в быстром добавлении.
+    recognition.setHandlers(
+      (r) => {
+        setSharedText(r.text);
+        setSharedEdit(r.kind === 'image');
+        setSharedSeq((n) => n + 1);
+        setQuickAdd(true);
+      },
+      (text) => showToast(text),
+    );
+    keep(Promise.resolve(() => recognition.setHandlers(null, null)));
     keep(
       onBackButton(() => {
         const s = backState.current;
@@ -379,14 +400,17 @@ function Shell() {
         >
           <div className="modal">
             <QuickAdd
+              key={sharedSeq}
               defaults={quickDefaults}
               initialText={sharedText}
+              initialEdit={sharedEdit}
               autoVoice={quickVoice}
               onClose={() => {
                 setQuickAdd(false);
                 setQuickOverride(null);
                 setQuickVoice(false);
                 setSharedText('');
+                setSharedEdit(false);
               }}
               compact={false}
             />
@@ -400,6 +424,7 @@ function Shell() {
       {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} onCopyLink={copyCurrentLink} />}
       {help && <ShortcutsHelp onClose={() => setHelp(false)} />}
       <SelectionBar />
+      <RecognizeBar />
       <PomodoroChip onOpen={open} />
       <ToastHost />
     </div>

@@ -298,18 +298,67 @@ export async function onAppLink(fn: (url: string) => void): Promise<void> {
   }
 }
 
-/** Телефон: текст из «Поделиться» в других приложениях. */
-export async function onSharedText(fn: (text: string) => void): Promise<() => void> {
+/** Что прислали через «Поделиться», кроме текста: картинка или голосовое сообщение. */
+export type SharedMediaKind = 'image' | 'audio';
+
+/**
+ * Телефон: текст из «Поделиться» в других приложениях. Картинка или голосовое сообщение
+ * приходят в onMedia: файл ждёт распознавания в Android (плагин Recognize).
+ */
+export async function onSharedText(fn: (text: string) => void, onMedia?: (kind: SharedMediaKind) => void): Promise<() => void> {
   if (platform() !== 'capacitor') return () => undefined;
   const { registerPlugin } = await import('@capacitor/core');
+  type Shared = { text?: string; media?: SharedMediaKind };
   const ShareIntent = registerPlugin<{
-    take(): Promise<{ text?: string }>;
-    addListener(event: 'shared', cb: (e: { text: string }) => void): Promise<{ remove(): Promise<void> }>;
+    take(): Promise<Shared>;
+    addListener(event: 'shared', cb: (e: Shared) => void): Promise<{ remove(): Promise<void> }>;
   }>('ShareIntent');
-  const handle = await ShareIntent.addListener('shared', (e) => e.text && fn(e.text));
-  const first = await ShareIntent.take();
-  if (first.text) fn(first.text);
+  const deliver = (e: Shared) => {
+    if (e.media) onMedia?.(e.media);
+    else if (e.text) fn(e.text);
+  };
+  const handle = await ShareIntent.addListener('shared', deliver);
+  deliver(await ShareIntent.take());
   return () => void handle.remove();
+}
+
+/** Модель распознавания: языковые данные Tesseract или модель речи sherpa-onnx для русского или английского. */
+export type ModelPack = 'ocr' | 'ru' | 'en';
+
+export interface PackStatus {
+  readonly ready: boolean;
+  /** Сколько весит модель целиком, байт. */
+  readonly size: number;
+}
+
+export interface RecognizerStatus {
+  readonly ocr: PackStatus;
+  readonly ru: PackStatus;
+  readonly en: PackStatus;
+  /** Есть ли в APK библиотеки для этого телефона: распознавание речи только на 64-битных ARM. */
+  readonly ocrSupported: boolean;
+  readonly speechSupported: boolean;
+  readonly downloading: ModelPack | null;
+  /** Присланный файл, который ждёт распознавания. */
+  readonly pending: SharedMediaKind | null;
+}
+
+/** Плагин Recognize в Android. Ошибки приходят с кодом: no_media, no_model, unsupported, cancelled, busy, checksum, no_space, network, failed. */
+export interface RecognizeApi {
+  status(): Promise<RecognizerStatus>;
+  download(o: { pack: ModelPack }): Promise<void>;
+  cancelDownload(): Promise<void>;
+  remove(o: { pack: ModelPack }): Promise<void>;
+  recognize(o: { lang: string }): Promise<{ kind: SharedMediaKind; text: string }>;
+  cancel(): Promise<void>;
+  discard(): Promise<void>;
+  addListener(event: 'progress', cb: (e: { share: number }) => void): Promise<{ remove(): Promise<void> }>;
+  addListener(event: 'modelProgress', cb: (e: { pack: ModelPack; done: number; total: number }) => void): Promise<{ remove(): Promise<void> }>;
+}
+
+/** Плагин распознавания на телефоне; null в браузере и на компьютере. */
+export async function recognizeApi(): Promise<{ readonly p: RecognizeApi } | null> {
+  return nativePlugin<RecognizeApi>('Recognize');
 }
 
 /** Открыть ссылку в системном браузере. */

@@ -41,6 +41,28 @@ test('вставленный список становится задачами,
   await expect(page.locator('.task', { hasText: 'купить краску' })).toHaveCount(0);
 });
 
+test('список перед добавлением правится текстом, по задаче на строку', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.keyboard.press('q');
+  await page.getByLabel('Новая задача').evaluate((el, text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, 'Купить хлеп сегодня\nПозвонить маме сегодня');
+  await page.getByRole('button', { name: 'Изменить' }).click();
+  const draft = page.getByLabel('Текст задач');
+  await expect(draft).toHaveValue('Купить хлеп сегодня\nПозвонить маме сегодня');
+  await draft.fill('Купить хлеб сегодня\nПозвонить маме сегодня\nПолить цветы сегодня');
+  await page.getByRole('button', { name: 'Готово' }).click();
+  await expect(page.getByText('Вставлен список: 3 задачи')).toBeVisible();
+  await page.getByRole('button', { name: 'Добавить все' }).click();
+  await expect(page.locator('.task', { hasText: 'Купить хлеб' })).toBeVisible();
+  await expect(page.locator('.task', { hasText: 'Полить цветы' })).toBeVisible();
+  await expect(page.locator('.task', { hasText: 'хлеп' })).toHaveCount(0);
+});
+
 test('экран при запуске из настроек', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /Попробовать без сервера/ }).click();

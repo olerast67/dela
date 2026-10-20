@@ -11,8 +11,9 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(VoiceInputPlugin.class);
         registerPlugin(UnifiedPushPlugin.class);
         registerPlugin(AlarmPlugin.class);
+        registerPlugin(RecognizePlugin.class);
         super.onCreate(savedInstanceState);
-        ShareIntentPlugin.store(getIntent());
+        ShareIntentPlugin.store(this, getIntent());
         WidgetBridgePlugin.store(getIntent());
         // Отладочная сборка: страница https://localhost обращается к серверу разработчика http://localhost.
         if ((getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
