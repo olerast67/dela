@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 8790;
+// Свой порт у каждой рабочей копии: агенты в отдельных worktree гоняют e2e одновременно.
+const PORT = Number(process.env.DELA_E2E_PORT ?? 8790);
 
 export default defineConfig({
   testDir: 'e2e',
