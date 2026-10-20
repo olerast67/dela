@@ -84,3 +84,34 @@ test('выделение нескольких задач: выполнить р�
   await page.keyboard.press('Escape');
   await expect(page.getByRole('toolbar')).toHaveCount(0);
 });
+
+test('повтор кнопками: каждую неделю по понедельникам и средам', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.keyboard.press('q');
+  await page.getByLabel('Новая задача').fill('Планёрка сегодня');
+  await page.getByLabel('Новая задача').press('Enter');
+  await page.getByLabel('Новая задача').press('Escape');
+  await page.locator('.task', { hasText: 'Планёрка' }).click();
+  const panel = page.locator('.panel');
+  await panel.getByRole('button', { name: 'Настроить' }).click();
+  const editor = panel.getByRole('group', { name: 'Настройка повтора' });
+  await editor.getByRole('button', { name: 'Неделя' }).click();
+  // По умолчанию выбран день срока: снимаем все дни и отмечаем нужные.
+  const days = editor.getByRole('group', { name: 'Дни недели' });
+  for (const b of await days.locator('button[aria-pressed="true"]').all()) await b.click();
+  await days.getByRole('button', { name: 'Понедельник' }).click();
+  await days.getByRole('button', { name: 'Среда' }).click();
+  await editor.getByRole('button', { name: 'Сохранить' }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(panel.locator('.pill', { hasText: 'каждый понедельник и среду' })).toBeVisible();
+  // Срок сдвинут на ближайший понедельник или среду.
+  const due = await panel.getByLabel('Дата', { exact: true }).inputValue();
+  expect([1, 3]).toContain(new Date(`${due}T12:00:00Z`).getUTCDay());
+  // Повторное открытие заполняет форму из правила.
+  await panel.getByRole('button', { name: 'Настроить' }).click();
+  await expect(editor.getByRole('button', { name: 'Понедельник' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(editor.getByRole('button', { name: 'Среда' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(editor.getByRole('button', { name: 'Пятница' })).toHaveAttribute('aria-pressed', 'false');
+});

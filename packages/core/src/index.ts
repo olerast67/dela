@@ -119,6 +119,7 @@ export {
   nextOccurrence,
   firstOnOrAfter,
   occurrencesBetween,
+  describeRule,
   type Freq,
   type Rule,
   type WeekdayNum,

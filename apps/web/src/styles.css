@@ -1306,6 +1306,31 @@ input.inline {
   min-width: 118px;
 }
 
+/* Повтор кнопками: панель под строкой повтора в карточке задачи. */
+.repeat-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.repeat-editor .row {
+  gap: 6px;
+}
+
+.repeat-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.fields .repeat-editor input.repeat-interval {
+  width: 72px;
+}
+
 @media (max-width: 1200px) and (min-width: 761px) {
   .shell {
     grid-template-columns: 240px minmax(0, 1fr);

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Repeat by buttons in the task card: frequency, "every N", days of the week, day of the month, end date and the after-completion mode. The text field stays; the buttons write the same repeat and a readable phrase in the interface language.
+
 ## 0.6.0
 
 - Reminders in the quick add phrase: "напомни за час и за 10 минут", "напомни в 9", "без напоминания", "remind me an hour before", "remind me at 9am", "no reminder". A reminder time on a task without a time gives the task that time.

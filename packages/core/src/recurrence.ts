@@ -184,3 +184,168 @@ export function occurrencesBetween(rule: Rule, anchor: string, from: string, to:
   }
   return out;
 }
+
+// ---------- правило словами ----------
+
+// Род дня недели в винительном падеже: от него зависят «каждый/каждую/каждое» и форма порядкового числительного.
+type Gender = 'm' | 'f' | 'n';
+const RU_DAY_ACC = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье'] as const;
+const RU_DAY_GENDER: readonly Gender[] = ['m', 'm', 'f', 'm', 'f', 'f', 'n'];
+const RU_DAY_DAT_PL = ['понедельникам', 'вторникам', 'средам', 'четвергам', 'пятницам', 'субботам', 'воскресеньям'] as const;
+const EN_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+const RU_MONTHS_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'] as const;
+const EN_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const;
+
+const EVERY_RU_G: Readonly<Record<Gender, string>> = { m: 'каждый', f: 'каждую', n: 'каждое' };
+const RU_ORD: Readonly<Record<number, Readonly<Record<Gender, string>>>> = {
+  1: { m: 'первый', f: 'первую', n: 'первое' },
+  2: { m: 'второй', f: 'вторую', n: 'второе' },
+  3: { m: 'третий', f: 'третью', n: 'третье' },
+  4: { m: 'четвёртый', f: 'четвёртую', n: 'четвёртое' },
+  5: { m: 'пятый', f: 'пятую', n: 'пятое' },
+  [-1]: { m: 'последний', f: 'последнюю', n: 'последнее' },
+};
+const EN_ORD: Readonly<Record<number, string>> = { 1: 'first', 2: 'second', 3: 'third', 4: 'fourth', 5: 'fifth', [-1]: 'last' };
+
+function ruPlural(n: number, one: string, few: string, many: string): string {
+  const m10 = n % 10;
+  const m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return one;
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+  return many;
+}
+
+function joinList(items: readonly string[], and: string): string {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} ${and} ${items[items.length - 1]}`;
+}
+
+function enNth(d: number): string {
+  const m100 = d % 100;
+  const suffix = m100 >= 11 && m100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][d % 10] ?? 'th');
+  return `${d}${suffix}`;
+}
+
+/** «каждые 3 дня», «каждый 21 день» / «every 3 days»: интервал больше единицы. */
+function everyN(n: number, unit: 'day' | 'week' | 'month' | 'year', lang: 'ru' | 'en'): string {
+  if (lang === 'en') return `every ${n} ${unit}s`;
+  const forms: Readonly<Record<typeof unit, readonly [string, string, string]>> = {
+    day: ['день', 'дня', 'дней'],
+    week: ['неделю', 'недели', 'недель'],
+    month: ['месяц', 'месяца', 'месяцев'],
+    year: ['год', 'года', 'лет'],
+  };
+  const [one, few, many] = forms[unit];
+  const word = ruPlural(n, one, few, many);
+  // «каждый 21 день», «каждую 21 неделю», но «каждые 2 недели».
+  const every = word === one ? (unit === 'week' ? 'каждую' : 'каждый') : 'каждые';
+  return `${every} ${n} ${word}`;
+}
+
+function enDays(days: readonly number[]): string {
+  return joinList(days.map((d) => EN_DAYS[d - 1]!), 'and');
+}
+
+function weeklyText(rule: Rule, lang: 'ru' | 'en'): string {
+  const days = [...new Set((rule.byDay ?? []).map((d) => d.day))].sort((a, b) => a - b);
+  const key = days.join(',');
+  if (rule.interval === 1) {
+    if (key === '1,2,3,4,5') return lang === 'ru' ? 'по будням' : 'every weekday';
+    if (key === '6,7') return lang === 'ru' ? 'по выходным' : 'every weekend';
+    if (!days.length) return lang === 'ru' ? 'каждую неделю' : 'every week';
+    if (lang === 'en') return `every ${enDays(days)}`;
+    return `${EVERY_RU_G[RU_DAY_GENDER[days[0]! - 1]!]} ${joinList(days.map((d) => RU_DAY_ACC[d - 1]!), 'и')}`;
+  }
+  const base = everyN(rule.interval, 'week', lang);
+  if (!days.length) return base;
+  if (lang === 'en') return `${base} on ${enDays(days)}`;
+  return `${base} по ${joinList(days.map((d) => RU_DAY_DAT_PL[d - 1]!), 'и')}`;
+}
+
+/** Дни месяца: «15 числа», «в последний день», «во второй вторник» / «on the 15th». */
+function monthDaysText(rule: Rule, lang: 'ru' | 'en'): string {
+  const pieces: string[] = [];
+  for (const d of rule.byMonthDay ?? []) {
+    if (lang === 'en') pieces.push(d === -1 ? 'the last day' : d < 0 ? `the ${enNth(-d)} day from the end` : `the ${enNth(d)}`);
+    else pieces.push(d === -1 ? 'в последний день' : d < 0 ? `в ${-d}-й день с конца` : `${d} числа`);
+  }
+  for (const wd of rule.byDay ?? []) {
+    const g = RU_DAY_GENDER[wd.day - 1]!;
+    if (lang === 'en') pieces.push(wd.n !== undefined ? `the ${EN_ORD[wd.n] ?? wd.n} ${EN_DAYS[wd.day - 1]}` : `every ${EN_DAYS[wd.day - 1]}`);
+    else if (wd.n !== undefined) pieces.push(`${wd.day === 2 ? 'во' : 'в'} ${RU_ORD[wd.n]?.[g] ?? wd.n} ${RU_DAY_ACC[wd.day - 1]}`);
+    else pieces.push(`по ${RU_DAY_DAT_PL[wd.day - 1]}`);
+  }
+  if (!pieces.length) return '';
+  return lang === 'en' ? `on ${joinList(pieces, 'and')}` : joinList(pieces, 'и');
+}
+
+function monthlyText(rule: Rule, lang: 'ru' | 'en'): string {
+  const md = rule.byMonthDay ?? [];
+  const bd = rule.byDay ?? [];
+  if (rule.interval === 1) {
+    // Короткие формы, которые понимает и строка быстрого ввода.
+    if (md.length === 1 && !bd.length) {
+      const d = md[0]!;
+      if (d === -1) return lang === 'ru' ? 'каждый последний день месяца' : 'every last day of the month';
+      if (d > 0) return lang === 'ru' ? `каждое ${d} число` : `every ${enNth(d)}`;
+    }
+    const wd = bd[0];
+    if (bd.length === 1 && !md.length && wd?.n !== undefined) {
+      const g = RU_DAY_GENDER[wd.day - 1]!;
+      if (lang === 'en') return `every ${EN_ORD[wd.n] ?? wd.n} ${EN_DAYS[wd.day - 1]} of the month`;
+      return `${EVERY_RU_G[g]} ${RU_ORD[wd.n]?.[g] ?? wd.n} ${RU_DAY_ACC[wd.day - 1]} месяца`;
+    }
+  }
+  const base = rule.interval === 1 ? (lang === 'ru' ? 'каждый месяц' : 'every month') : everyN(rule.interval, 'month', lang);
+  const days = monthDaysText(rule, lang);
+  return days ? `${base}, ${days}` : base;
+}
+
+function yearlyText(rule: Rule, lang: 'ru' | 'en'): string {
+  const months = rule.byMonth ?? [];
+  const md = rule.byMonthDay ?? [];
+  const base = rule.interval === 1 ? (lang === 'ru' ? 'каждый год' : 'every year') : everyN(rule.interval, 'year', lang);
+  if (months.length === 1 && md.length === 1 && md[0]! > 0 && !rule.byDay?.length) {
+    const m = months[0]!;
+    const d = md[0]!;
+    if (rule.interval === 1) return lang === 'ru' ? `каждое ${d} ${RU_MONTHS_GEN[m - 1]}` : `every ${EN_MONTHS[m - 1]} ${d}`;
+    return lang === 'ru' ? `${base}, ${d} ${RU_MONTHS_GEN[m - 1]}` : `${base} on ${EN_MONTHS[m - 1]} ${d}`;
+  }
+  // Сложные годовые правила просто перечисляем частями через запятую.
+  const extra: string[] = [];
+  const days = monthDaysText(rule, lang);
+  if (days) extra.push(days);
+  if (months.length) {
+    extra.push(lang === 'ru' ? `в ${joinList(months.map((m) => RU_MONTHS_GEN[m - 1]!), 'и')}` : `in ${joinList(months.map((m) => EN_MONTHS[m - 1]!), 'and')}`);
+  }
+  return extra.length ? `${base}, ${extra.join(', ')}` : base;
+}
+
+function untilText(date: string, lang: 'ru' | 'en'): string {
+  const p = parts(date);
+  return lang === 'ru' ? `до ${p.day} ${RU_MONTHS_GEN[p.month - 1]} ${p.year}` : `until ${EN_MONTHS[p.month - 1]} ${p.day}, ${p.year}`;
+}
+
+/**
+ * Правило словами: «каждый понедельник и среду», «каждые 2 недели по пятницам до 31 декабря 2026».
+ * Нужно, когда повтор задан не фразой, а кнопками: карточка задачи показывает текст повтора,
+ * и он должен читаться как набранная пользователем фраза. Режим «от выполнения» карточка дописывает сама.
+ */
+export function describeRule(rule: Rule, lang: 'ru' | 'en'): string {
+  let text: string;
+  switch (rule.freq) {
+    case 'DAILY':
+      text = rule.interval === 1 ? (lang === 'ru' ? 'каждый день' : 'every day') : everyN(rule.interval, 'day', lang);
+      break;
+    case 'WEEKLY':
+      text = weeklyText(rule, lang);
+      break;
+    case 'MONTHLY':
+      text = monthlyText(rule, lang);
+      break;
+    case 'YEARLY':
+      text = yearlyText(rule, lang);
+      break;
+  }
+  return rule.until ? `${text} ${untilText(rule.until, lang)}` : text;
+}

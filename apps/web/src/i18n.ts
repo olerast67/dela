@@ -79,6 +79,7 @@ const EN_PLURAL: Readonly<Record<string, readonly [string, string]>> = {
   неделю: ['week', 'weeks'],
   неделя: ['week', 'weeks'],
   месяц: ['month', 'months'],
+  год: ['year', 'years'],
   час: ['hour', 'hours'],
   минута: ['minute', 'minutes'],
   минуту: ['minute', 'minutes'],

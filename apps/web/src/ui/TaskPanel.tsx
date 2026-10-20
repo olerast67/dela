@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { extractLinks, parseTask, type DateSpec, type Priority } from '#core';
 import { openExternal } from '../platform.ts';
 import { Comments } from './Comments.tsx';
-import { TZ, dateLabel, durationLabel } from '../format.ts';
+import { TZ, dateLabel, durationLabel, todayDate } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
 import { IconRepeat, IconTrash, IconX } from './icons.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
+import { RepeatEditor } from './RepeatEditor.tsx';
 import { TaskTree, completeWithUndo } from './Task.tsx';
 import { showToast } from './toast.tsx';
 import { LOCALE, tr } from '../i18n.ts';
@@ -36,6 +37,9 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
   const doc = useDoc();
   const task = doc.task(id);
   const [repeatText, setRepeatText] = useState('');
+  const [repeatEditor, setRepeatEditor] = useState(false);
+  // Редактор повтора относится к открытой задаче: при переходе к другой он закрывается.
+  useEffect(() => setRepeatEditor(false), [id]);
   const [addingSub, setAddingSub] = useState(false);
   const title = useDraft(task?.title ?? '', (v) => v.trim() && doc.updateTask(id, { title: v }));
   const description = useDraft(task?.description ?? '', (v) => doc.updateTask(id, { description: v }));
@@ -230,18 +234,41 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
                   {task.recurrence.mode === 'completion' ? tr(' (от выполнения)') : ''}
                 </span>
                 <button onClick={() => doc.skipOccurrence(id)}>{tr('Пропустить раз')}</button>
+                <button onClick={() => setRepeatEditor((v) => !v)} aria-expanded={repeatEditor}>
+                  {tr('Настроить')}
+                </button>
                 <button className="icon small" onClick={() => doc.updateTask(id, { recurrence: null })} aria-label={tr('Убрать повтор')}>
                   <IconX width={14} height={14} />
                 </button>
               </div>
             ) : (
-              <input
-                placeholder={tr('каждый понедельник, по будням, каждые 3 дня…')}
-                value={repeatText}
-                onChange={(e) => setRepeatText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && applyRepeat()}
-                onBlur={applyRepeat}
-                aria-label={tr('Повтор')}
+              <div className="row repeat-row">
+                <input
+                  placeholder={tr('каждый понедельник, по будням, каждые 3 дня…')}
+                  value={repeatText}
+                  onChange={(e) => setRepeatText(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && applyRepeat()}
+                  onBlur={applyRepeat}
+                  aria-label={tr('Повтор')}
+                />
+                <button onClick={() => setRepeatEditor((v) => !v)} aria-expanded={repeatEditor}>
+                  {tr('Настроить')}
+                </button>
+              </div>
+            )}
+            {repeatEditor && (
+              // key: после сохранения или смены задачи форма заново заполняется из правила.
+              <RepeatEditor
+                key={`${id}|${task.recurrence?.rule ?? ''}|${task.recurrence?.mode ?? ''}`}
+                recurrence={task.recurrence}
+                due={task.due}
+                today={todayDate()}
+                onApply={(recurrence, due) => {
+                  doc.updateTask(id, { recurrence, due });
+                  setRepeatEditor(false);
+                }}
+                onCancel={() => setRepeatEditor(false)}
+                onError={(message) => showToast(message)}
               />
             )}
           </dd>
