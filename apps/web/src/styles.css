@@ -2022,6 +2022,13 @@ kbd {
   padding-bottom: 0;
 }
 
+/* Долгое нажатие берёт задачу пальцем: без меню и выделения текста. */
+.cal-chip,
+.cal-block {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+}
+
 .cal-resize {
   position: absolute;
   left: 0;

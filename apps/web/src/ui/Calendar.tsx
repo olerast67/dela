@@ -2,6 +2,7 @@
  * Календарь: месяц, неделя, три дня и день. В неделе и дне задачи со временем стоят в сетке часов:
  * их можно перетащить на другой час или день и растянуть за нижний край (длительность).
  * Задачи без времени лежат в строке «Весь день»; оттуда их перетаскивают в сетку, так планируется день.
+ * На телефоне задачу берут долгим нажатием и ведут пальцем.
  */
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { addDays, addMonths, layoutDay, monthGrid, monthStart, moveDue, slotOf, snapMinute, weekDates, type DateSpec, type TaskView } from '#core';
@@ -12,6 +13,7 @@ import type { QuickAddDefaults } from './QuickAdd.tsx';
 import { completeWithUndo } from './Task.tsx';
 import { OptionsPopover } from './ViewOptions.tsx';
 import { tr } from '../i18n.ts';
+import { haptic } from '../platform.ts';
 
 export type CalendarMode = 'day' | '3day' | 'week' | 'month';
 type ColorBy = 'priority' | 'project';
@@ -64,6 +66,153 @@ function savedMode(narrow: boolean): CalendarMode {
 
 /** На сколько минут ниже верха задачи её взяли мышью: при броске верх встаёт туда же. */
 let grabOffset = 0;
+
+// ---------- перетаскивание пальцем ----------
+
+const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+/** Сколько держать палец на задаче, чтобы её взять. */
+const LONG_PRESS_MS = 450;
+
+/** Куда бросят задачу, если отпустить палец сейчас: день месяца, строка «Весь день» или час в сетке. */
+type TouchOver = { kind: 'day' | 'allday'; date: string } | { kind: 'time'; date: string; minute: number };
+
+interface TouchDrag {
+  readonly over: TouchOver | null;
+  readonly begin: (task: TaskView, el: HTMLElement, x: number, y: number) => void;
+}
+
+const TouchContext = createContext<TouchDrag>({ over: null, begin: () => {} });
+
+let press: { timer: ReturnType<typeof setTimeout>; x: number; y: number; id: number } | null = null;
+/** Когда закончилось перетаскивание пальцем: щелчок, который браузер пришлёт следом, задачу не открывает. */
+let touchEndedAt = 0;
+
+function cancelPress(): void {
+  if (press) clearTimeout(press.timer);
+  press = null;
+}
+
+function justDragged(): boolean {
+  return Date.now() - touchEndedAt < 400;
+}
+
+/** Долгое нажатие пальцем на задаче начинает перетаскивание. Мышью задачи тащат обычным drag and drop. */
+function touchProps(t: TaskView, begin: TouchDrag['begin']) {
+  if (t.projected) return {};
+  return {
+    onPointerDown(e: React.PointerEvent<HTMLElement>) {
+      if (e.pointerType !== 'touch') return;
+      cancelPress();
+      const el = e.currentTarget;
+      const x = e.clientX;
+      const y = e.clientY;
+      const timer = setTimeout(() => {
+        press = null;
+        haptic('medium');
+        begin(t, el, x, y);
+      }, LONG_PRESS_MS);
+      press = { timer, x, y, id: e.pointerId };
+    },
+    onPointerMove(e: React.PointerEvent) {
+      if (press && e.pointerId === press.id && (Math.abs(e.clientX - press.x) > 10 || Math.abs(e.clientY - press.y) > 10)) cancelPress();
+    },
+    onPointerUp: cancelPress,
+    onPointerCancel: cancelPress,
+    onContextMenu(e: React.MouseEvent) {
+      if (coarse) e.preventDefault();
+    },
+  };
+}
+
+function sameOver(a: TouchOver | null, b: TouchOver | null): boolean {
+  if (!a || !b) return a === b;
+  return a.kind === b.kind && a.date === b.date && (a.kind !== 'time' || a.minute === (b as typeof a).minute);
+}
+
+/**
+ * Копия задачи едет за пальцем, под пальцем подсвечивается день или линия часа.
+ * Прокрутка страницы на время жеста выключена; у верхнего и нижнего края сетка прокручивается сама.
+ */
+function trackTouchDrag(el: HTMLElement, x: number, y: number, scroller: HTMLElement | null, onOver: (o: TouchOver | null) => void, onEnd: (o: TouchOver | null) => void): void {
+  const rect = el.getBoundingClientRect();
+  const ghost = el.cloneNode(true) as HTMLElement;
+  ghost.classList.add('drag-ghost');
+  Object.assign(ghost.style, {
+    position: 'fixed',
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    margin: '0',
+    zIndex: '50',
+    pointerEvents: 'none',
+    transform: 'scale(1.03)',
+  });
+  document.body.appendChild(ghost);
+  el.classList.add('drag-source');
+  // Блок из сетки встаёт верхом туда, где был его верх под пальцем, как при перетаскивании мышью.
+  const grab = el.classList.contains('cal-block') ? ((y - rect.top) / HOUR) * 60 : 0;
+  let px = x;
+  let py = y;
+  let over: TouchOver | null = null;
+  const locate = () => {
+    const zone = document.elementFromPoint(px, py)?.closest<HTMLElement>('[data-drop]');
+    let next: TouchOver | null = null;
+    const date = zone?.dataset.date;
+    if (zone && date) {
+      if (zone.dataset.drop === 'time') next = { kind: 'time', date, minute: snapMinute(((py - zone.getBoundingClientRect().top) / HOUR) * 60 - grab) };
+      else next = { kind: zone.dataset.drop === 'allday' ? 'allday' : 'day', date };
+    }
+    if (!sameOver(next, over)) {
+      over = next;
+      onOver(next);
+    }
+  };
+  let frame = 0;
+  const tick = () => {
+    if (scroller) {
+      const r = scroller.getBoundingClientRect();
+      const top = Math.max(r.top, 0);
+      // Нижняя панель вкладок на телефоне закрывает конец сетки: край считается от неё.
+      const bar = document.querySelector('.tabbar')?.getBoundingClientRect();
+      const bottom = Math.min(r.bottom, window.innerHeight, bar && bar.height > 0 ? bar.top : Infinity);
+      if (py < top + 48 && scroller.scrollTop > 0) {
+        scroller.scrollTop -= 10;
+        locate();
+      } else if (py > bottom - 48 && scroller.scrollTop + scroller.clientHeight < scroller.scrollHeight) {
+        scroller.scrollTop += 10;
+        locate();
+      }
+    }
+    frame = requestAnimationFrame(tick);
+  };
+  const move = (e: PointerEvent) => {
+    px = e.clientX;
+    py = e.clientY;
+    ghost.style.transform = `translate(${px - x}px, ${py - y}px) scale(1.03)`;
+    locate();
+  };
+  const noScroll = (e: TouchEvent) => e.preventDefault();
+  const finish = (drop: boolean) => {
+    cancelAnimationFrame(frame);
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+    document.removeEventListener('pointercancel', cancel);
+    document.removeEventListener('touchmove', noScroll);
+    ghost.remove();
+    el.classList.remove('drag-source');
+    touchEndedAt = Date.now();
+    onEnd(drop ? over : null);
+  };
+  const up = () => finish(true);
+  const cancel = () => finish(false);
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+  document.addEventListener('pointercancel', cancel);
+  document.addEventListener('touchmove', noScroll, { passive: false });
+  frame = requestAnimationFrame(tick);
+  locate();
+}
 
 interface Props {
   readonly mode: CalendarMode | null;
@@ -131,8 +280,30 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
   const title = mode === 'month' ? monthTitle(anchor) : rangeTitle(first, last);
   const unscheduled = doc.today(today, TZ).overdue.length + doc.openTasks().filter((t) => !t.due).length;
 
+  // Панель поверх сетки уходит с дороги, пока из неё тащат задачу.
+  const [sideAway, setSideAway] = useState(false);
+  const [touchOver, setTouchOver] = useState<TouchOver | null>(null);
+  const touch: TouchDrag = {
+    over: touchOver,
+    begin(task, el, x, y) {
+      const fromSheet = compact && el.closest('.cal-side') !== null;
+      if (fromSheet) setSideAway(true);
+      const scroller = root.current?.querySelector<HTMLElement>('.cal-body') ?? root.current?.closest<HTMLElement>('.content') ?? null;
+      trackTouchDrag(el, x, y, scroller, setTouchOver, (o) => {
+        setTouchOver(null);
+        if (fromSheet) {
+          setSideAway(false);
+          // Задачу бросили в сетку: панель закрывается, как после перетаскивания мышью. Отпустили мимо: панель остаётся.
+          if (o) setSheet(false);
+        }
+        if (o) move(task.id, o.date, o.kind === 'time' ? o.minute : null, o.kind === 'allday');
+      });
+    },
+  };
+
   return (
     <ColorContext.Provider value={color}>
+    <TouchContext.Provider value={touch}>
     <div className={`calendar calendar-${mode}`} ref={root}>
       <header className="view-head cal-head">
         <h1>{title}</h1>
@@ -226,9 +397,10 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
         />
       )}
       </div>
-      {showSide && <SidePanel today={today} onOpen={onOpen} selectedId={selectedId} sheet={compact} onClose={() => setSheet(false)} />}
+      {showSide && <SidePanel today={today} onOpen={onOpen} selectedId={selectedId} sheet={compact} away={sideAway} onAway={setSideAway} onClose={() => setSheet(false)} />}
       </div>
     </div>
+    </TouchContext.Provider>
     </ColorContext.Provider>
   );
 }
@@ -238,19 +410,27 @@ export function CalendarView({ mode: routeMode, date: routeDate, onOpen, selecte
  * в строку «Весь день» или на час в сетке: задача получает дату (и время).
  * Когда места мало, панель открывается кнопкой поверх сетки (на телефоне снизу); когда задачу потащили, она уходит с дороги.
  */
-function SidePanel({ today, onOpen, selectedId, sheet, onClose }: { today: string; onOpen: (id: string) => void; selectedId: string | null; sheet: boolean; onClose: () => void }) {
+function SidePanel(props: {
+  today: string;
+  onOpen: (id: string) => void;
+  selectedId: string | null;
+  sheet: boolean;
+  away: boolean;
+  onAway: (away: boolean) => void;
+  onClose: () => void;
+}) {
+  const { today, onOpen, selectedId, sheet, away, onAway, onClose } = props;
   const doc = useDoc();
-  const [away, setAway] = useState(false);
   const overdue = doc.today(today, TZ).overdue;
   const undated = doc.openTasks().filter((t) => !t.due);
   return (
     <aside
       className={`cal-side${sheet ? ' sheet' : ''}${away ? ' away' : ''}`}
       aria-label={tr('Не запланировано')}
-      onDragStart={() => sheet && setTimeout(() => setAway(true), 0)}
+      onDragStart={() => sheet && setTimeout(() => onAway(true), 0)}
       onDragEnd={() => {
         if (!sheet) return;
-        setAway(false);
+        onAway(false);
         onClose();
       }}
     >
@@ -276,7 +456,9 @@ function SidePanel({ today, onOpen, selectedId, sheet, onClose }: { today: strin
       {undated.map((t) => (
         <Chip key={t.id} task={t} onOpen={onOpen} selected={t.id === selectedId} showTime={false} />
       ))}
-      <p className="muted cal-side-hint">{tr('Перетащите задачу на день или на час в сетке, чтобы назначить срок.')}</p>
+      <p className="muted cal-side-hint">
+        {coarse ? tr('Удерживайте задачу и перетащите её на день или на час в сетке, чтобы назначить срок.') : tr('Перетащите задачу на день или на час в сетке, чтобы назначить срок.')}
+      </p>
     </aside>
   );
 }
@@ -303,13 +485,15 @@ function dragProps(t: TaskView) {
 function Chip({ task, onOpen, selected, showTime, note }: { task: Overdue; onOpen: (id: string) => void; selected: boolean; showTime: boolean; note?: string | undefined }) {
   const doc = useDoc();
   const tone = useToneClass();
+  const { begin } = useContext(TouchContext);
   const slot = task.due ? slotOf(task.due, TZ) : null;
   return (
     <div
       className={`cal-chip ${tone(task)}${selected ? ' selected' : ''}${task.overdueMark ? ' overdue' : ''}${task.projected ? ' projected' : ''}`}
       data-id={task.id}
       {...dragProps(task)}
-      onClick={() => onOpen(task.id)}
+      {...touchProps(task, begin)}
+      onClick={() => !justDragged() && onOpen(task.id)}
       title={task.title}
     >
       <button
@@ -318,6 +502,7 @@ function Chip({ task, onOpen, selected, showTime, note }: { task: Overdue; onOpe
         disabled={task.projected}
         onClick={(e) => {
           e.stopPropagation();
+          if (justDragged()) return;
           completeWithUndo(doc, task);
         }}
       />
@@ -347,7 +532,9 @@ function MonthGrid(props: {
 }) {
   const { dates, anchor, today, byDate, onOpen, selectedId, onDropDay, onDay } = props;
   const month = anchor.slice(0, 7);
-  const [over, setOver] = useState<string | null>(null);
+  const [mouseOver, setOver] = useState<string | null>(null);
+  const touchOver = useContext(TouchContext).over;
+  const over = touchOver?.kind === 'day' ? touchOver.date : mouseOver;
   const LIMIT = 4;
   return (
     <div className="cal-month">
@@ -362,6 +549,8 @@ function MonthGrid(props: {
           <div
             key={d}
             className={`cal-cell${d.slice(0, 7) !== month ? ' other' : ''}${d === today ? ' today' : ''}${over === d ? ' drop-target' : ''}`}
+            data-drop="day"
+            data-date={d}
             onDragOver={(e) => acceptDrop(e) && setOver(d)}
             onDragLeave={() => setOver((o) => (o === d ? null : o))}
             onDrop={(e) => {
@@ -418,8 +607,11 @@ function TimeGrid(props: {
   const tone = useToneClass();
   const body = useRef<HTMLDivElement>(null);
   const now = useNowMinute();
-  const [indicator, setIndicator] = useState<{ date: string; minute: number } | null>(null);
-  const [allDayOver, setAllDayOver] = useState<string | null>(null);
+  const [mouseIndicator, setIndicator] = useState<{ date: string; minute: number } | null>(null);
+  const [mouseAllDayOver, setAllDayOver] = useState<string | null>(null);
+  const touch = useContext(TouchContext);
+  const indicator = touch.over?.kind === 'time' ? touch.over : mouseIndicator;
+  const allDayOver = touch.over?.kind === 'allday' ? touch.over.date : mouseAllDayOver;
   const [resizing, setResizing] = useState<{ id: string; duration: number } | null>(null);
 
   const timed = new Map<string, Array<{ task: TaskView; start: number; end: number }>>();
@@ -499,6 +691,8 @@ function TimeGrid(props: {
           <div
             key={d}
             className={`cal-allday-cell${allDayOver === d ? ' drop-target' : ''}`}
+            data-drop="allday"
+            data-date={d}
             onDragOver={(e) => acceptDrop(e) && setAllDayOver(d)}
             onDragLeave={() => setAllDayOver((o) => (o === d ? null : o))}
             onDrop={(e) => {
@@ -528,6 +722,8 @@ function TimeGrid(props: {
             <div
               key={d}
               className={`cal-col${d === today ? ' today' : ''}`}
+              data-drop="time"
+              data-date={d}
               style={{ height: 24 * HOUR }}
               onDragOver={(e) => {
                 if (!acceptDrop(e)) return;
@@ -546,7 +742,7 @@ function TimeGrid(props: {
                 grabOffset = 0;
               }}
               onClick={(e) => {
-                if (e.target !== e.currentTarget) return;
+                if (e.target !== e.currentTarget || justDragged()) return;
                 const minute = Math.floor(minuteAt(e, e.currentTarget) / 30) * 30;
                 onQuickAdd({ due: { date: d, time: clock(minute) } });
               }}
@@ -570,7 +766,8 @@ function TimeGrid(props: {
                       width: `calc(${100 / p.cols}% - 4px)`,
                     }}
                     {...dragProps(t)}
-                    onClick={() => onOpen(t.id)}
+                    {...touchProps(t, touch.begin)}
+                    onClick={() => !justDragged() && onOpen(t.id)}
                     title={t.title}
                   >
                     <span className="cal-title">{t.title}</span>

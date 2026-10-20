@@ -646,4 +646,5 @@ export const EN: Readonly<Record<string, string>> = {
   'Просроченных задач нет.': 'No overdue tasks.',
   'Задач без даты нет.': 'No tasks without a date.',
   'Перетащите задачу на день или на час в сетке, чтобы назначить срок.': 'Drag a task onto a day or an hour in the grid to give it a date.',
+  'Удерживайте задачу и перетащите её на день или на час в сетке, чтобы назначить срок.': 'Hold a task, then drag it onto a day or an hour in the grid to give it a date.',
 };
