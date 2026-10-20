@@ -47,6 +47,12 @@ export const IconX = (p: P) => (
     <path d="M6 6l12 12M18 6L6 18" />
   </Svg>
 );
+export const IconLink = (p: P) => (
+  <Svg {...p}>
+    <path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1" />
+    <path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1" />
+  </Svg>
+);
 export const IconCheck = (p: P) => (
   <Svg {...p}>
     <path d="M5 12.5l4.5 4.5L19 7.5" />

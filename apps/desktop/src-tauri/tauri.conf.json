@@ -49,6 +49,13 @@
     "createUpdaterArtifacts": true
   },
   "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "dela"
+        ]
+      }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDM0Q1MUNCNzcyOTYzOEQKUldTTll5bDN5MUU5dkJSY1E2ZzhJb2lBemlST0F6UEJvR2JlUHNXY0RLQTRDSUFxM3ZRLzlZUVkK",
       "endpoints": [

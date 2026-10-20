@@ -218,6 +218,25 @@ export async function onQuickAddRequest(fn: () => void): Promise<() => void> {
   return listen('quick-add', () => fn());
 }
 
+/**
+ * Приложение открыто по ссылке dela://open#/… (Android и Windows): и при запуске, и когда уже работает.
+ * Обработчик получает ссылку целиком.
+ */
+export async function onAppLink(fn: (url: string) => void): Promise<void> {
+  if (platform() === 'capacitor') {
+    const { App } = await import('@capacitor/app');
+    await App.addListener('appUrlOpen', (e) => fn(e.url));
+    const launch = await App.getLaunchUrl();
+    if (launch?.url) fn(launch.url);
+  } else if (platform() === 'tauri') {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const { listen } = await import('@tauri-apps/api/event');
+    await listen<string>('app-link', (e) => fn(e.payload));
+    const first = await invoke<string | null>('take_app_link');
+    if (first) fn(first);
+  }
+}
+
 /** Телефон: текст из «Поделиться» в других приложениях. */
 export async function onSharedText(fn: (text: string) => void): Promise<() => void> {
   if (platform() !== 'capacitor') return () => undefined;

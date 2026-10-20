@@ -3141,3 +3141,32 @@ body:has(.selection-bar) .content {
 .repeat-editor button {
   white-space: nowrap;
 }
+
+/* Браузер телефона открыл ссылку на задачу: предложение открыть её в приложении. */
+.open-in-app {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  top: calc(12px + env(safe-area-inset-top));
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+.open-in-app-link {
+  flex: 1;
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  padding: 6px 0;
+}
+
+.panel-head .panel-link {
+  margin-left: auto;
+}

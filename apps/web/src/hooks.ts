@@ -23,6 +23,8 @@ export type Route =
   | { view: 'project'; id: string }
   | { view: 'label'; id: string }
   | { view: 'filter'; id: string }
+  /** Ссылка на задачу: открывает её проект с карточкой. */
+  | { view: 'task'; id: string }
   | { view: 'search'; q: string }
   | { view: 'completed' }
   | { view: 'activity' }
@@ -45,6 +47,7 @@ export function parseRoute(hash: string): Route {
     case 'project':
     case 'label':
     case 'filter':
+    case 'task':
       return id ? { view, id: decodeURIComponent(id) } : { view: 'today' };
     case 'search':
       return { view: 'search', q: new URLSearchParams(query).get('q') ?? '' };
@@ -66,6 +69,7 @@ export function href(route: Route): string {
     case 'project':
     case 'label':
     case 'filter':
+    case 'task':
       return `#/${route.view}/${encodeURIComponent(route.id)}`;
     case 'search':
       return `#/search?q=${encodeURIComponent(route.q)}`;

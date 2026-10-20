@@ -1,11 +1,13 @@
-// Dela для компьютера: встроенный веб-клиент, трей, глобальная клавиша быстрой задачи.
+// Dela для компьютера: встроенный веб-клиент, трей, глобальная клавиша быстрой задачи, ссылки dela://.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, WindowEvent,
 };
+use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 fn show_main(app: &AppHandle) {
@@ -30,6 +32,20 @@ fn tray_labels(items: tauri::State<'_, TrayItems>, open: String, add: String, qu
     let _ = items.quit.set_text(quit);
 }
 
+/** Ссылка dela://, с которой запущена программа: веб-клиент забирает её после загрузки. */
+struct PendingLink(Mutex<Option<String>>);
+
+#[tauri::command]
+fn take_app_link(pending: tauri::State<'_, PendingLink>) -> Option<String> {
+    pending.0.lock().ok().and_then(|mut link| link.take())
+}
+
+/** Ссылка dela://open#/… при работающей программе: окно на передний план, маршрут в веб-клиент. */
+fn open_link(app: &AppHandle, url: String) {
+    show_main(app);
+    let _ = app.emit("app-link", url);
+}
+
 fn quick_add(app: &AppHandle) {
     show_main(app);
     let _ = app.emit("quick-add", ());
@@ -39,8 +55,9 @@ fn main() {
     let shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::SHIFT), Code::Space);
 
     tauri::Builder::default()
-        // Второй запуск открывает уже работающее окно.
+        // Второй запуск открывает уже работающее окно; ссылку dela:// из него получает deep-link.
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| show_main(app)))
+        .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         // Обновления: latest.json в последнем выпуске на GitHub, установщик подписан ключом обновлений.
@@ -56,6 +73,19 @@ fn main() {
                 .build(),
         )
         .setup(move |app| {
+            // Схему dela:// регистрирует установщик; при запуске из исходников — сама программа.
+            #[cfg(debug_assertions)]
+            if let Err(err) = app.deep_link().register_all() {
+                eprintln!("dela:// is not registered: {err}");
+            }
+            let first = app.deep_link().get_current().ok().flatten().and_then(|urls| urls.into_iter().next()).map(|url| url.to_string());
+            app.manage(PendingLink(Mutex::new(first)));
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                if let Some(url) = event.urls().into_iter().next() {
+                    open_link(&handle, url.to_string());
+                }
+            });
             // Сочетание может быть занято другой программой: тогда приложение работает без него.
             if let Err(err) = app.global_shortcut().register(shortcut) {
                 eprintln!("global shortcut is not available: {err}");
@@ -90,7 +120,7 @@ fn main() {
             Ok(())
         })
         // Закрытие окна прячет его в трей: напоминания продолжают приходить.
-        .invoke_handler(tauri::generate_handler![tray_labels])
+        .invoke_handler(tauri::generate_handler![tray_labels, take_app_link])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let _ = window.hide();

@@ -162,3 +162,35 @@ test('в «Сегодня» подзадачи раскрываются под �
   await expect(page.locator('.task.done', { hasText: 'Зарядка' })).toBeVisible();
   await expect(row('Зарядка')).toHaveCount(1);
 });
+
+test('ссылка на задачу по Ctrl+Shift+C открывает её карточку в новой вкладке', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Подписаться на olerast').first()).toBeVisible();
+  await page.keyboard.press('q');
+  await page.getByLabel('Новая задача').fill('Задача по ссылке сегодня');
+  await page.getByLabel('Новая задача').press('Enter');
+  await page.getByLabel('Новая задача').press('Escape');
+  await page.locator('.task', { hasText: 'Задача по ссылке' }).getByText('Задача по ссылке').click();
+  await expect(page.locator('.panel').getByLabel('Название')).toHaveValue('Задача по ссылке');
+  await page.keyboard.press('Control+Shift+C');
+  await expect(page.getByText('Ссылка скопирована. Без сервера она откроется только в этом браузере')).toBeVisible();
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  expect(link).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/#\/task\/[\w-]+$/);
+  // Пока запись в IndexedDB не завершилась, другая вкладка задачу ещё не видит.
+  await page.waitForTimeout(1000);
+
+  const other = await context.newPage();
+  await other.goto(link);
+  await expect(other.locator('.panel').getByLabel('Название')).toHaveValue('Задача по ссылке');
+  await expect(other).toHaveURL(/#\/inbox$/);
+
+  // Без открытой карточки копируется ссылка на текущий экран, в том числе из палитры команд.
+  await other.locator('.panel').getByRole('button', { name: 'Закрыть' }).click();
+  await other.goto('/#/upcoming');
+  await other.keyboard.press('Control+k');
+  await other.getByLabel('Команда').fill('ссылку');
+  await other.getByLabel('Команда').press('Enter');
+  await expect.poll(() => other.evaluate(() => navigator.clipboard.readText())).toMatch(/\/#\/upcoming$/);
+});

@@ -6,7 +6,7 @@ import { Markdown, toggleTask } from './Markdown.tsx';
 import { TZ, dateLabel, durationLabel, todayDate } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
-import { IconRepeat, IconTrash, IconX } from './icons.tsx';
+import { IconLink, IconRepeat, IconTrash, IconX } from './icons.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
 import { RepeatEditor } from './RepeatEditor.tsx';
 import { TaskTree, completeWithUndo } from './Task.tsx';
@@ -34,7 +34,7 @@ function useDraft(value: string, commit: (v: string) => void) {
   };
 }
 
-export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => void; onOpen: (id: string) => void }) {
+export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onClose: () => void; onOpen: (id: string) => void; onCopyLink: () => void }) {
   const doc = useDoc();
   const task = doc.task(id);
   const [repeatText, setRepeatText] = useState('');
@@ -152,6 +152,9 @@ export function TaskPanel({ id, onClose, onOpen }: { id: string; onClose: () => 
             )),
           ])}
         </select>
+        <button className="icon panel-link" onClick={onCopyLink} aria-label={tr('Копировать ссылку')} title={tr('Копировать ссылку (Ctrl+Shift+C)')}>
+          <IconLink />
+        </button>
         <button className="icon" onClick={onClose} aria-label={tr('Закрыть')}>
           <IconX />
         </button>

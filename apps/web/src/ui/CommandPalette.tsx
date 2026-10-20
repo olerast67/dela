@@ -13,7 +13,7 @@ interface Command {
   readonly run: () => void;
 }
 
-export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () => void; onQuickAdd: () => void; onOpen: (id: string) => void }) {
+export function CommandPalette({ onClose, onQuickAdd, onOpen, onCopyLink }: { onClose: () => void; onQuickAdd: () => void; onOpen: (id: string) => void; onCopyLink: () => void }) {
   const doc = useDoc();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -45,6 +45,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
       ...doc.filters().map((f) => ({ id: `f${f.id}`, label: f.name, group: tr('Фильтры'), run: go({ view: 'filter', id: f.id }) })),
       ...doc.labels().map((l) => ({ id: `l${l.id}`, label: `@ ${l.name}`, group: tr('Метки'), run: go({ view: 'label', id: l.id }) })),
       { id: 'new-filter', label: tr('Новый фильтр'), group: tr('Действия'), run: go({ view: 'filter', id: 'new' }) },
+      { id: 'link', label: tr('Копировать ссылку'), group: tr('Действия'), hint: 'Ctrl+Shift+C', run: onCopyLink },
       { id: 'sync', label: tr('Синхронизировать сейчас'), group: tr('Действия'), run: () => void controller.syncNow() },
       ...(controller.getState().lockEnabled ? [{ id: 'lock', label: tr('Заблокировать'), group: tr('Действия'), run: () => controller.lockNow() }] : []),
       { id: 'undo', label: tr('Отменить последнее действие'), group: tr('Действия'), hint: 'Ctrl+Z', run: () => doc.undo() },
@@ -53,7 +54,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen }: { onClose: () =>
       { id: 'system', label: tr('Тема как в системе'), group: tr('Действия'), run: setTheme('system') },
     ];
     return out;
-  }, [doc, onQuickAdd]);
+  }, [doc, onQuickAdd, onCopyLink]);
 
   const needle = normalizeText(query);
   const matched = needle ? commands.filter((c) => normalizeText(c.label).includes(needle)) : commands;
@@ -136,6 +137,7 @@ const SHORTCUTS: Array<[string, string]> = [
   ['T', tr('Перенести на сегодня')],
   ['Delete', tr('Удалить задачу')],
   ['Ctrl+Z', tr('Отменить')],
+  ['Ctrl+Shift+C', tr('Копировать ссылку на задачу или экран')],
   [tr('G затем T / U / C / I'), tr('Сегодня, Предстоящие, Календарь, Входящие')],
   ['Esc', tr('Закрыть')],
   ['?', tr('Эта справка')],

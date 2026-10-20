@@ -7,7 +7,8 @@ import { controller } from './controller.ts';
 import { applyTheme } from './ui/Views.tsx';
 import { registerSW } from 'virtual:pwa-register';
 import { showToast } from './ui/toast.tsx';
-import { isNative, localizeTray } from './platform.ts';
+import { isNative, localizeTray, onAppLink } from './platform.ts';
+import { linkHash, openLinkHash } from './links.ts';
 import { tr } from './i18n.ts';
 
 try {
@@ -35,3 +36,9 @@ if (!isNative()) {
 }
 
 void localizeTray().catch(() => undefined);
+
+// Ссылка dela://open#/… ставит маршрут в адрес: экран откроется и после входа или разблокировки.
+void onAppLink((url) => {
+  const hash = linkHash(url);
+  if (hash) openLinkHash(hash);
+}).catch(() => undefined);

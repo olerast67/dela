@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { controller } from './controller.ts';
-import { useAppState, useDoc, useMedia, useRoute } from './hooks.ts';
+import { href, useAppState, useDoc, useMedia, useRoute, type Route } from './hooks.ts';
 import { AuthScreen, RecoveryScreen } from './ui/Auth.tsx';
-import { IconPlus } from './ui/icons.tsx';
+import { IconPlus, IconX } from './ui/icons.tsx';
 import { TabBar } from './ui/TabBar.tsx';
 import { QuickAdd } from './ui/QuickAdd.tsx';
 import { Sidebar } from './ui/Sidebar.tsx';
@@ -12,13 +12,14 @@ import { SelectionBar } from './ui/SelectionBar.tsx';
 import { clearPicked, pickedIds } from './ui/selection.ts';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
-import { checkDesktopUpdate, onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch } from './platform.ts';
+import { checkDesktopUpdate, onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch, platform } from './platform.ts';
 import { CalendarView } from './ui/Calendar.tsx';
 import { LockScreen } from './ui/Lock.tsx';
 import { ActivityView, TemplatesView } from './ui/History.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 import { tr } from './i18n.ts';
+import { appLink, copyLink, taskHash } from './links.ts';
 
 function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
@@ -40,6 +41,20 @@ function Shell() {
 
   const open = useCallback((id: string) => setSelected(id), []);
   const close = useCallback(() => setSelected(null), []);
+
+  // Ссылка на открытую задачу, иначе на текущий экран.
+  const linkTarget = useRef('');
+  linkTarget.current = selected ? taskHash(selected) : href(route);
+  const copyCurrentLink = useCallback(() => void copyLink(linkTarget.current, controller.getState().local, (text) => showToast(text)), []);
+
+  // Ссылка #/task/<id>: проект задачи с открытой карточкой. Пока задача не пришла с сервера, ждём.
+  const linked = route.view === 'task' ? doc.task(route.id) : undefined;
+  useEffect(() => {
+    if (!linked) return;
+    const target: Route = !doc.isAlive(linked.id) ? { view: 'trash' } : linked.projectId === doc.inboxId ? { view: 'inbox' } : { view: 'project', id: linked.projectId };
+    setSelected(linked.id);
+    location.replace(href(target));
+  }, [doc, linked]);
 
   // Пока открыта экранная клавиатура, панель вкладок и кнопка «+» не висят над ней и не закрывают список.
   useEffect(() => {
@@ -75,6 +90,11 @@ function Shell() {
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK') {
         e.preventDefault();
         setPalette(true);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.code === 'KeyC') {
+        e.preventDefault();
+        copyCurrentLink();
         return;
       }
       if (typing(e) || e.metaKey || e.altKey) return;
@@ -161,7 +181,7 @@ function Shell() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [doc, selected]);
+  }, [doc, selected, copyCurrentLink]);
 
   useEffect(() => setMenu(false), [route]);
   useEffect(() => clearPicked(), [route]);
@@ -313,6 +333,9 @@ function Shell() {
     case 'trash':
       view = <TrashView />;
       break;
+    case 'task':
+      view = linked ? null : <p className="empty">{tr('Задача не найдена: она ещё не загрузилась или удалена навсегда.')}</p>;
+      break;
     case 'settings':
       view = <SettingsView />;
       break;
@@ -335,7 +358,7 @@ function Shell() {
         <div className="content-inner">{view}</div>
       </main>
       {selected && narrow && <div className="panel-scrim" onClick={close} />}
-      {selected && <TaskPanel id={selected} onClose={close} onOpen={open} />}
+      {selected && <TaskPanel id={selected} onClose={close} onOpen={open} onCopyLink={copyCurrentLink} />}
       {quickAdd && (
         <div
           className="modal-scrim"
@@ -365,7 +388,7 @@ function Shell() {
       <button className="fab" onClick={() => setQuickAdd(true)} aria-label={tr('Добавить задачу (Q)')}>
         <IconPlus width={24} height={24} />
       </button>
-      {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} />}
+      {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} onCopyLink={copyCurrentLink} />}
       {help && <ShortcutsHelp onClose={() => setHelp(false)} />}
       <SelectionBar />
       <ToastHost />
@@ -373,7 +396,29 @@ function Shell() {
   );
 }
 
-export function App() {
+// Hash, с которым открыта страница: по нему браузер телефона предлагает открыть ссылку в приложении.
+const openedHash = typeof location === 'undefined' ? '' : location.hash;
+
+/**
+ * Браузер на Android открыл ссылку на задачу: кнопка «Открыть в приложении» по схеме dela://.
+ * Если приложения нет, кнопка ничего не делает; закрывается крестиком.
+ */
+function OpenInApp() {
+  const [shown, setShown] = useState(() => platform() === 'web' && /Android/i.test(navigator.userAgent) && /^#\/task\//.test(openedHash));
+  if (!shown) return null;
+  return (
+    <div className="open-in-app" role="region" aria-label={tr('Открыть в приложении')}>
+      <a className="open-in-app-link" href={appLink(openedHash)} onClick={() => setTimeout(() => setShown(false), 500)}>
+        {tr('Открыть в приложении Dela')}
+      </a>
+      <button className="icon" onClick={() => setShown(false)} aria-label={tr('Закрыть')}>
+        <IconX />
+      </button>
+    </div>
+  );
+}
+
+function Screen() {
   const { phase, locked } = useAppState();
   if (phase === 'loading') return <div className="splash" aria-busy="true" />;
   if (phase === 'auth') return <AuthScreen />;
@@ -381,4 +426,13 @@ export function App() {
   if (locked) return <LockScreen />;
   if (!controller.doc) return <div className="splash" aria-busy="true" />;
   return <Shell />;
+}
+
+export function App() {
+  return (
+    <>
+      <Screen />
+      <OpenInApp />
+    </>
+  );
 }
