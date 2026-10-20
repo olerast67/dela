@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dela</string>
+    <string name="today">Today</string>
+    <string name="overdue">Overdue</string>
+    <string name="all_done">All done for today</string>
+    <string name="nothing_today">Nothing else for today</string>
+    <string name="refresh">Refresh</string>
+    <string name="syncing">Syncing…</string>
+    <string name="offline">Offline: changes will be sent later</string>
+    <string name="pending">Not sent yet: %d</string>
+    <string name="sign_out">Sign out</string>
+    <string name="sign_out_confirm">Tap again to sign out</string>
+    <string name="sign_in_title">Sign in to Dela</string>
+    <string name="server">Server</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="totp">Code from the authenticator app</string>
+    <string name="sign_in">Sign in</string>
+    <string name="sign_in_hint">The watch becomes a separate device of your account. You can sign it out in Dela settings on the phone.</string>
+    <string name="error_invalid_credentials">Wrong email or password</string>
+    <string name="error_totp_required">Enter the code from the authenticator app</string>
+    <string name="error_invalid_totp">Wrong code</string>
+    <string name="error_rate_limited">Too many attempts, try again later</string>
+    <string name="error_network">No connection to the server</string>
+    <string name="error_bad_server">Server address must start with https://</string>
+    <string name="error_read_only">You can only view this shared project</string>
+    <string name="error_signed_out">This watch was signed out of Dela</string>
+    <string name="error_generic">Something went wrong</string>
+    <string name="done_action">Done</string>
+    <string name="reminder_text">Reminder</string>
+    <string name="channel_reminders">Task reminders</string>
+    <string name="tile_label">Dela: today</string>
+    <string name="tile_signed_out">Open Dela to sign in</string>
+    <string name="tile_more">+%d more</string>
+</resources>

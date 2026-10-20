@@ -1,0 +1,19 @@
+// Приложение Dela для часов Wear OS: отдельный проект Gradle рядом с apps/mobile/android (тот генерирует Capacitor).
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'dela-wear'
+include ':app'
