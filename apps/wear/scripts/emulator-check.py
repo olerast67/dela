@@ -261,8 +261,7 @@ def main() -> None:
     tile = texts(dump())
     log(f'на плитке: {tile}')
     with open(os.path.join(OUT, 'tile.txt'), 'w', encoding='utf-8') as f:
-        f.write('
-'.join(tile))
+        f.write('\n'.join(tile))
     focus = shell('dumpsys window | grep mCurrentFocus', check=False)
     # Плитка не обязательна для успеха: отладочные команды есть не во всех образах.
     tile_ok = PKG not in focus and any('Оплатить интернет' in t for t in tile)
@@ -276,12 +275,20 @@ def main() -> None:
         notes = shell('dumpsys notification --noredact')
         posted = f'pkg={PKG}' in notes and 'Созвон с командой' in notes
         if not posted:
-            time.sleep(10)
+            time.sleep(2)
+    # Сразу, пока на экране всплывающее уведомление.
+    screenshot('08-reminder.png')
     with open(os.path.join(OUT, 'notifications.txt'), 'w', encoding='utf-8') as f:
         f.write('\n'.join(l for l in shell('dumpsys notification --noredact').splitlines() if PKG in l or 'android.title' in l))
     check(posted, 'напоминание «Созвон с командой» пришло уведомлением')
+    # Список уведомлений: с циферблата смахнуть вверх.
+    shell('input keyevent KEYCODE_HOME', check=False)
     time.sleep(2)
-    screenshot('08-reminder.png')
+    w, h = screen_size()
+    shell(f'input swipe {w // 2} {int(h * 0.9)} {w // 2} {int(h * 0.2)} 300', check=False)
+    time.sleep(3)
+    screenshot('09-notifications.png')
+    log(f'уведомления: {texts(dump())}')
 
 
 try:
