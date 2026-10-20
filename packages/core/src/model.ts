@@ -5,6 +5,7 @@
  */
 import { isDate, isDateSpec, type DateSpec } from './dates.ts';
 import type { Json } from './op.ts';
+import { placeReminder, type PlaceReminder } from './places.ts';
 import { isReminderList } from './reminders.ts';
 
 export type Priority = 1 | 2 | 3 | 4;
@@ -77,6 +78,8 @@ export interface Task {
   readonly reminders: readonly number[] | null;
   /** Срочное напоминание: на Android звенит будильником на весь экран, на других устройствах приходит обычным уведомлением. */
   readonly alarm: boolean;
+  /** Напоминание по месту: срабатывает на телефоне с Android при входе в зону или выходе из неё. */
+  readonly place: PlaceReminder | null;
   /** Исполнитель в общем проекте (id пользователя). */
   readonly assignee: string | null;
   readonly order: string;
@@ -264,6 +267,7 @@ export function toTask(id: string, r: Rec): Task {
     habit: habit(r.habit),
     reminders: isReminderList(r.reminders) ? [...new Set(r.reminders as number[])].sort((a, b) => a - b) : null,
     alarm: bool(r.alarm),
+    place: placeReminder(r.place),
     assignee: idOrNull(r.assignee),
     order: order(r.order),
     completedAt: num(r.completed_at),

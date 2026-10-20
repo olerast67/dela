@@ -13,6 +13,7 @@ import { nestTasks } from './doc.ts';
 import type { HabitStreak } from './habits.ts';
 import { computeStats, type Stats, type StatsOptions } from './stats.ts';
 import { compareOrder } from './fractional.ts';
+import type { SavedPlace } from './places.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
 
 function byDue(tz: string): (a: TaskView, b: TaskView) => number {
@@ -373,6 +374,21 @@ export class Workspace {
     return this.personal.templates();
   }
 
+  /** Сохранённые места личного пространства: из них выбирают место для напоминания. */
+  places(): SavedPlace[] {
+    return this.personal.places();
+  }
+
+  savePlace(input: { name: string; lat: number; lon: number; radius: number }): string {
+    let id = '';
+    this.batch(() => (id = this.personal.savePlace(input)));
+    return id;
+  }
+
+  deletePlace(id: string): void {
+    this.batch(() => this.personal.deletePlace(id));
+  }
+
   /** Пространство задачи: для общих проектов нужен список участников. */
   spaceOfTask(taskId: string): string {
     return this.docForTask(taskId).spaceId;
@@ -442,6 +458,7 @@ export class Workspace {
       habit: t.habit,
       reminders: t.reminders,
       alarm: t.alarm,
+      place: t.place,
       ...(at.position ? { position: at.position } : {}),
     });
     const extra: Change[] = [['task', newId, 'created_at', t.createdAt]];

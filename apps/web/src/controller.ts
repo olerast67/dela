@@ -47,6 +47,7 @@ import {
   welcomeTasks,
   remindersBetween,
   alarmTasks,
+  placeZones,
   digestsBetween,
   isTime,
   type Reminder,
@@ -69,7 +70,7 @@ import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ } from './format.ts';
 import { createPasskey, getPasskey } from './passkey.ts';
 import { loadPomodoro, onPomodoroChange, pomodoroSettings } from './pomodoro.ts';
-import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
+import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativePlaces, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
 import { LANG, tn, tr } from './i18n.ts';
 
 function loadFired(): string[] {
@@ -1276,6 +1277,7 @@ export class Controller {
   private async syncPhoneReminders(): Promise<void> {
     if (!this.doc) return;
     this.syncWidget();
+    void syncNativePlaces(placeZones(this.doc)).catch((err) => console.error('native places failed', err));
     const now = Date.now();
     const list = this.alerts(now, now + 7 * 24 * 3600_000, this.reminderDefaults(), true);
     await syncNativeReminders(
@@ -1446,8 +1448,9 @@ export class Controller {
     this.secrets = null;
     this.api.token = null;
     await this.store.clear();
-    // Телефон: снять напоминания и очистить виджет, чтобы названия задач не остались после выхода.
+    // Телефон: снять напоминания и зоны мест, очистить виджет, чтобы названия задач и координаты не остались после выхода.
     await syncNativeReminders([]).catch(() => undefined);
+    await syncNativePlaces([]).catch(() => undefined);
     await updateWidget({ v: 1, lock: false, lang: LANG, projects: [], tasks: [] } satisfies WidgetSnapshot).catch(() => undefined);
     this.channel?.postMessage({ type: 'logout' } satisfies ChannelMessage);
     this.leader = false;

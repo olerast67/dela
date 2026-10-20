@@ -24,6 +24,7 @@ Whoever runs the server you connect to is responsible for it. The release apps c
 - Todoist import: the token you enter goes from your browser directly to `api.todoist.com` and is not stored.
 - Windows app updates: at startup the Windows app downloads `latest.json` from the GitHub releases of this project to check for a newer version. The request carries no account data.
 - Android push: if you turn on push reminders on Android, a UnifiedPush distributor app you choose (for example ntfy) delivers encrypted messages from your server. The text of a reminder is encrypted with a key only the phone knows.
+- Location reminders on Android use the location of the system (GPS, and the network location provider of the phone if it has one). Dela loads no maps and looks up no addresses; coordinates stay on the phone and reach the server only inside the encrypted task. "Where I am now" in a browser asks the browser, which may use its vendor's location service.
 - Voice input on Android uses the speech recognizer of the system. Dela asks it to recognize on the device, but the recognizer service (usually Google) may send the audio online.
 - Dela Verify, the optional browser extension, downloads the signed list of web app files for your server's version from the GitHub releases of this project.
 
