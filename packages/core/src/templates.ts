@@ -26,9 +26,12 @@ export interface ProjectTemplate {
   readonly v: 1;
   readonly name: string;
   readonly color: string;
+  /** Подпись в галерее шаблонов. */
   readonly description?: string;
+  /** Описание создаваемого проекта (Markdown). */
+  readonly projectDescription?: string;
   readonly tasks: readonly TemplateTask[];
-  readonly sections: ReadonlyArray<{ readonly name: string; readonly tasks: readonly TemplateTask[] }>;
+  readonly sections: ReadonlyArray<{ readonly name: string; readonly description?: string; readonly tasks: readonly TemplateTask[] }>;
 }
 
 /** Собрать шаблон из проекта: открытые задачи, сроки становятся смещением от today. */
@@ -57,14 +60,16 @@ export function projectToTemplate(ws: Workspace, projectId: string, today: strin
     v: 1,
     name: project.isInbox ? inboxName : project.name,
     color: project.color,
+    ...(project.description ? { projectDescription: project.description } : {}),
     tasks: view.unsectioned.map(toTpl),
-    sections: view.sections.map((s) => ({ name: s.section.name, tasks: s.tasks.map(toTpl) })),
+    sections: view.sections.map((s) => ({ name: s.section.name, ...(s.section.description ? { description: s.section.description } : {}), tasks: s.tasks.map(toTpl) })),
   };
 }
 
 /** Создать проект по шаблону. Метки создаются, если их нет. Возвращает id проекта. */
 export function applyTemplate(ws: Workspace, tpl: ProjectTemplate, today: string, name = tpl.name): string {
   const projectId = ws.createProject({ name, color: tpl.color });
+  if (tpl.projectDescription) ws.updateProject(projectId, { description: tpl.projectDescription });
   const labelIds = new Map(ws.labels().map((l) => [l.name.toLocaleLowerCase('ru'), l.id]));
   const labelId = (n: string) => {
     const key = n.toLocaleLowerCase('ru');
@@ -98,6 +103,7 @@ export function applyTemplate(ws: Workspace, tpl: ProjectTemplate, today: string
   for (const t of tpl.tasks) add(t, null, null);
   for (const s of tpl.sections) {
     const sectionId = ws.createSection(projectId, s.name);
+    if (s.description) ws.updateSection(sectionId, { description: s.description });
     for (const t of s.tasks) add(t, sectionId, null);
   }
   return projectId;
@@ -129,8 +135,13 @@ export function parseTemplate(raw: unknown): ProjectTemplate {
     v: 1,
     name: o.name.slice(0, 500),
     color: typeof o.color === 'string' ? o.color : 'gray',
+    ...(typeof o.projectDescription === 'string' && o.projectDescription ? { projectDescription: o.projectDescription.slice(0, 20_000) } : {}),
     tasks: o.tasks.map(task),
-    sections: o.sections.map((s) => ({ name: String(s?.name ?? '').slice(0, 500), tasks: Array.isArray(s?.tasks) ? s.tasks.map(task) : [] })),
+    sections: o.sections.map((s) => ({
+      name: String(s?.name ?? '').slice(0, 500),
+      ...(typeof s?.description === 'string' && s.description ? { description: s.description.slice(0, 20_000) } : {}),
+      tasks: Array.isArray(s?.tasks) ? s.tasks.map(task) : [],
+    })),
   };
 }
 

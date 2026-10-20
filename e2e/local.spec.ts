@@ -115,3 +115,25 @@ test('повтор кнопками: каждую неделю по понеде
   await expect(editor.getByRole('button', { name: 'Среда' })).toHaveAttribute('aria-pressed', 'true');
   await expect(editor.getByRole('button', { name: 'Пятница' })).toHaveAttribute('aria-pressed', 'false');
 });
+
+test('описание проекта переживает перезагрузку', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await expect(page.getByText('Только в этом браузере')).toBeVisible();
+  await page.getByRole('button', { name: 'Новый проект' }).click();
+  await page.getByPlaceholder('Название проекта').fill('Ремонт');
+  await page.getByPlaceholder('Название проекта').press('Enter');
+  await expect(page.getByRole('heading', { name: 'Ремонт' })).toBeVisible();
+  // Пустое описание места не занимает.
+  await expect(page.locator('.project-desc')).toHaveCount(0);
+  await page.locator('.head-actions').getByRole('button', { name: 'Описание' }).click();
+  await page.locator('textarea.project-desc').fill('Бюджет **сто тысяч**');
+  await page.locator('textarea.project-desc').press('Escape');
+  await expect(page.locator('.project-desc strong')).toHaveText('сто тысяч');
+  await page.waitForTimeout(1000);
+  await page.reload();
+  await expect(page.locator('.project-desc strong')).toHaveText('сто тысяч');
+  // Щелчок по тексту открывает правку.
+  await page.locator('.project-desc').click();
+  await expect(page.locator('textarea.project-desc')).toHaveValue('Бюджет **сто тысяч**');
+});

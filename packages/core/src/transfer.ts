@@ -44,6 +44,7 @@ export interface TodoistData {
   projects?: Array<{
     id: string;
     name?: string;
+    description?: string;
     color?: string;
     parent_id?: string | null;
     child_order?: number;
@@ -169,6 +170,7 @@ export function importTodoist(doc: Doc, data: TodoistData, options: { now?: numb
         ['project', id, 'order', keys[i]!],
         ['project', id, 'view', p.view_style === 'board' ? 'board' : 'list'],
       );
+      if (typeof p.description === 'string' && p.description) changes.push(['project', id, 'description', p.description.slice(0, 20_000)]);
       if (p.is_favorite) changes.push(['project', id, 'favorite', true]);
       if (p.is_archived) changes.push(['project', id, 'archived', true]);
     });
@@ -335,6 +337,9 @@ export function exportMarkdown(doc: Doc, inboxName = 'Входящие'): string
   const write = (projectId: string, title: string) => {
     const view = doc.projectTasks(projectId, { completed: true });
     lines.push(`## ${title}`, '');
+    // Описание и так в Markdown — выводится как есть, абзацем под заголовком.
+    const about = doc.project(projectId)?.description;
+    if (about) lines.push(about, '');
     const out = (nodes: readonly TaskNode[], depth: number) => {
       for (const n of nodes) {
         const t = n.task;
@@ -352,6 +357,7 @@ export function exportMarkdown(doc: Doc, inboxName = 'Входящие'): string
     out(view.unsectioned, 0);
     for (const s of view.sections) {
       lines.push('', `### ${s.section.name}`, '');
+      if (s.section.description) lines.push(s.section.description, '');
       out(s.tasks, 0);
     }
     lines.push('');

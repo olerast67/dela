@@ -22,6 +22,8 @@ export interface Recurrence {
 export interface Project {
   readonly id: string;
   readonly name: string;
+  /** Описание в Markdown; '' — нет описания (и у старых записей без поля). */
+  readonly description: string;
   readonly color: string;
   readonly parentId: string | null;
   readonly order: string;
@@ -36,6 +38,8 @@ export interface Section {
   readonly id: string;
   readonly projectId: string;
   readonly name: string;
+  /** Описание в Markdown; '' — нет описания. */
+  readonly description: string;
   readonly order: string;
   readonly collapsed: boolean;
   readonly deletedAt: number | null;
@@ -147,6 +151,7 @@ export function toProject(id: string, r: Rec): Project {
   return {
     id,
     name: s(r.name, '', 500),
+    description: s(r.description, '', 20_000),
     color: color(r.color),
     parentId: idOrNull(r.parent),
     order: order(r.order),
@@ -163,6 +168,7 @@ export function toSection(id: string, r: Rec): Section {
     id,
     projectId: idOrNull(r.project) ?? '',
     name: s(r.name, '', 500),
+    description: s(r.description, '', 20_000),
     order: order(r.order),
     collapsed: bool(r.collapsed),
     deletedAt: num(r.deleted_at),

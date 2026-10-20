@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Markdown in task descriptions and comments: headings, bold and italic, lists, links and bare URLs, code, quotes, tables and checklists. A checklist item in the description is checked with a click and saved with the task; in comments checklists are shown only. The description is shown formatted, a click on its text opens the editor. Raw HTML is shown as text, only http(s) and mailto links open, images from links are not loaded.
+- Project and section descriptions: a Markdown note under the project title and under a section heading, added with the "Description" button in the project header or next to the section. A click on the text opens the editor, Esc or leaving the field saves it; an empty description takes no space. In a shared project the description syncs to members like the name; it is kept in the JSON and Markdown export, in project templates, and the project description is imported from Todoist.
 
 ## 0.7.0
 

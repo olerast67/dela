@@ -375,6 +375,43 @@ label.checkline input[type='checkbox'] {
   margin: 0 0 4px;
 }
 
+.section-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* ---------- описание проекта и раздела ---------- */
+
+.desc-view,
+.desc-edit {
+  display: block;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.desc-view {
+  cursor: text;
+}
+
+.desc-view:hover {
+  background: var(--surface-2);
+}
+
+.desc-edit {
+  color: var(--text);
+  resize: vertical;
+  field-sizing: content;
+  min-height: 3lh;
+}
+
+.section-desc {
+  margin-bottom: 6px;
+}
+
 section.day h2 {
   padding-bottom: 2px;
 }

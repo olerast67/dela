@@ -418,7 +418,7 @@ export class Workspace {
     return this.batch(() => this.personal.createProject(input));
   }
 
-  updateProject(id: string, patch: { name?: string; color?: string; view?: ProjectView; favorite?: boolean; archived?: boolean }): void {
+  updateProject(id: string, patch: { name?: string; description?: string; color?: string; view?: ProjectView; favorite?: boolean; archived?: boolean }): void {
     this.batch(() => this.docForProject(id).updateProject(id, patch));
   }
 
@@ -441,7 +441,7 @@ export class Workspace {
     return this.batch(() => this.docForProject(projectId).createSection(projectId, name, position));
   }
 
-  updateSection(id: string, patch: { name?: string; collapsed?: boolean }): void {
+  updateSection(id: string, patch: { name?: string; description?: string; collapsed?: boolean }): void {
     this.batch(() => this.docForSection(id).updateSection(id, patch));
   }
 
@@ -508,11 +508,13 @@ export class Workspace {
         ['project', target.spaceId, 'color', project.color],
         ['project', target.spaceId, 'view', project.view],
         ['project', target.spaceId, 'order', 'a0'],
+        ...(project.description ? [['project', target.spaceId, 'description', project.description] as Change] : []),
       ]);
       const view = this.personal.projectTasks(projectId, { completed: true });
       for (const node of view.unsectioned) this.copyTree(this.personal, target, node.task.id, { projectId: target.spaceId, sectionId: null, parentId: null });
       for (const { section, tasks } of view.sections) {
         const sid = target.createSection(target.spaceId, section.name);
+        if (section.description) target.updateSection(sid, { description: section.description });
         for (const node of tasks) this.copyTree(this.personal, target, node.task.id, { projectId: target.spaceId, sectionId: sid, parentId: null });
       }
       this.personal.deleteProject(projectId);

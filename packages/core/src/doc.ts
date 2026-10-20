@@ -506,10 +506,11 @@ export class Doc {
 
   updateProject(
     id: string,
-    patch: { name?: string; color?: string; view?: ProjectView; favorite?: boolean; archived?: boolean },
+    patch: { name?: string; description?: string; color?: string; view?: ProjectView; favorite?: boolean; archived?: boolean },
   ): void {
     const changes: Change[] = [];
     if (patch.name !== undefined) changes.push(['project', id, 'name', patch.name.trim()]);
+    if (patch.description !== undefined) changes.push(['project', id, 'description', patch.description.trimEnd()]);
     if (patch.color !== undefined) changes.push(['project', id, 'color', patch.color]);
     if (patch.view !== undefined) changes.push(['project', id, 'view', patch.view]);
     if (patch.favorite !== undefined) changes.push(['project', id, 'favorite', patch.favorite]);
@@ -557,9 +558,10 @@ export class Doc {
     return id;
   }
 
-  updateSection(id: string, patch: { name?: string; collapsed?: boolean }): void {
+  updateSection(id: string, patch: { name?: string; description?: string; collapsed?: boolean }): void {
     const changes: Change[] = [];
     if (patch.name !== undefined) changes.push(['section', id, 'name', patch.name.trim()]);
+    if (patch.description !== undefined) changes.push(['section', id, 'description', patch.description.trimEnd()]);
     if (patch.collapsed !== undefined) changes.push(['section', id, 'collapsed', patch.collapsed]);
     this.write(changes);
   }

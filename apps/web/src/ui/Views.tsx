@@ -12,6 +12,7 @@ import { passwordProof } from '#core';
 import { saveProjectAsTemplate } from './History.tsx';
 import { allowExactReminders, checkDesktopUpdate, exactRemindersAllowed, platform } from '../platform.ts';
 import { ShareDialog } from './Share.tsx';
+import { Description } from './Description.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
 import { ViewOptionsButton, forest, groupNodes, priorityTitle, sortNodes, sortTasks, useViewOptions, type SortBy, type TaskGroup, type ViewOptions } from './ViewOptions.tsx';
@@ -250,6 +251,9 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
   const [renaming, setRenaming] = useState(false);
   const [addingSection, setAddingSection] = useState(false);
   const [sharing, setSharing] = useState(false);
+  // Открытая правка описания: проекта ('project') или раздела (его id).
+  const [editingDesc, setEditingDesc] = useState<string | null>(null);
+  useEffect(() => setEditingDesc(null), [id]);
   const [opts, setOpts] = useViewOptions(`project:${id}`, {}, { groups: PROJECT_GROUPS });
   if (!project || (!doc.projects().some((p) => p.project.id === id) && !project.isInbox)) {
     return <Empty>{tr('Проект не найден или удалён.')}</Empty>;
@@ -321,6 +325,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
             </select>
             {!controller.getState().local && <button onClick={() => setSharing(true)}>{doc.isShared(id) ? tr('Участники') : tr('Поделиться')}</button>}
             <button onClick={() => setRenaming(true)}>{tr('Переименовать')}</button>
+            <button onClick={() => setEditingDesc('project')}>{tr('Описание')}</button>
             <button onClick={() => setAddingSection(true)}>{tr('Раздел')}</button>
             <button onClick={() => saveProjectAsTemplate(doc, id)} title={tr('Сохранить проект как шаблон')}>
               {tr('Шаблон')}
@@ -341,6 +346,15 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
           </div>
         )}
       </header>
+      {!isInbox && (
+        <Description
+          className="project-desc"
+          text={project.description}
+          editing={editingDesc === 'project'}
+          onEditing={(v) => setEditingDesc(v ? 'project' : null)}
+          onSave={(v) => doc.updateProject(id, { description: v })}
+        />
+      )}
       {sharing && <ShareDialog projectId={id} onClose={() => setSharing(false)} />}
       {project.view === 'board' ? (
         <Board projectId={id} view={view} onOpen={onOpen} selectedId={selectedId} onAddSection={() => setAddingSection(true)} />
@@ -371,16 +385,28 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
             >
               {section.name} <span className="muted">{tasks.length || ''}</span>
             </h2>
-            <button
-              className="link"
-              onClick={() => {
-                doc.deleteSection(section.id);
-                showToast(tr('Раздел удалён'), { label: tr('Отменить'), run: () => doc.undo() });
-              }}
-            >
-              {tr('Удалить раздел')}
-            </button>
+            <div className="section-actions">
+              <button className="link" onClick={() => setEditingDesc(section.id)}>
+                {tr('Описание')}
+              </button>
+              <button
+                className="link"
+                onClick={() => {
+                  doc.deleteSection(section.id);
+                  showToast(tr('Раздел удалён'), { label: tr('Отменить'), run: () => doc.undo() });
+                }}
+              >
+                {tr('Удалить раздел')}
+              </button>
+            </div>
           </div>
+          <Description
+            className="section-desc"
+            text={section.description}
+            editing={editingDesc === section.id}
+            onEditing={(v) => setEditingDesc(v ? section.id : null)}
+            onSave={(v) => doc.updateSection(section.id, { description: v })}
+          />
           <TaskTree nodes={tasks} onOpen={onOpen} selectedId={selectedId} />
           <AddTask defaults={{ projectId: id, sectionId: section.id }} />
         </section>
