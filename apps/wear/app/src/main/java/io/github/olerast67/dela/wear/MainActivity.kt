@@ -35,6 +35,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Cache.load(this)?.let { screen = Screen.Today(it) }
+        // Только в отладочной сборке: форма из интента для проверки в эмуляторе.
+        DebugLogin.credentials(intent)?.let { form = it }
         setContent {
             DelaScreen { list ->
                 when (val s = screen) {

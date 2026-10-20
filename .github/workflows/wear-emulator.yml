@@ -1,0 +1,67 @@
+name: Wear emulator
+
+# Часы в настоящем эмуляторе Wear OS: вход, «Сегодня», отметка «выполнено», напоминание, плитка.
+# Только вручную (gh workflow run wear-emulator.yml --ref <ветка>): эмулятор идёт 15–20 минут.
+on:
+  workflow_dispatch:
+  # ВРЕМЕННО для первой проверки: workflow_dispatch виден только из main.
+  push:
+    branches: [worktree-agent-a9f63a531225224ab]
+
+permissions:
+  contents: read
+
+jobs:
+  emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - run: npm ci
+      - name: Build the debug APK
+        working-directory: apps/wear
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace assembleDebug
+      # Сервер в памяти на раннере; из эмулятора он виден как 10.0.2.2.
+      - name: Start a test server
+        run: |
+          DELA_DB_PATH=:memory: DELA_OPEN_REGISTRATION=true DELA_PORT=8795 DELA_HOST=127.0.0.1 npm run server > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8795/api/health && break; sleep 1; done
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Check in the Wear OS emulator
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          OUT: emulator-out
+        with:
+          api-level: 33
+          target: android-wear
+          arch: x86_64
+          profile: wearos_large_round
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -timezone Etc/UTC
+          # Скрипт целиком в файле: action запускает каждую строку script отдельно.
+          script: python3 apps/wear/scripts/emulator-check.py
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: wear-emulator
+          path: |
+            emulator-out
+            server.log
+          retention-days: 14
