@@ -17,6 +17,7 @@ apps/server        сервер: Node.js 24, node:sqlite, Hono
 apps/web           веб-клиент: React, Vite, IndexedDB, PWA
 apps/desktop       Tauri 2: встроенный веб-клиент, трей, глобальная клавиша, уведомления
 apps/mobile        Capacitor: встроенный веб-клиент, напоминания через расписание Android
+apps/wear          часы Wear OS: Kotlin и Compose, ядро в QuickJS
 ```
 
 Один корневой `package.json` без npm workspaces: workspaces требуют символических ссылок, а репозиторий должен работать и на дисках без них (exFAT). Ядро подключается через subpath import `#core` из корневого `package.json`. Его понимают Node.js, TypeScript и Vite.
@@ -67,6 +68,7 @@ interface Op {
 - Телефон ставит напоминания в расписание Android (ближайшие 60 на неделю вперёд): они приходят при закрытом приложении и без связи с сервером.
 - Компьютер прячет окно в трей при закрытии, напоминания показывает плагин уведомлений Tauri. `Ctrl+Shift+Space` открывает быстрый ввод из любой программы.
 - Ключ подписи Android хранится вне репозитория (`~/dev/keys/dela-release.properties` или путь из `DELA_SIGNING`).
+- Часы Wear OS (`apps/wear`) — отдельное приложение: Wearable Data Layer требует сервисов Google, поэтому часы входят на сервер сами, почтой и паролем, и становятся отдельным устройством аккаунта. WebView на часах обычно нет, поэтому интерфейс на Kotlin и Compose, а протокол не переписан: ядро и клиент dela-mcp собираются в один файл (`apps/wear/js`) и исполняются в QuickJS. WebAssembly в QuickJS нет, и Argon2id на 64 МиБ в интерпретаторе шёл бы минуты, поэтому вместо libsodium.js сборка зовёт libsodium приложения (lazysodium) через мост с теми же функциями; пояса (`Intl.DateTimeFormat`) берутся из java.time. Ключи и кэш лежат в файле сессии, зашифрованном ключом Android Keystore. Напоминания на двое суток вперёд часы ставят будильниками AlarmManager сами, синхронизация раз в полчаса идёт через WorkManager. Мост и сборку ядра проверяет тест на JVM (`apps/wear/app/src/test`) против настоящего сервера.
 
 ## Общие проекты
 

@@ -1,0 +1,148 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+    id 'org.jetbrains.kotlin.plugin.compose'
+}
+
+// Ключ подписи тот же, что у телефона: параметры в файле из DELA_SIGNING (по умолчанию ~/dev/keys/dela-release.properties).
+def signingProps = new Properties()
+def signingFile = file(System.getenv('DELA_SIGNING') ?: "${System.getProperty('user.home')}/dev/keys/dela-release.properties")
+if (signingFile.exists()) signingFile.withInputStream { signingProps.load(it) }
+
+def repoRoot = rootProject.file('../..').canonicalPath
+def jsOut = layout.buildDirectory.dir('generated/dela-js')
+def quickjsVersion = '1.0.15'
+def sodiumVersion = '5.2.0'
+def jnaVersion = '5.17.0'
+
+android {
+    namespace = 'io.github.olerast67.dela.wear'
+    compileSdk = 36
+
+    defaultConfig {
+        // Отдельный пакет: в F-Droid у часов своя карточка и свой versionCode, связь с телефоном не нужна.
+        applicationId 'io.github.olerast67.dela.wear'
+        // Wear OS 3 и новее.
+        minSdk 30
+        targetSdk 36
+        versionCode 1
+        versionName '0.8.0'
+        // Часы — ARM; x86_64 только для эмулятора в отладочной сборке.
+        ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
+    }
+
+    signingConfigs {
+        if (signingProps['storeFile']) {
+            release {
+                storeFile file(signingProps['storeFile'])
+                storePassword signingProps['storePassword']
+                keyAlias signingProps['keyAlias']
+                keyPassword signingProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        // Отладочная сборка ходит к серверу разработчика по http (10.0.2.2 из эмулятора).
+        debug {
+            applicationIdSuffix '.debug'
+            versionNameSuffix '-debug'
+            ndk { abiFilters 'x86_64' }
+        }
+        // R8 ужимает Compose и библиотеки: место на часах дорогое. JNA и мосты JNI сохраняются целиком (proguard-rules.pro).
+        release {
+            if (signingProps['storeFile']) signingConfig signingConfigs.release
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        compose true
+    }
+
+    sourceSets {
+        main.assets.srcDir(jsOut)
+    }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+        unitTests.includeAndroidResources = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+// Ядро Dela (packages/core) для QuickJS: npm ci в корне репозитория должен быть сделан заранее.
+tasks.register('bundleCore', Exec) {
+    description = 'Builds packages/core for QuickJS (apps/wear/js)'
+    workingDir repoRoot
+    inputs.dir("$repoRoot/packages/core/src")
+    inputs.dir("$repoRoot/packages/mcp/src")
+    inputs.dir("$repoRoot/apps/wear/js")
+    outputs.dir(jsOut)
+    environment 'DELA_WEAR_JS_OUT', jsOut.get().asFile.path
+    commandLine 'node', 'node_modules/vite/bin/vite.js', 'build', '--config', 'apps/wear/js/vite.config.ts'
+}
+preBuild.dependsOn 'bundleCore'
+
+// Тесты на компьютере: настоящая сборка ядра в QuickJS и libsodium для JVM вместо библиотек Android.
+configurations.matching { it.name.endsWith('UnitTestRuntimeClasspath') }.configureEach {
+    resolutionStrategy.dependencySubstitution {
+        substitute(module('io.github.dokar3:quickjs-kt-android')).using(module("io.github.dokar3:quickjs-kt-jvm:$quickjsVersion"))
+        substitute(module('com.goterl:lazysodium-android')).using(module("com.goterl:lazysodium-java:$sodiumVersion"))
+    }
+}
+
+tasks.withType(Test).configureEach {
+    dependsOn 'bundleCore'
+    systemProperty 'dela.bundle', jsOut.get().file('dela-wear.js').asFile.path
+    // Адрес сервера Dela для проверки входа и выполнения: без него эти тесты пропускаются.
+    systemProperty 'dela.server', System.getenv('DELA_WEAR_TEST_SERVER') ?: ''
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat 'full'
+        showStandardStreams true
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.17.0'
+    implementation 'androidx.activity:activity-compose:1.11.0'
+    implementation platform('androidx.compose:compose-bom:2025.09.01')
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.foundation:foundation'
+    implementation 'androidx.wear.compose:compose-material:1.5.6'
+    implementation 'androidx.wear.compose:compose-foundation:1.5.6'
+    implementation 'androidx.work:work-runtime-ktx:2.10.5'
+    implementation 'androidx.wear.tiles:tiles:1.5.0'
+    implementation 'androidx.wear.protolayout:protolayout:1.3.0'
+    implementation 'androidx.concurrent:concurrent-futures:1.2.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
+    // Движок JavaScript для ядра Dela.
+    implementation "io.github.dokar3:quickjs-kt:$quickjsVersion"
+    // libsodium: те же примитивы, что у libsodium.js в ядре. JNA для Android — в виде aar.
+    implementation("com.goterl:lazysodium-android:$sodiumVersion") {
+        exclude group: 'net.java.dev.jna'
+    }
+    implementation "net.java.dev.jna:jna:$jnaVersion@aar"
+
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20250517'
+    testImplementation "net.java.dev.jna:jna:$jnaVersion"
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0'
+    // Снимки экранов на компьютере: Robolectric с настоящей отрисовкой.
+    testImplementation 'org.robolectric:robolectric:4.17'
+    testImplementation 'androidx.compose.ui:ui-test-junit4'
+    debugImplementation 'androidx.compose.ui:ui-test-manifest'
+}

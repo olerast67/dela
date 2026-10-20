@@ -32,6 +32,38 @@ jobs:
           path: test-results
           retention-days: 7
 
+  # Часы: ядро из packages/core собирается для QuickJS и проверяется на JVM вместе с мостом на Kotlin
+  # (вход и выполнение — против сервера Dela в этом же задании), экраны рисуются в Robolectric.
+  wear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - run: npm ci
+      - name: Start a test server and seed an account
+        run: |
+          DELA_DB_PATH=:memory: DELA_OPEN_REGISTRATION=true DELA_PORT=8795 DELA_HOST=127.0.0.1 npm run server > server.log 2>&1 &
+          for i in $(seq 1 30); do curl -fs http://127.0.0.1:8795/api/health && break; sleep 1; done
+          node apps/wear/scripts/dev-seed.ts seed http://127.0.0.1:8795 watch@example.com 'пароль часов'
+      - name: Test and build
+        working-directory: apps/wear
+        env:
+          DELA_WEAR_TEST_SERVER: http://127.0.0.1:8795
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug
+
   # Образ выпуска по тегу собирает release.yml вместе с подписанным списком файлов веб-версии.
   image:
     needs: test

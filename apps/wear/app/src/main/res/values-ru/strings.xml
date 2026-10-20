@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="today">Сегодня</string>
+    <string name="overdue">Просрочено</string>
+    <string name="all_done">На сегодня всё</string>
+    <string name="nothing_today">На сегодня больше ничего</string>
+    <string name="refresh">Обновить</string>
+    <string name="syncing">Обновление…</string>
+    <string name="offline">Нет связи: изменения уйдут позже</string>
+    <string name="pending">Не отправлено: %d</string>
+    <string name="sign_out">Выйти</string>
+    <string name="sign_out_confirm">Нажмите ещё раз, чтобы выйти</string>
+    <string name="sign_in_title">Вход в Dela</string>
+    <string name="server">Сервер</string>
+    <string name="email">Почта</string>
+    <string name="password">Пароль</string>
+    <string name="totp">Код из приложения-аутентификатора</string>
+    <string name="sign_in">Войти</string>
+    <string name="sign_in_hint">Часы станут отдельным устройством аккаунта. Отключить их можно в настройках Dela на телефоне.</string>
+    <string name="error_invalid_credentials">Неверная почта или пароль</string>
+    <string name="error_totp_required">Введите код из приложения-аутентификатора</string>
+    <string name="error_invalid_totp">Неверный код</string>
+    <string name="error_rate_limited">Слишком много попыток, попробуйте позже</string>
+    <string name="error_network">Нет связи с сервером</string>
+    <string name="error_bad_server">Адрес сервера должен начинаться с https://</string>
+    <string name="error_read_only">В этом общем проекте можно только смотреть</string>
+    <string name="error_signed_out">Эти часы отключены от Dela</string>
+    <string name="error_generic">Что-то пошло не так</string>
+    <string name="done_action">Готово</string>
+    <string name="reminder_text">Напоминание</string>
+    <string name="channel_reminders">Напоминания о задачах</string>
+    <string name="tile_label">Dela: сегодня</string>
+    <string name="tile_signed_out">Откройте Dela, чтобы войти</string>
+    <string name="tile_more">ещё %d</string>
+</resources>

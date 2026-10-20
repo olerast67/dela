@@ -32,6 +32,7 @@ jobs:
             "$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")" \
             "$(node -p "require('./apps/mobile/package.json').version")" \
             "$(sed -n 's/^[[:space:]]*versionName "\(.*\)"/\1/p' apps/mobile/android/app/build.gradle)" \
+            "$(sed -n "s/^[[:space:]]*versionName '\(.*\)'/\1/p" apps/wear/app/build.gradle)" \
             "$(sed -n "s/^export const VERSION = '\(.*\)';/\1/p" apps/server/src/app.ts)"; do
             if [ "$found" != "$version" ]; then
               echo "::error::Tag $GITHUB_REF_NAME does not match version \"$found\" in the code"
@@ -95,20 +96,32 @@ jobs:
         run: |
           chmod +x ./gradlew
           ./gradlew --no-daemon --stacktrace assembleRelease
+      # Приложение для часов: тот же ключ, ядро собирается из packages/core задачей bundleCore (нужен npm ci).
+      - name: Build the Wear OS APK
+        working-directory: apps/wear
+        env:
+          DELA_SIGNING: ${{ runner.temp }}/signing.properties
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon --stacktrace assembleRelease
       - name: Delete the signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/signing.properties"
       - name: Check the signature
         run: |
-          apk=apps/mobile/android/app/build/outputs/apk/release/app-release.apk
           tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)"
-          "$tools/apksigner" verify --print-certs "$apk" | tee certs.txt
-          if ! grep -qi "certificate SHA-256 digest: $EXPECTED_CERT_SHA256" certs.txt; then
-            echo "::error::The APK is not signed with the release key"
-            exit 1
-          fi
           mkdir -p out
-          cp "$apk" "out/Dela-$VERSION-android.apk"
+          for pair in \
+            "apps/mobile/android/app/build/outputs/apk/release/app-release.apk:android" \
+            "apps/wear/app/build/outputs/apk/release/app-release.apk:wear"; do
+            apk="${pair%%:*}"
+            "$tools/apksigner" verify --print-certs "$apk" | tee certs.txt
+            if ! grep -qi "certificate SHA-256 digest: $EXPECTED_CERT_SHA256" certs.txt; then
+              echo "::error::$apk is not signed with the release key"
+              exit 1
+            fi
+            cp "$apk" "out/Dela-$VERSION-${pair##*:}.apk"
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: android
