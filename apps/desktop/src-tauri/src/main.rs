@@ -98,19 +98,35 @@ fn public_ip(ip: std::net::IpAddr) -> bool {
                 || v4.is_multicast()
                 || o[0] == 0
                 // 100.64.0.0/10: адреса внутри сети провайдера (CGNAT)
-                || (o[0] == 100 && (o[1] & 0xc0) == 64))
+                || (o[0] == 100 && (o[1] & 0xc0) == 64)
+                // 192.0.0.0/24 служебные, 198.18.0.0/15 для тестов сетей, 240.0.0.0/4 зарезервированы
+                || (o[0] == 192 && o[1] == 0 && o[2] == 0)
+                || (o[0] == 198 && (o[1] & 0xfe) == 18)
+                || o[0] >= 240)
         }
         IpAddr::V6(v6) => {
-            if let Some(v4) = v6.to_ipv4_mapped() {
-                return public_ip(IpAddr::V4(v4));
-            }
             let s = v6.segments();
+            // IPv4 внутри IPv6: ::ffff:a.b.c.d, ::a.b.c.d, 64:ff9b::a.b.c.d (NAT64) и 2002:ab:cd:: (6to4)
+            // проверяются по правилам IPv4, иначе так прятали бы внутренний адрес.
+            let embedded = if let Some(v4) = v6.to_ipv4() {
+                Some(v4)
+            } else if s[0] == 0x64 && s[1] == 0xff9b && s[2..6] == [0, 0, 0, 0] {
+                Some(std::net::Ipv4Addr::new((s[6] >> 8) as u8, s[6] as u8, (s[7] >> 8) as u8, s[7] as u8))
+            } else if s[0] == 0x2002 {
+                Some(std::net::Ipv4Addr::new((s[1] >> 8) as u8, s[1] as u8, (s[2] >> 8) as u8, s[2] as u8))
+            } else {
+                None
+            };
+            if let Some(v4) = embedded {
+                return !v6.is_loopback() && !v6.is_unspecified() && public_ip(IpAddr::V4(v4));
+            }
             !(v6.is_loopback()
                 || v6.is_unspecified()
                 || v6.is_multicast()
-                // fc00::/7 — частные, fe80::/10 — локальные в сегменте
+                // fc00::/7 — частные, fe80::/10 — локальные в сегменте, fec0::/10 — старые локальные
                 || (s[0] & 0xfe00) == 0xfc00
-                || (s[0] & 0xffc0) == 0xfe80)
+                || (s[0] & 0xffc0) == 0xfe80
+                || (s[0] & 0xffc0) == 0xfec0)
         }
     }
 }
@@ -324,6 +340,7 @@ mod tests {
         for ip in [
             "127.0.0.1", "10.1.2.3", "172.16.0.1", "192.168.1.1", "169.254.169.254", "0.0.0.0", "100.64.0.1",
             "[::1]", "[::]", "[fe80::1]", "[fd00::1]", "[::ffff:127.0.0.1]", "[::ffff:192.168.0.1]",
+            "[::127.0.0.1]", "[64:ff9b::a00:1]", "[2002:c0a8:101::]", "[fec0::1]", "198.18.0.1", "192.0.0.8", "240.0.0.1",
         ] {
             assert!(!ok(&format!("https://{ip}/a.ics")), "{ip}");
         }
