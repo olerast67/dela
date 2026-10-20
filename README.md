@@ -47,7 +47,7 @@ Quick add recognizes the date, time, recurrence, project and priority while you 
 
 | Area | What works |
 |---|---|
-| Quick add | English and Russian phrases: "call mom tomorrow at 7pm #Home every week p1". Recognized parts are highlighted; one click keeps a word as plain text. In the Russian layout `№` works as `#` and `!1` as `p1` |
+| Quick add | English and Russian phrases: "call mom tomorrow at 7pm #Home every week p1". Recognized parts are highlighted; one click keeps a word as plain text. In the Russian layout `№` works as `#` and `!1` as `p1`. Reminders in the same phrase: "remind me an hour before", "remind me at 9am", "no reminder". A pasted list becomes a task per line |
 | Organizing | Projects with sub-projects, sections, subtasks, labels, priorities 1-4, due date with time and time zone, start date, deadline, duration |
 | Views | Today, Upcoming, project as a list or a board, labels, search, completed tasks, history of actions, trash |
 | Templates | Save a project as a template and create projects from it, ready templates, templates as files |

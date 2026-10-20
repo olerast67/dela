@@ -27,6 +27,7 @@ const KIND_LABEL: Record<Token['kind'], string> = {
   recurrence: tr('Повтор'),
   deadline: tr('Дедлайн'),
   duration: tr('Длительность'),
+  reminder: tr('Напоминание'),
   priority: tr('Приоритет'),
   project: tr('Проект'),
   section: tr('Раздел'),
@@ -54,6 +55,7 @@ export function createFromParsed(doc: Workspace, parsed: ParsedTask, defaults: Q
     deadline: parsed.deadline,
     duration: parsed.duration,
     recurrence: parsed.recurrence,
+    ...(parsed.reminders ? { reminders: parsed.reminders } : {}),
   });
 }
 
@@ -188,6 +190,13 @@ export function QuickAdd({
   if (parsed.recurrence) chips.push({ key: 'rec', label: `↻ ${parsed.recurrence.text}`, token: tokenOf('recurrence')! });
   if (parsed.deadline) chips.push({ key: 'deadline', label: tr('Дедлайн {n}', { n: dateLabel(parsed.deadline) }), token: tokenOf('deadline')! });
   if (parsed.duration) chips.push({ key: 'duration', label: durationLabel(parsed.duration), token: tokenOf('duration')! });
+  if (parsed.reminders) {
+    const label =
+      parsed.reminders.length === 0
+        ? tr('Без напоминания')
+        : parsed.reminders.map((m) => (m === 0 ? tr('в срок') : tr('за {n}', { n: m % 1440 === 0 ? tr('{n} дн', { n: m / 1440 }) : m % 60 === 0 ? tr('{n} ч', { n: m / 60 }) : tr('{offset} мин', { offset: m }) }))).join(', ');
+    chips.push({ key: 'reminder', label: `${tr('Напомнить')}: ${label}`, token: tokenOf('reminder')! });
+  }
   if (parsed.priority) chips.push({ key: 'priority', label: tr('Приоритет {priority}', { priority: parsed.priority }), token: tokenOf('priority')! });
   if (parsed.projectId || parsed.newProject) {
     const name = parsed.newProject ? tr('{newProject} (новый)', { newProject: parsed.newProject }) : doc.project(parsed.projectId!)?.isInbox ? tr('Входящие') : doc.project(parsed.projectId!)?.name;

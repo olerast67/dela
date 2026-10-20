@@ -11,7 +11,7 @@ import { addDays, addMonths, daysInMonth, isDate, isoWeekday, makeDate, parts, t
 import type { Priority, Recurrence } from './model.ts';
 import { firstOnOrAfter, formatRule, type Rule, type WeekdayNum } from './recurrence.ts';
 
-export type TokenKind = 'date' | 'time' | 'recurrence' | 'deadline' | 'duration' | 'priority' | 'project' | 'section' | 'label';
+export type TokenKind = 'date' | 'time' | 'recurrence' | 'deadline' | 'duration' | 'reminder' | 'priority' | 'project' | 'section' | 'label';
 
 export interface Token {
   readonly kind: TokenKind;
@@ -44,6 +44,8 @@ export interface ParsedTask {
   readonly newSection: string | null;
   readonly labelIds: readonly string[];
   readonly newLabels: readonly string[];
+  /** Минуты до срока из «напомни за час»; null, если в фразе о напоминаниях ничего нет, [] — «без напоминания». */
+  readonly reminders: readonly number[] | null;
   readonly tokens: readonly Token[];
 }
 
@@ -462,6 +464,52 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
     return deadline !== null;
   });
 
+  // Напоминания раньше времени: иначе «в 9» из «напомни в 9» стало бы временем задачи.
+  let reminders: number[] | null = null;
+  let remindAt: string | null = null;
+  const REM_UNIT = `(полчаса|half\\s+an\\s+hour)|(?:(${NUM})\\s*)?(минут[уы]?|мин|час(?:а|ов)?|ч|день|дня|дней|сутки|недел[юи]|minutes?|mins?|hours?|h|days?|weeks?)`;
+  const offsetOf = (m: RegExpMatchArray, at: number): number => {
+    if (m[at]) return 30;
+    const unit = unitOf(m[at + 2]!);
+    const per = unit === 'week' ? 7 * 1440 : unit === 'day' || /^сутки$/iu.test(m[at + 2]!) ? 1440 : unit === 'hour' ? 60 : 1;
+    return Math.round(numOf(m[at + 1]) * per);
+  };
+  const addOffset = (mins: number) => {
+    if (mins >= 0 && mins <= 30 * 1440 && !reminders?.includes(mins)) reminders = [...(reminders ?? []), mins];
+  };
+  const firstOffset =
+    sc.find(`(?:напомн(?:и|ить|ите)|напоминание)\\s+за\\s+(?:${REM_UNIT})`, 'reminder', (m) => {
+      addOffset(offsetOf(m, 1));
+      return true;
+    }) ||
+    sc.find(`remind(?:\\s+me)?\\s+(?:${REM_UNIT})\\s+(?:before|early)`, 'reminder', (m) => {
+      addOffset(offsetOf(m, 1));
+      return true;
+    });
+  // «напомни за час и за 10 минут»: следующие смещения после первого.
+  for (let i = 0; firstOffset && i < 3; i++) {
+    const more = sc.find(`(?:,|и|and)\\s*(?:за\\s+)?(?:${REM_UNIT})(?:\\s+before)?`, 'reminder', (m) => {
+      addOffset(offsetOf(m, 1));
+      return true;
+    });
+    if (!more) break;
+  }
+  sc.find(
+    `(?:напомн(?:и|ить|ите)|напоминание)\\s+(?:в|во)\\s+(\\d{1,2})(?:[:.](\\d{2}))?(?:\\s*(утра|дня|вечера|ночи))?|remind(?:\\s+me)?\\s+at\\s+(\\d{1,2})(?::(\\d{2}))?\\s*(am|pm|a\\.m\\.|p\\.m\\.)?`,
+    'reminder',
+    (m) => {
+      const hour = dayPart(Number(m[1] ?? m[4]), m[3] ?? m[6]);
+      const t = hour === null ? null : clampTime(hour, Number(m[2] ?? m[5] ?? 0));
+      if (!t) return false;
+      remindAt = t;
+      return true;
+    },
+  );
+  sc.find('без\\s+напоминани[йяе]|no\\s+reminders?', 'reminder', () => {
+    reminders = [];
+    return true;
+  });
+
   // Дата ISO раньше интервала времени: иначе «2026-11-15» прочиталось бы как «11-15».
   sc.find('\\d{4}-\\d{2}-\\d{2}', 'date', (m) => {
     date = resolveDate(m[0], today);
@@ -608,6 +656,22 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
     }
   }
 
+  // «напомни в 9»: у задачи со временем это смещение до срока, задача без времени получает это время.
+  const at = remindAt as string | null;
+  if (at) {
+    const tm = time as string | null;
+    if (!tm) {
+      time = at;
+      addOffset(0);
+    } else {
+      const [th, tmin] = tm.split(':').map(Number) as [number, number];
+      const [ah, amin] = at.split(':').map(Number) as [number, number];
+      let off = th * 60 + tmin - (ah * 60 + amin);
+      if (off < 0) off += 1440;
+      addOffset(off);
+    }
+  }
+
   // Срок и повтор.
   let due: DateSpec | null = null;
   let recurrence: Recurrence | null = null;
@@ -665,6 +729,7 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
     newSection,
     labelIds,
     newLabels,
+    reminders: reminders as number[] | null,
     tokens,
   };
 }

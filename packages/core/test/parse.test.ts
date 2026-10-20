@@ -175,3 +175,23 @@ describe('splitTaskList', () => {
     ]);
   });
 });
+
+describe('напоминания фразой', () => {
+  const p = (text: string) => parseTask(text, ctx);
+  it.each<[string, Partial<ParsedTask>]>([
+    ['созвон завтра в 15 напомни за час', { title: 'созвон', due: { date: '2026-10-14', time: '15:00' }, reminders: [60] }],
+    ['созвон завтра в 15 напомни за час и за 10 минут', { title: 'созвон', reminders: [60, 10] }],
+    ['врач в пятницу в 10 напомнить за день', { title: 'врач', due: { date: '2026-10-16', time: '10:00' }, reminders: [1440] }],
+    ['поезд завтра в 8 напомни за полчаса', { title: 'поезд', reminders: [30] }],
+    ['полить цветы завтра напомни в 9 утра', { title: 'полить цветы', due: { date: '2026-10-14', time: '09:00' }, reminders: [0] }],
+    ['встреча завтра в 15 напомни в 9', { title: 'встреча', due: { date: '2026-10-14', time: '15:00' }, reminders: [360] }],
+    ['встреча завтра в 9 напомни в 20', { title: 'встреча', due: { date: '2026-10-14', time: '09:00' }, reminders: [780] }],
+    ['купить хлеб завтра без напоминания', { title: 'купить хлеб', reminders: [] }],
+    ['call mom tomorrow at 7pm remind me an hour before', { title: 'call mom', due: { date: '2026-10-14', time: '19:00' }, reminders: [60] }],
+    ['standup tomorrow at 10 remind me at 9am', { title: 'standup', reminders: [60] }],
+    ['напомни купить хлеб', { title: 'напомни купить хлеб', reminders: null }],
+    ['заехать за 5 минут до встречи', { reminders: null }],
+  ])('%s', (text, want) => {
+    expect(p(text)).toMatchObject(want);
+  });
+});

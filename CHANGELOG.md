@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Reminders in the quick add phrase: "напомни за час и за 10 минут", "напомни в 9", "без напоминания", "remind me an hour before", "remind me at 9am", "no reminder". A reminder time on a task without a time gives the task that time.
 - Select several tasks and act on all of them: complete, today, tomorrow, no date, priority, project, label, delete. Ctrl or Cmd click on a computer, a long press without dragging on a phone; while something is selected, a click adds or removes a task. One "Undo" reverts the whole action, Esc clears the selection.
 - Settings → Start screen: Today, Inbox, Upcoming, Calendar, a project or a filter. A link to a specific screen still opens that screen.
 - Quick add: paste a list and get a task per line. Markers like "-", "1." and "[ ]" are removed, checked "[x]" items are skipped, an indented line becomes a subtask. Each line is read as a phrase, with its own date, project and labels. A multi-line text shared to Dela on Android works the same way.
