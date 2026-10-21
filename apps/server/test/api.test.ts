@@ -549,6 +549,8 @@ describe('квоты и частота синхронизации', () => {
     // Короче — проходит и освобождает место.
     expect((await push(env(2, 40, NOW + 3))).status).toBe(200);
     expect((await push(env(4, 60))).status).toBe(200);
+    // Повтор ячейки в одной пачке: маленькая версия не прячет большую.
+    expect((await push(env(1, 100, NOW + 4), env(1, 200, NOW + 5))).status).toBe(413);
     // Счётчик из триггеров совпадает с настоящим объёмом.
     const row = s.db.prepare('SELECT sync_bytes AS b, (SELECT sum(length(payload)) FROM envelopes WHERE space_id = ?) AS real FROM spaces WHERE id = ?').get(spaceId, spaceId) as { b: number; real: number };
     expect(Number(row.b)).toBe(300);

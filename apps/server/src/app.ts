@@ -1227,14 +1227,13 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
    */
   function checkSyncQuota(spaceId: string, envelopes: ReadonlyArray<{ slot: string; payload: string }>): void {
     const existing = db.prepare('SELECT length(payload) AS n FROM envelopes WHERE space_id = ? AND slot = ?');
+    // Одна ячейка может прийти в пачке несколько раз; победит любая из них, поэтому считается самая длинная.
+    const largest = new Map<string, number>();
+    for (const e of envelopes) largest.set(e.slot, Math.max(largest.get(e.slot) ?? 0, Buffer.byteLength(e.payload, 'base64')));
     let added = 0;
     let bytes = 0;
-    const seen = new Set<string>();
-    for (const e of envelopes) {
-      if (seen.has(e.slot)) continue;
-      seen.add(e.slot);
-      const row = existing.get(spaceId, e.slot) as { n: number } | undefined;
-      const size = Buffer.byteLength(e.payload, 'base64');
+    for (const [slot, size] of largest) {
+      const row = existing.get(spaceId, slot) as { n: number } | undefined;
       if (row) bytes += size - Number(row.n);
       else {
         added++;
