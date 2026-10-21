@@ -6,28 +6,14 @@
  * между пространствами — это создание копии в одном и удаление в другом: так данные
  * перешифровываются ключом нового пространства.
  */
-import { localDate, instant } from './dates.ts';
+import type { DateSpec } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import type { ActivityEvent, Change, Doc, Listener, Position, ProjectNode, ProjectTasks, TaskInput, TaskNode, TaskPatch, TaskView } from './doc.ts';
-import { nestTasks } from './doc.ts';
+import { dayOrderChanges, dayOrdered, nestTasks } from './doc.ts';
 import type { HabitStreak } from './habits.ts';
 import { computeStats, type Stats, type StatsOptions } from './stats.ts';
-import { compareOrder } from './fractional.ts';
 import type { SavedPlace } from './places.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
-
-function byDue(tz: string): (a: TaskView, b: TaskView) => number {
-  return (a, b) => {
-    const at = a.due?.time ? instant(a.due, tz) : Number.POSITIVE_INFINITY;
-    const bt = b.due?.time ? instant(b.due, tz) : Number.POSITIVE_INFINITY;
-    if (at !== bt) return at < bt ? -1 : 1;
-    const ad = a.due ? localDate(a.due, tz) : '';
-    const bd = b.due ? localDate(b.due, tz) : '';
-    if (ad !== bd) return ad < bd ? -1 : 1;
-    if (a.priority !== b.priority) return a.priority - b.priority;
-    return compareOrder(a, b);
-  };
-}
 
 export class Workspace {
   readonly personal: Doc;
@@ -206,8 +192,7 @@ export class Workspace {
 
   today(todayDate: string, tz: string): { overdue: TaskView[]; today: TaskView[] } {
     const parts = this.docs().map((d) => d.today(todayDate, tz));
-    const sort = byDue(tz);
-    return { overdue: parts.flatMap((p) => p.overdue).sort(sort), today: parts.flatMap((p) => p.today).sort(sort) };
+    return { overdue: dayOrdered(parts.flatMap((p) => p.overdue), todayDate, tz), today: dayOrdered(parts.flatMap((p) => p.today), todayDate, tz) };
   }
 
   doneToday(todayDate: string, tz: string): TaskView[] {
@@ -222,8 +207,7 @@ export class Workspace {
 
   upcoming(from: string, days: number, tz: string): Array<{ date: string; tasks: TaskView[] }> {
     const parts = this.docs().map((d) => d.upcoming(from, days, tz));
-    const sort = byDue(tz);
-    return parts[0]!.map((g, i) => ({ date: g.date, tasks: parts.flatMap((p) => p[i]!.tasks).sort(sort) }));
+    return parts[0]!.map((g, i) => ({ date: g.date, tasks: dayOrdered(parts.flatMap((p) => p[i]!.tasks), g.date, tz) }));
   }
 
   deferred(t: TaskView, todayDate: string, tz: string): boolean {
@@ -473,6 +457,11 @@ export class Workspace {
       this.copyTree(src, dst, child.task.id, { projectId: undefined, sectionId: null, parentId: newId });
     }
     return newId;
+  }
+
+  /** Ручной порядок дня (см. Doc.placeInDay): задачи дня могут лежать в разных пространствах. */
+  placeInDay(id: string, date: string, list: readonly string[], position: Position, due?: DateSpec): void {
+    this.writeTasks(dayOrderChanges((x) => this.task(x), id, date, list, position, due));
   }
 
   /** Изменение нескольких задач разом (например, «перенести просроченное на сегодня»). */

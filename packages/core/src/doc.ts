@@ -10,7 +10,7 @@ import { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkE
 import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import { normalizeCalendarUrl, toCalendarSub, type CalendarSub } from './events.ts';
-import { compareOrder, keyBetween } from './fractional.ts';
+import { compareOrder, keyBetween, keysBetween } from './fractional.ts';
 import type { HybridClock } from './hlc.ts';
 import {
   LABEL_PREFIX,
@@ -1370,8 +1370,7 @@ export class Doc {
       if (d < todayDate) overdue.push(t);
       else if (d === todayDate) todays.push(t);
     }
-    const sort = byDue(tz);
-    return { overdue: overdue.sort(sort), today: todays.sort(sort) };
+    return { overdue: dayOrdered(overdue, todayDate, tz), today: dayOrdered(todays, todayDate, tz) };
   }
 
   /**
@@ -1416,8 +1415,17 @@ export class Doc {
         put({ ...t, due: { ...t.due, date: occ }, projected: true });
       }
     }
-    const sort = byDue(tz);
-    return [...groups.entries()].map(([date, tasks]) => ({ date, tasks: tasks.sort(sort) }));
+    return [...groups.entries()].map(([date, tasks]) => ({ date, tasks: dayOrdered(tasks, date, tz) }));
+  }
+
+  /**
+   * Поставить задачу в ручном порядке дня date перед или после другой. list — задачи дня в показанном порядке
+   * (верхний уровень). Если у остальных уже есть возрастающие ключи этого дня, пишется один ключ; иначе
+   * ключи получает весь день, чтобы показанный порядок закрепился. due — новый срок в том же действии
+   * (задача пришла из другого дня).
+   */
+  placeInDay(id: string, date: string, list: readonly string[], position: Position, due?: DateSpec): void {
+    this.write(dayOrderChanges((x) => this.snapshot().tasks.get(x), id, date, list, position, due));
   }
 
   /** Задача отложена: дата начала ещё не наступила. */
@@ -1555,6 +1563,63 @@ export function nestTasks(src: { task(id: string): TaskView | undefined; subtask
 
 export function normalizeText(s: string): string {
   return s.toLocaleLowerCase('ru').replace(/ё/g, 'е').trim();
+}
+
+/** Правки для placeInDay; get — задача по id (в Workspace задачи дня лежат в разных пространствах). */
+export function dayOrderChanges(
+  get: (id: string) => TaskView | undefined,
+  id: string,
+  date: string,
+  list: readonly string[],
+  position: Position,
+  due?: DateSpec,
+): Change[] {
+  if (!get(id)) return [];
+  const order = list.filter((x) => x !== id && get(x));
+  const anchor = position.after ?? position.before;
+  let at = anchor ? order.indexOf(anchor) : -1;
+  if (at < 0) at = order.length;
+  else if (position.after) at++;
+  const keyOf = (x: string): string | null => {
+    const d = get(x)!.dayOrder;
+    return d && d.date === date ? d.key : null;
+  };
+  const keys = order.map(keyOf);
+  const sorted = keys.every((k, i) => k !== null && (i === 0 || keys[i - 1]! < k));
+  const changes: Change[] = due ? [['task', id, 'due', due as unknown as Json]] : [];
+  if (sorted) {
+    changes.push(['task', id, 'day_order', { date, key: keyBetween(keys[at - 1] ?? null, keys[at] ?? null) }]);
+  } else {
+    const all = [...order.slice(0, at), id, ...order.slice(at)];
+    const fresh = keysBetween(null, null, all.length);
+    all.forEach((x, i) => {
+      if (keyOf(x) !== fresh[i]) changes.push(['task', x, 'day_order', { date, key: fresh[i]! }]);
+    });
+  }
+  return changes;
+}
+
+/**
+ * Задачи одного дня: переставленные вручную в этот день идут по своим ключам, остальные — по byDue.
+ * Неупорядоченная задача встаёт перед первой упорядоченной, которую byDue ставит после неё:
+ * новая задача на сегодня появляется там же, где была бы без ручного порядка относительно соседей.
+ */
+export function dayOrdered(tasks: readonly TaskView[], date: string, tz: string): TaskView[] {
+  const sort = byDue(tz);
+  const manual: TaskView[] = [];
+  const rest: TaskView[] = [];
+  for (const t of tasks) (t.dayOrder?.date === date && !t.projected ? manual : rest).push(t);
+  rest.sort(sort);
+  if (manual.length === 0) return rest;
+  manual.sort((a, b) => (a.dayOrder!.key < b.dayOrder!.key ? -1 : a.dayOrder!.key > b.dayOrder!.key ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const out: TaskView[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < manual.length || j < rest.length) {
+    if (j < rest.length && (i >= manual.length || sort(rest[j]!, manual[i]!) < 0)) out.push(rest[j++]!);
+    else out.push(manual[i++]!);
+  }
+  return out;
 }
 
 /** Порядок внутри дня: сначала задачи со временем по времени, потом по приоритету, потом по ручному порядку. */
