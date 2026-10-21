@@ -8,6 +8,7 @@
 import { daysBetween, isDate, isTime, isoWeekday } from './dates.ts';
 import type { Json } from './op.ts';
 import type { TaskView } from './doc.ts';
+import type { GoalProgress } from './goals.ts';
 import type { HabitStreak } from './habits.ts';
 import type { Stats } from './stats.ts';
 
@@ -165,13 +166,15 @@ export function onVacation(s: GameSettings, date: string): boolean {
  */
 export type WarmFact =
   | { readonly kind: 'habit'; readonly count: number }
+  | { readonly kind: 'goalStreak'; readonly days: number }
+  | { readonly kind: 'weekGoal'; readonly goal: number }
   | { readonly kind: 'dayStreak'; readonly days: number }
   | { readonly kind: 'oldestInbox'; readonly days: number }
   | { readonly kind: 'noOverdue' }
   | { readonly kind: 'nthToday'; readonly n: number }
   | { readonly kind: 'longWait'; readonly days: number };
 
-const PRIORITY: readonly WarmFact['kind'][] = ['habit', 'dayStreak', 'oldestInbox', 'noOverdue', 'nthToday', 'longWait'];
+const PRIORITY: readonly WarmFact['kind'][] = ['habit', 'goalStreak', 'weekGoal', 'dayStreak', 'oldestInbox', 'noOverdue', 'nthToday', 'longWait'];
 
 /** Серии привычки, которые стоит отметить: дальше — каждые 50. */
 const HABIT_MARKS = new Set([3, 5, 7, 10, 14, 21, 30]);
@@ -205,6 +208,8 @@ export interface AfterCompletion {
   readonly overdue: number;
   readonly stats: Pick<Stats, 'today' | 'streak'>;
   readonly habit: HabitStreak | null;
+  /** Цели и серия целей после выполнения; null — игровые цели не считаются. */
+  readonly goals?: GoalProgress | null;
 }
 
 /** Данные Workspace (или Doc), нужные фразам; тип структурный, чтобы не тянуть Workspace в ядро настроек. */
@@ -215,6 +220,7 @@ export interface FactSource {
   today(todayDate: string, tz: string): { overdue: TaskView[]; today: TaskView[] };
   stats(tz: string, today: string): Stats;
   habitStreak(taskId: string, today: string, tz: string): HabitStreak | null;
+  goals?(tz: string, today: string): GoalProgress;
 }
 
 export function beforeCompletion(src: FactSource, taskId: string, today: string, tz: string): BeforeCompletion | null {
@@ -237,6 +243,7 @@ export function afterCompletion(src: FactSource, before: BeforeCompletion, today
     overdue: src.today(today, tz).overdue.length,
     stats: src.stats(tz, today),
     habit: before.task.habit ? src.habitStreak(before.task.id, today, tz) : null,
+    goals: src.goals ? src.goals(tz, today) : null,
   };
 }
 
@@ -246,6 +253,12 @@ export function completionFacts(before: BeforeCompletion, after: AfterCompletion
   const created = before.task.createdAt ? new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date(before.task.createdAt)) : null;
   const age = created ? daysBetween(created, today) : 0;
   if (after.habit && marked(after.habit.current, HABIT_MARKS)) out.push({ kind: 'habit', count: after.habit.current });
+  // Это выполнение добрало цель дня, и она выполнена уже не первый день подряд.
+  const g = after.goals;
+  const added = after.stats.today - before.doneToday;
+  if (g?.day.goal != null && g.streak && before.doneToday < g.day.goal && g.day.done >= g.day.goal && g.streak.current >= 2) out.push({ kind: 'goalStreak', days: g.streak.current });
+  // Это выполнение добрало цель недели.
+  if (g?.week.goal != null && added > 0 && g.week.done - added < g.week.goal && g.week.done >= g.week.goal) out.push({ kind: 'weekGoal', goal: g.week.goal });
   // Первое выполнение за день продолжило серию дней.
   if (before.doneToday === 0 && after.stats.today > 0 && marked(after.stats.streak, STREAK_MARKS)) out.push({ kind: 'dayStreak', days: after.stats.streak });
   if (before.oldestInInbox && age >= OLDEST_INBOX_DAYS) out.push({ kind: 'oldestInbox', days: age });

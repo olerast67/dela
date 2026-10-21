@@ -113,3 +113,38 @@ test('цели, выходные и отпуск в настройках', async
   await page.getByRole('button', { name: 'Без отпуска' }).click();
   await expect(page.getByLabel('Конец отпуска')).toHaveValue('');
 });
+
+test('цель дня: полоска «из», при выполнении — акцент и «Цель дня выполнена»; выключено — полоски нет', async ({ page }) => {
+  await start(page);
+  await page.goto('/#/settings');
+  await page.getByLabel('Цель на день, задач').fill('2');
+  await addToday(page, 'Полить цветы');
+  await addToday(page, 'Купить хлеб');
+  // Приветственные задачи остаются в «Сегодня»: день не закрыт, кольцо заменено полоской.
+  const bar = page.locator('.today-head .goal-bar');
+  await expect(bar).toHaveAttribute('aria-label', 'Цель дня: 0 из 2');
+  await expect(page.locator('.today-head .ring')).toHaveCount(0);
+  await complete(page, 'Полить цветы');
+  await expect(bar).toHaveAttribute('aria-label', 'Цель дня: 1 из 2');
+  await expect(bar).not.toHaveClass(/met/);
+  await complete(page, 'Купить хлеб');
+  await expect(bar).toHaveAttribute('aria-label', 'Цель дня: 2 из 2');
+  await expect(bar).toHaveClass(/met/);
+  await expect(page.locator('.goal-burst')).toContainText('Цель дня выполнена');
+  // Без конфетти, и надпись уходит сама.
+  await expect(page.locator('.confetti')).toHaveCount(0);
+  await expect(page.locator('.goal-burst')).toHaveCount(0, { timeout: 3000 });
+  await expect(page.locator('.goal-fill')).toHaveAttribute('style', /--p: 1/);
+
+  await page.goto('/#/stats');
+  await expect(page.getByRole('heading', { name: 'Цели' })).toBeVisible();
+  await expect(page.locator('.goal-day.is-today')).toHaveClass(/g-done/);
+
+  await page.goto('/#/settings');
+  await page.getByLabel('Отклик при выполнении, цели и итоги').uncheck();
+  await page.goto('/#/today');
+  await expect(page.locator('.goal-bar')).toHaveCount(0);
+  await expect(page.locator('.today-head .ring')).toBeVisible();
+  await page.goto('/#/stats');
+  await expect(page.getByRole('heading', { name: 'Цели' })).toHaveCount(0);
+});

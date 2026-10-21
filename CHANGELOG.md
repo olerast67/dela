@@ -7,6 +7,7 @@
 - An optional quiet click on completion, generated in the app without sound files (off by default).
 - When the last task in Today is done, a short burst of leaves and "Day closed", then a calm empty Today with how many tasks were done. The empty Inbox is calmer too.
 - Now and then, instead of "Task completed", a warm phrase based on facts: the oldest task in the Inbox, the fifth task today, no overdue tasks left, a habit or a run of days. At most once in five completions.
+- Daily and weekly goals: with a daily goal, Today shows a bar "3 of 5" instead of the ring, a tick when it is met, a short "Daily goal met" while tasks remain, and the goal streak from two days. The streak is fair: days off and vacation do not count, one missed day a week does not break it. Statistics show both streaks, this week by day and progress to the weekly goal. Settings and Today suggest a goal from your average over the last two weeks.
 
 ## 1.0.4
 

@@ -3,7 +3,7 @@ import { COLORS, FilterSyntaxError, type Priority, type ProjectTasks, type TaskN
 import { controller, type MorningDigest } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { href, navigate, setStartHash, startHash, useAppState, useDoc, useGame } from '../hooks.ts';
-import { DayClosedBurst, DayDone, GameSettingsSection } from './Game.tsx';
+import { DayClosedBurst, DayDone, GameSettingsSection, GoalBurst, GoalHint, TodayGoal } from './Game.tsx';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
@@ -147,13 +147,17 @@ function TodayEmpty({ today }: { today: string }) {
   const doc = useDoc();
   const game = useGame();
   const done = game.enabled ? doneTodayCount(doc, today) : 0;
-  if (done > 0) return <DayDone done={done} />;
+  if (done > 0) return <DayDone done={done} today={today} />;
   return <Empty art="today">{tr('На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.')}</Empty>;
 }
 
 function TodayHead({ open, today, children }: { open: number; today: string; children?: React.ReactNode }) {
   const doc = useDoc();
+  const game = useGame();
   const done = doneTodayCount(doc, today);
+  const goals = game.enabled && (game.dailyGoal !== null || game.weeklyGoal !== null) ? doc.goals(TZ, today) : null;
+  // С целью дня полоска «3 из 5» заменяет кольцо.
+  const goalBar = goals?.day.goal != null;
   const total = open + done;
   const r = 20;
   const c = 2 * Math.PI * r;
@@ -164,10 +168,11 @@ function TodayHead({ open, today, children }: { open: number; today: string; chi
       <div>
         <h1>{tr('Сегодня')}</h1>
         <div className="today-date">{date[0]!.toUpperCase() + date.slice(1)}</div>
+        {goals && <TodayGoal g={goals} />}
       </div>
       <div className="head-tools">
       {children}
-      {total > 0 && (
+      {total > 0 && !goalBar && (
         <div className="ring" role="img" aria-label={tr('Выполнено {done} из {total}', { done: done, total: total })} title={tr('Выполнено {done} из {total}', { done: done, total: total })}>
           <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
             <circle cx="26" cy="26" r={r} className="ring-track" />
@@ -243,7 +248,9 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
     return (
       <>
         {head}
+        <GoalHint today={today} />
         <DayClosedBurst />
+        <GoalBurst />
         <TodayEvents date={today} />
         <TodayBoard tasks={[...overdue, ...todays]} sort={opts.sort} today={today} onOpen={onOpen} selectedId={selectedId} />
       </>
@@ -252,6 +259,8 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
     return (
       <>
         {head}
+        <GoalHint today={today} />
+        <GoalBurst />
         <TodayEvents date={today} />
         <Groups
           groups={groupNodes(doc, doc.nested([...overdue, ...todays]), opts.group, opts.sort, today)}
@@ -281,6 +290,8 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
   return (
     <DropContext.Provider value={onDropTask}>
       {head}
+      <GoalHint today={today} />
+      <GoalBurst />
       <TodayEvents date={today} />
       {overdue.length > 0 && (
         <section>

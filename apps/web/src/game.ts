@@ -74,6 +74,16 @@ export function dayJustClosed(): boolean {
   return Date.now() - dayClosedAt < 1000;
 }
 
+// ---------- «Цель дня выполнена» ----------
+
+const goalReached = new Set<(text: string) => void>();
+
+/** Подписка на выполнение цели дня, когда в «Сегодня» ещё остались задачи: короткая надпись без конфетти. */
+export function onGoalReached(fn: (text: string) => void): () => void {
+  goalReached.add(fn);
+  return () => goalReached.delete(fn);
+}
+
 // ---------- тёплые фразы ----------
 
 const PHRASE_KEY = 'gamePhraseCount';
@@ -109,6 +119,10 @@ export function phraseText(f: WarmFact): string {
   switch (f.kind) {
     case 'habit':
       return tr('Привычка: {n} подряд', { n: tn(f.count, 'раз', 'раза', 'раз') });
+    case 'goalStreak':
+      return tr('Цель дня выполнена {n} подряд', { n: tn(f.days, 'день', 'дня', 'дней') });
+    case 'weekGoal':
+      return tr('Цель недели выполнена: {n}', { n: tn(f.goal, 'задача', 'задачи', 'задач') });
     case 'dayStreak':
       return tr('{n} подряд с выполненными задачами', { n: tn(f.days, 'день', 'дня', 'дней') });
     case 'oldestInbox':
@@ -137,19 +151,34 @@ export function completeWithGame(doc: Workspace, task: TaskView): string | null 
   const list = doc.today(today, TZ);
   const inToday = list.overdue.some((t) => t.id === task.id) || list.today.some((t) => t.id === task.id);
   const before = s.phrases ? beforeCompletion(doc, task.id, today, TZ) : null;
+  const goalBefore = s.celebrations && s.dailyGoal !== null ? doc.goals(TZ, today).day : null;
   doc.completeTask(task.id);
+  let closed = false;
   if (s.celebrations && inToday) {
     const after = doc.today(today, TZ);
     if (after.overdue.length + after.today.length === 0) {
+      closed = true;
       dayClosedAt = Date.now();
       for (const fn of dayClosed) fn();
     }
   }
-  if (!before) return null;
-  phraseCount ??= readCount();
-  const facts = completionFacts(before, afterCompletion(doc, before, today, TZ), today, TZ);
-  const r = pickPhrase(facts, phraseCount + 1);
-  phraseCount = r.sinceLast;
-  writeCount(phraseCount);
-  return r.fact ? phraseText(r.fact) : null;
+  // Цель дня добрана, а задачи ещё есть: короткое «Цель дня выполнена». Закрытый день празднуется один раз.
+  const goal = goalBefore?.goal ?? null;
+  const reached = !closed && goal !== null && goalBefore!.done < goal && doc.goals(TZ, today).day.done >= goal;
+  let phrase: string | null = null;
+  if (before) {
+    phraseCount ??= readCount();
+    const facts = completionFacts(before, afterCompletion(doc, before, today, TZ), today, TZ);
+    const r = pickPhrase(facts, phraseCount + 1);
+    phraseCount = r.sinceLast;
+    writeCount(phraseCount);
+    phrase = r.fact ? phraseText(r.fact) : null;
+    // Фраза о серии целей становится надписью, а тост остаётся обычным: одно сообщение, а не два.
+    if (reached && goalReached.size > 0 && r.fact?.kind === 'goalStreak') {
+      for (const fn of goalReached) fn(phrase!);
+      return null;
+    }
+  }
+  if (reached) for (const fn of goalReached) fn(tr('Цель дня выполнена'));
+  return phrase;
 }

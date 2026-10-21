@@ -12,6 +12,7 @@ import type { ActivityEvent, Change, Doc, Listener, Position, ProjectNode, Proje
 import { dayOrderChanges, dayOrdered, nestTasks } from './doc.ts';
 import type { HabitStreak } from './habits.ts';
 import { computeStats, type Stats, type StatsOptions } from './stats.ts';
+import { computeGoals, suggestDailyGoal, type GoalProgress } from './goals.ts';
 import type { SavedPlace } from './places.ts';
 import type { GameSettings } from './game.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
@@ -229,6 +230,16 @@ export class Workspace {
   /** Статистика выполненного по личному и общим проектам вместе. */
   stats(tz: string, today: string, opts?: StatsOptions): Stats {
     return computeStats(this.docs().flatMap((d) => d.doneEvents()), tz, today, { ...opts, work: this.docs().flatMap((d) => d.workEvents()) });
+  }
+
+  /** Цели дня и недели и серия целей по личному и общим проектам вместе (goals.ts). */
+  goals(tz: string, today: string): GoalProgress {
+    return computeGoals(this.docs().flatMap((d) => d.doneEvents()), this.getGameSettings(), tz, today);
+  }
+
+  /** Подсказка цели дня по последним двум неделям; null — подсказывать нечего. */
+  suggestDailyGoal(tz: string, today: string): number | null {
+    return suggestDailyGoal(this.docs().flatMap((d) => d.doneEvents()), this.getGameSettings(), tz, today);
   }
 
   /** Серия привычки в поясе tz на дату today; null, если задача не привычка. */

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { TZ, durationLabel, todayDate } from '../format.ts';
 import { navigate, useDoc } from '../hooks.ts';
 import { LOCALE, tn, tr } from '../i18n.ts';
+import { GoalStats } from './Game.tsx';
 import { HabitStrip } from './Habit.tsx';
 import { IconFlame } from './icons.tsx';
 
@@ -91,6 +92,8 @@ export function StatsView() {
           <span>{tr('лучшая серия')}</span>
         </div>
       </div>
+
+      <GoalStats />
 
       {s.work.period + s.work.week > 0 && (
         <>

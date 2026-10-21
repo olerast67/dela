@@ -4299,8 +4299,307 @@ html:has(.quick-window) #root {
   border-color: var(--danger);
 }
 
+/* Цель дня в заголовке «Сегодня»: полоска «3 из 5», серия и подпись выходного. */
+.goal-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-top: 8px;
+}
+
+.goal-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.goal-track {
+  display: block;
+  width: 132px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.goal-fill {
+  display: block;
+  height: 100%;
+  width: calc(var(--p) * 100%);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent) 72%, var(--surface));
+  transition:
+    width 600ms var(--ease),
+    background 300ms var(--ease);
+  animation: goal-grow 700ms var(--ease) both;
+}
+
+@keyframes goal-grow {
+  from {
+    width: 0;
+  }
+}
+
+.goal-bar.met .goal-fill {
+  background: var(--accent);
+}
+
+.goal-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.goal-count svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.6;
+}
+
+.goal-bar.met .goal-count {
+  color: var(--accent);
+}
+
+/* Цель только что выполнена: галочка мягко появляется. */
+.goal-bar.met .goal-count svg {
+  animation: check-pop 320ms var(--ease);
+}
+
+.goal-streak {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.goal-off {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-2);
+  padding: 1px 10px;
+  border-radius: 999px;
+}
+
+/* «Цель дня выполнена» поверх списка: та же плашка, что у «День закрыт», только без конфетти. */
+.goal-burst .day-closed-pill svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke-width: 2.6;
+}
+
+/* Подсказка цели в «Сегодня»: одна строка с кнопкой и крестиком. */
+.goal-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0 0 14px;
+  padding: 8px 6px 8px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.goal-hint > span {
+  flex: 1 1 220px;
+}
+
+.goal-hint-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.goal-hint-close:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.goal-hint-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.goal-suggest {
+  margin: 0;
+}
+
+/* Блок целей в «Статистике». */
+.goal-cards {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.goal-week {
+  justify-content: space-between;
+}
+
+.goal-week .goal-bar {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 10px;
+  min-height: 29px;
+}
+
+.goal-week .goal-track {
+  flex: 1;
+  width: auto;
+  min-width: 40px;
+}
+
+.goal-week .goal-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.goal-week .goal-bar.met .goal-count {
+  color: var(--accent);
+}
+
+.goal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 12px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.goal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.goal-day.is-today .goal-day-name {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.goal-day-mark,
+.goal-dot {
+  background: var(--surface-2);
+}
+
+.goal-day-mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-day-mark svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.6;
+}
+
+.goal-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  vertical-align: -1px;
+}
+
+.g-done .goal-day-mark,
+.goal-dot.g-done {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.g-allowed .goal-day-mark,
+.goal-dot.g-allowed {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--text-muted);
+}
+
+.g-missed .goal-day-mark {
+  color: var(--text-muted);
+}
+
+.g-rest .goal-day-mark,
+.goal-dot.g-rest {
+  background: color-mix(in srgb, var(--p3) 16%, var(--surface));
+  color: var(--p3);
+}
+
+.g-vacation .goal-day-mark,
+.goal-dot.g-vacation {
+  background: color-mix(in srgb, var(--p2) 18%, var(--surface));
+  color: var(--p2);
+}
+
+.g-today .goal-day-mark {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.g-planned .goal-day-mark {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.goal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.goal-note {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.goal-dot.g-rest {
+  background: color-mix(in srgb, var(--p3) 45%, var(--surface));
+}
+
+.goal-dot.g-vacation {
+  background: color-mix(in srgb, var(--p2) 50%, var(--surface));
+}
+
+/* На телефоне цель недели во всю ширину: полоске нужно место. */
+@media (max-width: 520px) {
+  .goal-week {
+    grid-column: 1 / -1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-game] .task.leaving,
+  .goal-fill,
+  .goal-bar.met .goal-count svg,
   :root[data-game] .task.leaving .check,
   :root[data-game] .task.leaving .check::before,
   :root[data-game] .task.leaving .check::after,

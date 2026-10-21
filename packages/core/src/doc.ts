@@ -7,6 +7,7 @@
  */
 import { habitStreak, type HabitStreak } from './habits.ts';
 import { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkEvent } from './stats.ts';
+import { computeGoals, type GoalProgress } from './goals.ts';
 import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import { normalizeCalendarUrl, toCalendarSub, type CalendarSub } from './events.ts';
@@ -1488,6 +1489,11 @@ export class Doc {
   /** Статистика выполненного по дням и неделям в поясе tz на дату today. */
   stats(tz: string, today: string, opts?: StatsOptions): Stats {
     return computeStats(this.doneEvents(), tz, today, { ...opts, work: this.workEvents() });
+  }
+
+  /** Цели дня и недели и серия целей (goals.ts). */
+  goals(tz: string, today: string): GoalProgress {
+    return computeGoals(this.doneEvents(), this.getGameSettings(), tz, today);
   }
 
   /** Удалённые задачи для корзины. */
