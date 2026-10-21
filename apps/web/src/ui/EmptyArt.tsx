@@ -1,5 +1,5 @@
 /** Рисунки пустых экранов: линии цвета текста, заливки цвета акцента. Без текста внутри. */
-export type EmptyKind = 'today' | 'inbox' | 'search' | 'done';
+export type EmptyKind = 'today' | 'dayDone' | 'inbox' | 'search' | 'done';
 
 export function EmptyArt({ kind }: { kind: EmptyKind }) {
   return (
@@ -13,6 +13,23 @@ export function EmptyArt({ kind }: { kind: EmptyKind }) {
           <path d="M38 78h40v14a16 16 0 0 1-16 16h-8a16 16 0 0 1-16-16z" className="fill-paper stroke-line" />
           <path d="M78 84h5a7 7 0 0 1 0 14h-6M50 70c0-5 6-5 6-10M62 70c0-5 6-5 6-10" className="stroke-line" />
           <path d="M50 90l6 6 10-11" className="stroke-accent" />
+        </>
+      )}
+      {kind === 'dayDone' && (
+        <>
+          {/* вечер: солнце садится за холм, на холме распустился росток — день закрыт */}
+          <path d="M104 92a22 22 0 0 1 44 0" className="fill-soft stroke-accent" />
+          <circle cx="40" cy="26" r="2.5" className="fill-accent" />
+          <circle cx="62" cy="14" r="2" className="fill-accent" />
+          <circle cx="154" cy="22" r="2" className="fill-accent" />
+          <path d="M8 104c26-16 52-20 82-12s54 8 82-4" className="stroke-line" />
+          <path d="M70 100c0-14 2-28 6-40" className="stroke-line" />
+          <g className="art-leaf left">
+            <path d="M75 70c-10-2-20-10-22-22 12 0 21 8 22 22z" className="fill-soft stroke-accent" />
+          </g>
+          <g className="art-leaf right">
+            <path d="M77 58c4-12 14-20 28-20-2 13-13 21-28 20z" className="fill-soft stroke-accent" />
+          </g>
         </>
       )}
       {kind === 'inbox' && (

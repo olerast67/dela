@@ -12,6 +12,7 @@ import { navigate, useDoc, useMedia } from '../hooks.ts';
 import { DRAG_TYPE, setDragged } from './dnd.ts';
 import type { QuickAddDefaults } from './QuickAdd.tsx';
 import { completeWithUndo } from './Task.tsx';
+import { doneFeedback } from '../game.ts';
 import { OptionsPopover } from './ViewOptions.tsx';
 import { tr } from '../i18n.ts';
 import { haptic } from '../platform.ts';
@@ -500,9 +501,11 @@ function Chip({ task, onOpen, selected, showTime, note }: { task: Overdue; onOpe
   const tone = useToneClass();
   const { begin } = useContext(TouchContext);
   const slot = task.due ? slotOf(task.due, TZ) : null;
+  // С игровыми элементами кружок успевает заполниться, потом чип уходит.
+  const [leaving, setLeaving] = useState(false);
   return (
     <div
-      className={`cal-chip ${tone(task)}${selected ? ' selected' : ''}${task.overdueMark ? ' overdue' : ''}${task.projected ? ' projected' : ''}`}
+      className={`cal-chip ${tone(task)}${selected ? ' selected' : ''}${task.overdueMark ? ' overdue' : ''}${task.projected ? ' projected' : ''}${leaving ? ' leaving' : ''}`}
       data-id={task.id}
       {...dragProps(task)}
       {...touchProps(task, begin)}
@@ -515,8 +518,11 @@ function Chip({ task, onOpen, selected, showTime, note }: { task: Overdue; onOpe
         disabled={task.projected}
         onClick={(e) => {
           e.stopPropagation();
-          if (justDragged()) return;
-          completeWithUndo(doc, task);
+          if (justDragged() || leaving) return;
+          if (!doc.getGameSettings().enabled) return completeWithUndo(doc, task);
+          setLeaving(true);
+          doneFeedback(doc);
+          setTimeout(() => completeWithUndo(doc, task), 220);
         }}
       />
       {showTime && slot && <span className="cal-time">{clockLabel(slot.minute)}</span>}

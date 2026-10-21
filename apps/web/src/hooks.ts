@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
-import type { Workspace } from '#core';
+import type { GameSettings, Workspace } from '#core';
 import { controller, type AppState } from './controller.ts';
 
 export function useAppState(): AppState {
@@ -13,6 +13,19 @@ export function useDoc(): Workspace {
   const doc = controller.doc;
   if (!doc) throw new Error('document is not loaded');
   return doc;
+}
+
+/** Настройки игровых элементов (запись личного пространства); перерисовка при любом изменении данных, как useDoc. */
+export function useGame(): GameSettings {
+  return useDoc().getGameSettings();
+}
+
+/** Атрибут data-game на <html>: по нему CSS включает анимации выполнения. Выключено — всё как раньше. */
+export function useGameAttribute(): void {
+  const on = useGame().enabled;
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-game', on);
+  }, [on]);
 }
 
 export type Route =

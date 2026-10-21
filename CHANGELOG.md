@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Settings → Game elements: one switch turns all of them off, and each one has its own switch (sound, celebrations, warm phrases, weekly review with day, time and notification, milestones, garden). Daily and weekly goals, days off and vacation dates are stored here too. The settings sync between devices encrypted, field by field.
+- Completing a task feels nicer: the circle fills from the centre with a small spring, the title is struck through and the row slides away. Calendar chips do the same. With "reduce motion" in the system only the colour changes.
+- An optional quiet click on completion, generated in the app without sound files (off by default).
+- When the last task in Today is done, a short burst of leaves and "Day closed", then a calm empty Today with how many tasks were done. The empty Inbox is calmer too.
+- Now and then, instead of "Task completed", a warm phrase based on facts: the oldest task in the Inbox, the fifth task today, no overdue tasks left, a habit or a run of days. At most once in five completions.
+
 ## 1.0.4
 
 - Phone: the task card fits the screen. It had both a fixed height and a top offset, so its bottom bar with Delete went 5% below the screen; the fix in 1.0.3 only added padding and did not help.

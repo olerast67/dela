@@ -3989,3 +3989,353 @@ html:has(.quick-window) #root {
   flex: 1 1 180px;
   min-width: 0;
 }
+
+/* ---------- игровые элементы (docs/gamification.md) ----------
+   Всё ниже действует только при data-game на <html>: выключенный выключатель оставляет прежний вид. */
+
+/* Галочка: кружок заполняется от центра, пружинит и пускает тонкое кольцо; строка уходит вправо. */
+:root[data-game] .task.leaving .check {
+  /* Заливку рисует ::before от центра, а не фон целиком. */
+  background: color-mix(in srgb, var(--pc) 10%, transparent);
+  animation: game-spring 380ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+:root[data-game] .task.leaving .check::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: var(--pc);
+  animation: game-fill 170ms ease-out both;
+}
+
+:root[data-game] .task.leaving .check svg {
+  position: relative;
+  transition: stroke-dashoffset 200ms ease-out 70ms;
+}
+
+:root[data-game] .task.leaving .check::after {
+  animation: game-ring 420ms ease-out;
+  border-radius: 50%;
+}
+
+:root[data-game] .task.leaving {
+  opacity: 0;
+  transform: translateX(32px);
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface));
+  transition:
+    background 120ms var(--ease),
+    opacity 150ms linear 130ms,
+    transform 170ms cubic-bezier(0.55, 0, 0.8, 0.2) 110ms;
+}
+
+:root[data-game] .task.leaving .task-title {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  color: var(--text-muted);
+  animation: game-strike 160ms ease-out both;
+}
+
+@keyframes game-fill {
+  from {
+    transform: scale(0.15);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes game-spring {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.84);
+  }
+  70% {
+    transform: scale(1.16);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes game-ring {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--pc) 40%, transparent);
+    inset: 0;
+  }
+  to {
+    box-shadow: 0 0 0 10px transparent;
+    inset: 0;
+  }
+}
+
+@keyframes game-strike {
+  from {
+    text-decoration-color: transparent;
+    color: var(--text);
+  }
+}
+
+/* Чип календаря: кружок заливается, чип гаснет. */
+:root[data-game] .cal-chip.leaving {
+  opacity: 0.35;
+  transition: opacity 180ms linear 60ms;
+}
+
+:root[data-game] .cal-chip.leaving .cal-dot {
+  background: var(--pc);
+  animation: game-spring 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+:root[data-game] .cal-chip.leaving .cal-title {
+  text-decoration: line-through;
+}
+
+/* «День закрыт»: надпись и вспышка листьев над списком; нажатия проходят насквозь. */
+.day-closed {
+  position: fixed;
+  left: 50%;
+  top: 28%;
+  z-index: 25;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+.day-closed-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 16px;
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  animation: day-closed-pill 1500ms var(--ease) both;
+}
+
+.day-closed-pill svg {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.confetti {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  pointer-events: none;
+}
+
+/* В пустом «Сегодня» листья вылетают из ростка. */
+.day-done-art {
+  position: relative;
+}
+
+.day-done .confetti {
+  left: 43%;
+  top: 46%;
+}
+
+.day-done.celebrate {
+  animation: none;
+}
+
+.day-done.celebrate .empty-art {
+  animation: day-done-art 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.day-done.celebrate p {
+  animation: row-in 420ms var(--ease) 180ms both;
+}
+
+@keyframes day-done-art {
+  from {
+    opacity: 0;
+    transform: scale(0.82) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.confetti .piece {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  background: var(--pc);
+  opacity: 0;
+  animation: day-closed-piece 1100ms cubic-bezier(0.15, 0.7, 0.3, 1) both;
+}
+
+.confetti .piece.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.confetti .piece.bar {
+  width: 4px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.confetti .piece.leaf {
+  width: 10px;
+  height: 7px;
+  border-radius: 0 100% 0 100%;
+}
+
+@keyframes day-closed-pill {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+  14% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  22% {
+    transform: scale(1);
+  }
+  78% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes day-closed-piece {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y) + 26px)) rotate(var(--r)) scale(1);
+  }
+}
+
+/* Спокойное пустое «Сегодня»: листья ростка чуть покачиваются пару раз и замирают. */
+.day-done-title {
+  display: inline-block;
+  color: var(--text);
+  font-size: 17px;
+  margin-bottom: 4px;
+}
+
+.empty-art .art-leaf {
+  transform-box: fill-box;
+  animation: art-leaf 2600ms ease-in-out 2;
+}
+
+.empty-art .art-leaf.left {
+  transform-origin: 100% 100%;
+}
+
+.empty-art .art-leaf.right {
+  transform-origin: 0% 100%;
+  animation-delay: 300ms;
+}
+
+@keyframes art-leaf {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  50% {
+    transform: rotate(-6deg);
+  }
+}
+
+/* Настройки игровых элементов. */
+.game-settings h3 {
+  font-size: 14px;
+  color: var(--text);
+  margin: 18px 0 6px;
+}
+
+.game-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.game-options > p {
+  margin: 0;
+}
+
+.game-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 28px;
+}
+
+.game-goal.invalid {
+  border-color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-game] .task.leaving,
+  :root[data-game] .task.leaving .check,
+  :root[data-game] .task.leaving .check::before,
+  :root[data-game] .task.leaving .check::after,
+  :root[data-game] .task.leaving .task-title,
+  :root[data-game] .cal-chip.leaving .cal-dot,
+  .empty-art .art-leaf {
+    animation: none;
+    transform: none;
+  }
+
+  :root[data-game] .task.leaving {
+    transition: opacity 150ms linear 130ms;
+  }
+
+  .confetti {
+    display: none;
+  }
+
+  .day-done.celebrate .empty-art,
+  .day-done.celebrate p {
+    animation: none;
+  }
+
+  .day-closed-pill {
+    animation-name: day-closed-fade;
+  }
+
+  @keyframes day-closed-fade {
+    0%,
+    100% {
+      opacity: 0;
+    }
+    15%,
+    80% {
+      opacity: 1;
+    }
+  }
+}

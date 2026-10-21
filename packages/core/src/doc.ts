@@ -39,6 +39,7 @@ import {
   type WorkLog,
 } from './model.ts';
 import type { Json, Op } from './op.ts';
+import { gameSettingsChanges, readGameSettings, GAME_RECORD, GAME_TABLE, type GameSettings } from './game.ts';
 import { clampRadius, coordValue, toPlace, placeValue, type PlaceReminder, type SavedPlace } from './places.ts';
 import { nextOccurrence, occurrencesBetween, parseRule } from './recurrence.ts';
 import { MemoryReplica } from './replica.ts';
@@ -987,6 +988,20 @@ export class Doc {
       if (p && p.deletedAt === null) out.push(p);
     }
     return out.sort((a, b) => a.name.localeCompare(b.name, 'ru') || a.createdAt - b.createdAt);
+  }
+
+  // ---------- игровые элементы ----------
+
+  /** Настройки игровых элементов (game.ts): одна запись, поля сливаются по ячейкам; без записи — умолчания. */
+  getGameSettings(): GameSettings {
+    return readGameSettings(this.replica.get(GAME_TABLE, GAME_RECORD));
+  }
+
+  /** Записать изменённые поля. Неверное значение — RangeError. Настройки не отменяются Ctrl+Z вместе с задачами. */
+  updateGameSettings(patch: Partial<GameSettings>): void {
+    const current = this.getGameSettings();
+    const changes = gameSettingsChanges(current, patch).filter(([, , field, value]) => JSON.stringify(this.replica.get(GAME_TABLE, GAME_RECORD)?.[field]) !== JSON.stringify(value));
+    this.write(changes, { undoable: false });
   }
 
   // ---------- комментарии ----------

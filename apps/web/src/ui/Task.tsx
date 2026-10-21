@@ -12,6 +12,7 @@ import { HabitBadge } from './Habit.tsx';
 import { showToast } from './toast.tsx';
 import { pickedIds, togglePicked, usePicked } from './selection.ts';
 import { tr } from '../i18n.ts';
+import { completeWithGame, doneFeedback } from '../game.ts';
 
 /** Порог смахивания, пикселей: дальше него отпускание выполняет действие. */
 const SWIPE = 84;
@@ -109,8 +110,9 @@ function useSwipe(enabled: boolean, onRight: () => void, onLeft: () => void, onL
 }
 
 export function completeWithUndo(doc: Workspace, task: TaskView): void {
-  doc.completeTask(task.id);
-  showToast(task.recurrence ? tr('Перенесено на следующий раз') : tr('Задача выполнена'), { label: tr('Отменить'), run: () => doc.undo() });
+  // С игровыми элементами изредка вместо обычного тоста тёплая фраза (game.ts).
+  const phrase = completeWithGame(doc, task);
+  showToast(phrase ?? (task.recurrence ? tr('Перенесено на следующий раз') : tr('Задача выполнена')), { label: tr('Отменить'), run: () => doc.undo() });
 }
 
 export function TaskRow({
@@ -176,6 +178,7 @@ export function TaskRow({
     if (task.projected) return;
     setLeaving(true);
     haptic('success');
+    doneFeedback(doc);
     // Галочка успевает отрисоваться, потом строка уходит.
     setTimeout(() => completeWithUndo(doc, task), 280);
   }

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { COLORS, FilterSyntaxError, type Priority, type ProjectTasks, type TaskNode, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
 import { controller, type MorningDigest } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
-import { href, navigate, setStartHash, startHash, useAppState, useDoc } from '../hooks.ts';
+import { href, navigate, setStartHash, startHash, useAppState, useDoc, useGame } from '../hooks.ts';
+import { DayClosedBurst, DayDone, GameSettingsSection } from './Game.tsx';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
@@ -130,12 +131,29 @@ function dayDrop(doc: ReturnType<typeof useDoc>, lists: readonly DayList[]): Dro
 }
 
 /** Заголовок «Сегодня»: дата и кольцо прогресса (выполнено сегодня из запланированного на сегодня). */
+/** Выполненные сегодня: обычные задачи и экземпляры повторов (сама повторяющаяся задача остаётся открытой). */
+function doneTodayCount(doc: ReturnType<typeof useDoc>, today: string): number {
+  return (
+    doc.completedTasks().filter((t) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(t.completedAt!)) === today).length +
+    doc.doneToday(today, TZ).length
+  );
+}
+
+/**
+ * Пустое «Сегодня». С игровыми элементами, когда за день что-то сделано, — спокойный экран «День закрыт»;
+ * иначе прежний.
+ */
+function TodayEmpty({ today }: { today: string }) {
+  const doc = useDoc();
+  const game = useGame();
+  const done = game.enabled ? doneTodayCount(doc, today) : 0;
+  if (done > 0) return <DayDone done={done} />;
+  return <Empty art="today">{tr('На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.')}</Empty>;
+}
+
 function TodayHead({ open, today, children }: { open: number; today: string; children?: React.ReactNode }) {
   const doc = useDoc();
-  // Выполненные сегодня: обычные задачи и экземпляры повторов (сама повторяющаяся задача остаётся открытой).
-  const done =
-    doc.completedTasks().filter((t) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(t.completedAt!)) === today).length +
-    doc.doneToday(today, TZ).length;
+  const done = doneTodayCount(doc, today);
   const total = open + done;
   const r = 20;
   const c = 2 * Math.PI * r;
@@ -225,6 +243,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
     return (
       <>
         {head}
+        <DayClosedBurst />
         <TodayEvents date={today} />
         <TodayBoard tasks={[...overdue, ...todays]} sort={opts.sort} today={today} onOpen={onOpen} selectedId={selectedId} />
       </>
@@ -242,7 +261,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
         />
         {doneList}
         <AddTask defaults={{ due: { date: today } }} />
-        {overdue.length + todays.length === 0 && <Empty art="today">{tr('На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.')}</Empty>}
+        {overdue.length + todays.length === 0 && <TodayEmpty today={today} />}
       </>
     );
   // Подзадача встаёт под родителя, даже если он просрочен, а она на сегодня: один список на весь экран.
@@ -290,7 +309,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
         {doneList}
         <AddTask defaults={{ due: { date: today } }} />
       </section>
-      {overdue.length + todays.length === 0 && <Empty art="today">{tr('На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.')}</Empty>}
+      {overdue.length + todays.length === 0 && <TodayEmpty today={today} />}
     </DropContext.Provider>
   );
 }
@@ -348,6 +367,7 @@ const PROJECT_GROUPS = ['none', 'date', 'priority', 'label'] as const;
 
 export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string }) {
   const doc = useDoc();
+  const game = useGame();
   const project = doc.project(id);
   const [renaming, setRenaming] = useState(false);
   const [addingSection, setAddingSection] = useState(false);
@@ -532,7 +552,15 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
           }}
         />
       )}
-      {total === 0 && <Empty art={isInbox ? 'inbox' : undefined}>{isInbox ? tr('Входящие пусты. Всё, что не разобрано по проектам, попадает сюда.') : tr('В проекте пока нет задач.')}</Empty>}
+      {total === 0 && (
+        <Empty art={isInbox ? 'inbox' : undefined}>
+          {isInbox
+            ? game.enabled
+              ? tr('Во «Входящих» пусто: всё разобрано. Новые мысли можно спокойно складывать сюда.')
+              : tr('Входящие пусты. Всё, что не разобрано по проектам, попадает сюда.')
+            : tr('В проекте пока нет задач.')}
+        </Empty>
+      )}
     </DropContext.Provider>
   );
 }
@@ -777,6 +805,7 @@ export function SettingsView() {
         <ThemeSettings />
         <CalendarSettings />
         <PomodoroSettings />
+        <GameSettingsSection />
         <LockSettings />
         <RecognitionSettings />
         <ImportExport />
@@ -827,6 +856,7 @@ export function SettingsView() {
       <ReminderSettings />
       <CalendarSettings />
       <PomodoroSettings />
+      <GameSettingsSection />
       <ChangePassword />
       <TwoFactor />
       <Passkeys />

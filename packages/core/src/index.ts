@@ -189,6 +189,26 @@ export {
   type PlaceZone,
   type SavedPlace,
 } from './places.ts';
+export {
+  DEFAULT_GAME_SETTINGS,
+  DAILY_GOAL_MAX,
+  WEEKLY_GOAL_MAX,
+  PHRASE_GAP,
+  readGameSettings,
+  gameSettingsChanges,
+  gameFeature,
+  isRestDay,
+  onVacation,
+  beforeCompletion,
+  afterCompletion,
+  completionFacts,
+  pickPhrase,
+  type GameSettings,
+  type WarmFact,
+  type BeforeCompletion,
+  type AfterCompletion,
+  type FactSource,
+} from './game.ts';
 export { eventsOnDay, normalizeCalendarUrl, toCalendarSub, windowBounds, type AllDayEvent, type CalEvent, type CalendarSub, type DayEvents, type TimedEvent } from './events.ts';
 export type { FilterSource } from './filter.ts';
 export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';

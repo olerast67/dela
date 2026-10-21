@@ -13,6 +13,7 @@ import { dayOrderChanges, dayOrdered, nestTasks } from './doc.ts';
 import type { HabitStreak } from './habits.ts';
 import { computeStats, type Stats, type StatsOptions } from './stats.ts';
 import type { SavedPlace } from './places.ts';
+import type { GameSettings } from './game.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
 
 export class Workspace {
@@ -371,6 +372,15 @@ export class Workspace {
 
   deletePlace(id: string): void {
     this.batch(() => this.personal.deletePlace(id));
+  }
+
+  /** Настройки игровых элементов: запись личного пространства, синхронизируется зашифрованной. */
+  getGameSettings(): GameSettings {
+    return this.personal.getGameSettings();
+  }
+
+  updateGameSettings(patch: Partial<GameSettings>): void {
+    this.personal.updateGameSettings(patch);
   }
 
   /** Пространство задачи: для общих проектов нужен список участников. */

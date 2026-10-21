@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { controller } from './controller.ts';
-import { href, useAppState, useDoc, useMedia, useRoute, type Route } from './hooks.ts';
+import { href, useAppState, useDoc, useGameAttribute, useMedia, useRoute, type Route } from './hooks.ts';
 import { AuthScreen, RecoveryScreen } from './ui/Auth.tsx';
 import { IconPlus, IconX } from './ui/icons.tsx';
 import { TabBar } from './ui/TabBar.tsx';
@@ -41,6 +41,7 @@ function typing(e: KeyboardEvent): boolean {
 
 function Shell() {
   const doc = useDoc();
+  useGameAttribute();
   const route = useRoute();
   const narrow = useMedia('(max-width: 760px)');
   const [selected, setSelected] = useState<string | null>(null);
@@ -443,6 +444,7 @@ function Shell() {
 function TaskWindow({ id: first }: { id: string }) {
   // Подзадача или родитель открываются в этом же окне.
   const [id, setId] = useState(first);
+  useGameAttribute();
   const close = useCallback(() => void closeViewWindow(), []);
   const copy = useCallback(() => void copyLink(taskHash(id), controller.getState().local, (text) => showToast(text)), [id]);
   return (
