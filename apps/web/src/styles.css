@@ -2859,6 +2859,8 @@ kbd {
 @media (max-width: 760px) {
   .panel {
     top: 5vh;
+    /* Высоту задают top и bottom: с height: 100% карточка уходила на 5vh за низ экрана вместе с «Удалить». */
+    height: auto;
     border-left: none;
     border-radius: 22px 22px 0 0;
     box-shadow: var(--shadow);

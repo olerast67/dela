@@ -335,3 +335,14 @@ test('отдельное окно: проект в компактном виде
   await expect(page.locator('.task', { hasText: 'Купить билеты' })).toBeVisible();
   await expect(page.locator('nav.sidebar')).toBeVisible();
 });
+
+test('карточка задачи на телефоне целиком в экране, «Удалить» видно', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 780 });
+  await page.goto('/');
+  await page.getByRole('button', { name: /Попробовать без сервера/ }).click();
+  await page.locator('.task', { hasText: 'Подписаться на olerast' }).first().click();
+  // Ждём конца анимации выезда листа.
+  await page.waitForTimeout(800);
+  const box = await page.locator('.panel-foot').boundingBox();
+  expect(box!.y + box!.height).toBeLessThanOrEqual(780);
+});

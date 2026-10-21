@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Phone: the task card fits the screen. It had both a fixed height and a top offset, so its bottom bar with Delete went 5% below the screen; the fix in 1.0.3 only added padding and did not help.
+
 ## 1.0.3
 
 - Phone: the bottom bar of the task card (creation date, Delete) is no longer hidden under the Android navigation bar.
