@@ -856,7 +856,8 @@ svg.c-gray, svg.c-red, svg.c-orange, svg.c-yellow, svg.c-green, svg.c-teal, svg.
   font: inherit;
   font-size: 16px;
   line-height: 24px;
-  padding: 4px 0;
+  /* Отступ одинаковый у поля и слоя подсветки, иначе выделенные слова съедут с текста. */
+  padding: 6px 10px;
   white-space: pre;
   letter-spacing: normal;
 }
