@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+
+- "Report a bug", security.txt and the README link to olerast.com/security?project=dela, so the form opens with Dela already chosen.
+
 ## 1.1.1
 
 - `scripts/demo`: a script that fills a demo account with believable tasks, habits and history plus one secret task, and a script that exports what the server stores about that account for the public "read my task" challenge (docs/challenge.md).

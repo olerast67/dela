@@ -1562,7 +1562,7 @@ export function DesktopUpdates() {
 }
 
 const ISSUES_URL = 'https://github.com/olerast67/dela/issues';
-const BUG_REPORT_URL = 'https://olerast.com/security';
+const BUG_REPORT_URL = 'https://olerast.com/security?project=dela';
 
 /** Куда писать об ошибках: GitHub Issues и форма на olerast.com/security (без аккаунта GitHub, уязвимости — туда же). */
 function HelpLinks() {

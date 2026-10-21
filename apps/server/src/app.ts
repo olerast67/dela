@@ -27,7 +27,7 @@ import { generateVapid, isAllowedEndpoint, loadVapid, sendPush } from './webpush
 import { newTotpSecret, otpauthUri, verifyTotp } from './totp.ts';
 import { EMAIL_RE, UUID_RE, b64, bad, int, obj, optStr, str } from './validate.ts';
 
-export const VERSION = '1.1.1';
+export const VERSION = '1.1.2';
 
 interface Auth {
   readonly userId: string;
@@ -1463,7 +1463,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   app.get('/.well-known/security.txt', (c) => {
     const expires = new Date(now() + 180 * 24 * 3600 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
     const text = [
-      'Contact: https://olerast.com/security',
+      'Contact: https://olerast.com/security?project=dela',
       'Contact: https://github.com/olerast67/dela/security/advisories/new',
       `Expires: ${expires}`,
       'Policy: https://github.com/olerast67/dela/blob/main/SECURITY.md',
