@@ -8,6 +8,7 @@
 - When the last task in Today is done, a short burst of leaves and "Day closed", then a calm empty Today with how many tasks were done. The empty Inbox is calmer too.
 - Now and then, instead of "Task completed", a warm phrase based on facts: the oldest task in the Inbox, the fifth task today, no overdue tasks left, a habit or a run of days. At most once in five completions.
 - Daily and weekly goals: with a daily goal, Today shows a bar "3 of 5" instead of the ring, a tick when it is met, a short "Daily goal met" while tasks remain, and the goal streak from two days. The streak is fair: days off and vacation do not count, one missed day a week does not break it. Statistics show both streaks, this week by day and progress to the weekly goal. Settings and Today suggest a goal from your average over the last two weeks.
+- Weekly review: a calm page about the week (#/review): tasks done and by project, the tasks that waited longest, tasks postponed three times or more with Keep, Break into steps and Delete, what was planned but not done, habits, goals and pomodoro time. On the chosen day after the chosen time Today shows a small "Your week in review is ready" card, and an optional notification arrives on the phone, in the browser and on Windows. Past weeks open from Statistics → Weekly reviews. Postponements are counted from the due date moving later, one record per move, so moves made on two devices offline add up.
 
 ## 1.0.4
 

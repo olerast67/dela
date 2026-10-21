@@ -13,6 +13,8 @@ import { dayOrderChanges, dayOrdered, nestTasks } from './doc.ts';
 import type { HabitStreak } from './habits.ts';
 import { computeStats, type Stats, type StatsOptions } from './stats.ts';
 import { computeGoals, suggestDailyGoal, type GoalProgress } from './goals.ts';
+import { computeWeekReview, type WeekReview } from './review.ts';
+import { addDays, today as todayIn } from './dates.ts';
 import type { SavedPlace } from './places.ts';
 import type { GameSettings } from './game.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
@@ -242,7 +244,42 @@ export class Workspace {
     return suggestDailyGoal(this.docs().flatMap((d) => d.doneEvents()), this.getGameSettings(), tz, today);
   }
 
+  /** Итоги недели с понедельника monday по личному и общим проектам вместе (review.ts). */
+  weekReview(tz: string, monday: string, today: string): WeekReview {
+    const docs = this.docs();
+    const end = addDays(monday, 6);
+    const at = today < end ? today : end;
+    const habits = this.habits(at, tz).map(({ task, streak }) => ({
+      task,
+      streak,
+      week: this.completions(task.id).filter((c) => {
+        const d = todayIn(tz, c.completedAt);
+        return d >= monday && d <= end;
+      }).length,
+    }));
+    return computeWeekReview(
+      {
+        events: docs.flatMap((d) => d.doneEvents()),
+        tasks: docs.flatMap((d) => d.allTasks()),
+        postpones: docs.flatMap((d) => d.postpones()),
+        keptAt: (id) => this.docForTask(id).postponeKeptAt(id),
+        work: docs.flatMap((d) => d.workEvents()),
+        habits,
+        settings: this.getGameSettings(),
+      },
+      tz,
+      monday,
+      today,
+    );
+  }
+
+  /** «Оставить» часто переносимую задачу: счёт переносов начинается заново. */
+  keepPostponed(id: string): void {
+    this.batch(() => this.docForTask(id).keepPostponed(id));
+  }
+
   /** Серия привычки в поясе tz на дату today; null, если задача не привычка. */
+
   habitStreak(taskId: string, today: string, tz: string): HabitStreak | null {
     return this.docForTask(taskId).habitStreak(taskId, today, tz);
   }

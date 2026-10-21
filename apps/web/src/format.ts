@@ -101,7 +101,14 @@ export function rangeTitle(from: string, to: string): string {
   return `${dayMonth(from, true)} - ${dayMonth(to, true)}`;
 }
 
+/** Заголовок итогов недели с понедельника: «Неделя 12–18 октября». */
+export function weekTitle(monday: string): string {
+  const range = rangeTitle(monday, addDays(monday, 6)).replace(' - ', ' – ').replace(/(\d)-(\d)/, '$1–$2');
+  return tr('Неделя {range}', { range });
+}
+
 /** «09:30» из минут от полуночи: значение для данных, не для показа. */
+
 export function clock(minute: number): string {
   return `${String(Math.floor(minute / 60) % 24).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
 }

@@ -17,20 +17,21 @@ self.addEventListener('message', (e) => {
   if (e.data?.type === 'SKIP_WAITING') void self.skipWaiting();
 });
 
-// Клик по уведомлению: открыть приложение на задаче, а утреннюю сводку — на «Сегодня».
+// Клик по уведомлению: открыть приложение на задаче, утреннюю сводку — на «Сегодня», итоги недели — на их экране.
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const data = e.notification.data as { taskId?: string; today?: boolean } | null;
+  const data = e.notification.data as { taskId?: string; today?: boolean; review?: string } | null;
   const taskId = data?.taskId;
+  const review = !taskId && typeof data?.review === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.review) ? data.review : null;
   const base = self.registration.scope;
-  const url = taskId ? `${base}#/today?task=${encodeURIComponent(taskId)}` : data?.today ? `${base}#/today` : base;
+  const url = taskId ? `${base}#/today?task=${encodeURIComponent(taskId)}` : review ? `${base}#/review/${review}` : data?.today ? `${base}#/today` : base;
   e.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (const w of windows) {
         if ('focus' in w) {
           await w.focus();
-          w.postMessage(taskId || !data?.today ? { type: 'open-task', taskId } : { type: 'open-today' });
+          w.postMessage(review ? { type: 'open-review', week: review } : taskId || !data?.today ? { type: 'open-task', taskId } : { type: 'open-today' });
           return;
         }
       }
@@ -70,6 +71,8 @@ interface ReminderPayload {
   id?: string;
   /** Утренняя сводка: открыть «Сегодня». */
   today?: boolean;
+  /** Итоги недели: понедельник недели, открыть их экран. */
+  review?: string;
 }
 
 async function decryptPayload(b64: string): Promise<ReminderPayload | null> {
@@ -100,7 +103,8 @@ self.addEventListener('push', (e) => {
         await self.registration.showNotification(r?.t ?? (ru ? 'Напоминание Dela' : 'Dela reminder'), {
           body: r?.b ?? (ru ? 'Откройте приложение' : 'Open the app'),
           icon: '/icon-192.png',
-          ...(r ? { tag: r.k, data: r.id ? { taskId: r.id } : { today: r.today === true } } : {}),
+          ...(r ? { tag: r.k, data: r.id ? { taskId: r.id } : r.review ? { review: r.review } : { today: r.today === true } } : {}),
+
         });
       } catch {
         // уведомления запрещены: окно приложения уже получило сообщение

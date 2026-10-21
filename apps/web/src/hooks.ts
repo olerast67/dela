@@ -42,6 +42,8 @@ export type Route =
   | { view: 'completed' }
   | { view: 'activity' }
   | { view: 'stats' }
+  /** Итоги недели с понедельника week; null — список последних недель. */
+  | { view: 'review'; week: string | null }
   | { view: 'templates' }
   | { view: 'trash' }
   | { view: 'settings' };
@@ -66,6 +68,8 @@ export function parseRoute(hash: string): Route {
       return id ? { view, id: decodeURIComponent(id) } : { view: 'today' };
     case 'search':
       return { view: 'search', q: new URLSearchParams(query).get('q') ?? '' };
+    case 'review':
+      return { view: 'review', week: id && /^\d{4}-\d{2}-\d{2}$/.test(id) ? id : null };
     case 'calendar': {
       const date = new URLSearchParams(query).get('d');
       return {
@@ -88,6 +92,9 @@ export function href(route: Route): string {
       return `#/${route.view}/${encodeURIComponent(route.id)}`;
     case 'search':
       return `#/search?q=${encodeURIComponent(route.q)}`;
+    case 'review':
+      return `#/review${route.week ? `/${route.week}` : ''}`;
+
     case 'calendar':
       return `#/calendar${route.mode ? `/${route.mode}` : ''}${route.date ? `?d=${route.date}` : ''}`;
     default:

@@ -4638,3 +4638,140 @@ html:has(.quick-window) #root {
     }
   }
 }
+
+/* ---------- итоги недели (6.3) ---------- */
+
+a.link {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+a.link:hover {
+  text-decoration: underline;
+}
+
+.review-card .nowrap {
+  white-space: nowrap;
+}
+
+.review-card b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.review {
+  max-width: 680px;
+}
+
+.review-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.review-nav button.icon:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.review-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  margin: 8px 0 6px;
+}
+
+.review-numbers > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.review-numbers b {
+  font-size: 34px;
+  line-height: 1.1;
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.review-numbers span {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.review-lead {
+  margin: 8px 0 0;
+  line-height: 1.55;
+}
+
+.review-note {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.review-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.review-list > li:last-child {
+  border-bottom: 0;
+}
+
+.review-list .muted {
+  font-size: 13px;
+}
+
+.review-task {
+  color: var(--text);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-task:hover {
+  color: var(--accent);
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-basis: 100%;
+  margin-top: 4px;
+}
+
+.review-actions button {
+  font-size: 13px;
+  padding: 3px 10px;
+}
+
+.review-weeks {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-width: 520px;
+}
+
+.review-weeks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.review-weeks a:hover {
+  color: var(--accent);
+}

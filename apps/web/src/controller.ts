@@ -49,6 +49,7 @@ import {
   alarmTasks,
   placeZones,
   digestsBetween,
+  reviewsBetween,
   isTime,
   type Reminder,
   signIn,
@@ -67,7 +68,7 @@ import {
   type Comment,
 } from '#core';
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
-import { TZ } from './format.ts';
+import { TZ, weekTitle } from './format.ts';
 import { createPasskey, getPasskey } from './passkey.ts';
 import { loadPomodoro, onPomodoroChange, pomodoroSettings } from './pomodoro.ts';
 import { clearCalendars } from './calendars.ts';
@@ -103,6 +104,11 @@ function digestText(today: number, overdue: number): string {
   if (today > 0 && overdue > 0) return tr('Сегодня {tasks}, просрочено {n}', { tasks: tn(today, 'задача', 'задачи', 'задач'), n: overdue });
   if (today > 0) return tr('Сегодня {tasks}', { tasks: tn(today, 'задача', 'задачи', 'задач') });
   return tr('Просрочено {tasks}', { tasks: tn(overdue, 'задача', 'задачи', 'задач') });
+}
+
+/** Уведомление итогов недели: ключ «review:<понедельник>». Понедельник недели или null у других напоминаний. */
+export function reviewWeekOfKey(key: string): string | null {
+  return key.startsWith('review:') ? key.slice(7) : null;
 }
 
 export type Phase = 'loading' | 'auth' | 'recovery' | 'ready';
@@ -1011,6 +1017,13 @@ export class Controller {
         ),
       );
     }
+    // Итоги недели: включены уведомления в игровых элементах. Тоже синтетическое напоминание без задачи.
+    const game = this.doc!.getGameSettings();
+    if (game.enabled && game.weeklyReview && game.weeklyReviewNotify) {
+      for (const m of reviewsBetween(game, from, to, TZ)) {
+        extra.push({ key: `review:${m.week}`, taskId: '', at: m.at, title: tr('Итоги недели готовы'), dueAt: m.at, offset: 0 });
+      }
+    }
     // Конец помодоро только для этого устройства: в расписание push на сервер он не уходит.
     const pomo = pomodoro ? this.pomodoroAlert() : null;
     if (pomo && pomo.at >= from && pomo.at < to) extra.push(pomo);
@@ -1043,6 +1056,8 @@ export class Controller {
 
   /** Текст уведомления под заголовком. */
   private bodyOf(r: Reminder): string {
+    const week = reviewWeekOfKey(r.key);
+    if (week) return weekTitle(week);
     if (!r.taskId) return tr('Утренняя сводка');
     if (r.key.startsWith('pomodoro:')) {
       const title = this.doc?.task(r.taskId)?.title || tr('Задача');
@@ -1203,9 +1218,12 @@ export class Controller {
         // Сервер принимает до 1 КБ на напоминание: длинное название обрезается, иначе отклонилось бы всё расписание.
         // У сводки нет задачи: флаг today открывает «Сегодня» (service worker и служба push на Android).
         // Флаг a: служба push на Android звонит будильником, если он ещё не стоит в телефоне (задачу добавили на другом устройстве).
+        const week = reviewWeekOfKey(r.key);
         const content = r.taskId
           ? { t: (r.title || tr('Задача')).slice(0, 200), b: body, k: r.key, id: r.taskId, ...(r.alarm ? { a: true } : {}) }
-          : { t: r.title, b: body, k: r.key, today: true };
+          : week
+            ? { t: r.title, b: body, k: r.key, review: week }
+            : { t: r.title, b: body, k: r.key, today: true };
         return { id, fireAt: r.at, payload: await seal(content) };
       }),
     );
@@ -1291,6 +1309,7 @@ export class Controller {
         body: this.bodyOf(r),
         taskId: r.taskId || null,
         ...(r.alarm ? { alarm: true } : {}),
+        ...(reviewWeekOfKey(r.key) ? { review: reviewWeekOfKey(r.key)! } : {}),
       })),
       alarmTasks(this.doc),
     ).catch((err) => console.error('native reminders failed', err));
@@ -1304,8 +1323,10 @@ export class Controller {
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
-      // Сводка без задачи: нажатие открывает «Сегодня».
-      const data = r.taskId ? { taskId: r.taskId } : { today: true };
+      // Сводка без задачи: нажатие открывает «Сегодня», итоги недели — свой экран.
+      const week = reviewWeekOfKey(r.key);
+      const data = r.taskId ? { taskId: r.taskId } : week ? { review: week } : { today: true };
+
       if (reg) await reg.showNotification(r.title || tr('Задача'), { body, tag: r.key, data, icon: '/icon-192.png' });
       else new Notification(r.title || tr('Задача'), { body, tag: r.key });
     } catch (err) {

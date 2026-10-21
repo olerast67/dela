@@ -4,6 +4,7 @@ import { controller, type MorningDigest } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { href, navigate, setStartHash, startHash, useAppState, useDoc, useGame } from '../hooks.ts';
 import { DayClosedBurst, DayDone, GameSettingsSection, GoalBurst, GoalHint, TodayGoal } from './Game.tsx';
+import { ReviewCard } from './Review.tsx';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
@@ -249,6 +250,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
       <>
         {head}
         <GoalHint today={today} />
+        <ReviewCard />
         <DayClosedBurst />
         <GoalBurst />
         <TodayEvents date={today} />
@@ -260,6 +262,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
       <>
         {head}
         <GoalHint today={today} />
+        <ReviewCard />
         <GoalBurst />
         <TodayEvents date={today} />
         <Groups
@@ -291,6 +294,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
     <DropContext.Provider value={onDropTask}>
       {head}
       <GoalHint today={today} />
+      <ReviewCard />
       <GoalBurst />
       <TodayEvents date={today} />
       {overdue.length > 0 && (
