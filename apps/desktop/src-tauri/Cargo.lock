@@ -907,7 +907,7 @@ dependencies = [
 
 [[package]]
 name = "dela-desktop"
-version = "1.0.3"
+version = "1.0.4"
 dependencies = [
  "cpal",
  "libloading",

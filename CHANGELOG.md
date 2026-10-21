@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.4
 
 - Phone: the task card fits the screen. It had both a fixed height and a top offset, so its bottom bar with Delete went 5% below the screen; the fix in 1.0.3 only added padding and did not help.
 
