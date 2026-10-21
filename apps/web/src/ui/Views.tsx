@@ -18,6 +18,7 @@ import { Description } from './Description.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
 import { PomodoroSettings } from './Pomodoro.tsx';
 import { RecognitionSettings } from './Recognition.tsx';
+import { AndroidUpdates } from './AppUpdate.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
 import { ViewOptionsButton, groupNodes, priorityTitle, sortNodes, sortTasks, useViewOptions, type SortBy, type TaskGroup, type ViewOptions } from './ViewOptions.tsx';
 import { showToast } from './toast.tsx';
@@ -783,6 +784,7 @@ export function SettingsView() {
       <RecognitionSettings />
       <DesktopAutostart />
       <DesktopUpdates />
+      <AndroidUpdates />
       <DeleteAccount />
       <ImportExport />
       {isAdmin && (

@@ -306,7 +306,7 @@ jobs:
           merge-multiple: true
       - name: Update manifest, checksums and release notes
         run: |
-          DELA_BUNDLE_DIR=dist node scripts/latest-json.mjs > dist/latest.json
+          DELA_BUNDLE_DIR=dist DELA_APK="dist/Dela-$VERSION-android.apk" node scripts/latest-json.mjs > dist/latest.json
           rm -f dist/*.exe.sig
           (cd dist && sha256sum *.apk *.exe latest.json web-manifest.json web-manifest.json.sig Dela-Verify-*.zip dela-mcp.tgz > SHA256SUMS.txt)
           awk -v v="$VERSION" '$0 == "## " v || index($0, "## " v " ") == 1 { f = 1; next } /^## / && f { exit } f' CHANGELOG.md > notes.md

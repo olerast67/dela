@@ -44,3 +44,5 @@ If GitHub Actions is not available, the same files can be built locally:
 - `node scripts/latest-json.mjs > latest.json`.
 
 A release built this way has no provenance attestation and no signed web file list.
+
+The F-Droid build is made with `gradlew assembleRelease -PdelaFdroid`: this turns off the built-in update check (`BuildConfig.SELF_UPDATE`), since F-Droid updates the app itself; the APK on GitHub keeps it on and finds the new version through the `android` field (APK URL and SHA-256) that `scripts/latest-json.mjs` adds to `latest.json`.

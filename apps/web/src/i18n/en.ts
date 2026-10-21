@@ -668,6 +668,15 @@ export const EN: Readonly<Record<string, string>> = {
   'Скачиваю версию {version}...': 'Downloading version {version}...',
   'Не удалось проверить обновления. Нужна связь с GitHub.': 'Could not check for updates. A connection to GitHub is needed.',
   'Проверить обновления': 'Check for updates',
+  'Проверять обновления': 'Check for updates at launch',
+  'Установлена версия {version}. Новая версия скачивается с GitHub, сверяется по контрольной сумме выпуска, а Android ставит её, только если она подписана тем же ключом.':
+    'Version {version} is installed. A new version is downloaded from GitHub and checked against the release checksum, and Android installs it only if it is signed with the same key.',
+  'Скачиваю версию {version}: {pct}%': 'Downloading version {version}: {pct}%',
+  'Версия {version} скачана и проверена. Подтвердите установку.': 'Version {version} is downloaded and verified. Confirm the installation.',
+  'Разрешите Dela установку приложений на открывшемся экране и нажмите «Обновить» ещё раз.':
+    'Allow Dela to install apps on the screen that opened and tap "Update" again.',
+  'Скачанный файл не совпал с выпуском на GitHub, он удалён.': 'The downloaded file does not match the release on GitHub and was deleted.',
+  'Не удалось скачать обновление. Нужна связь с GitHub.': 'Could not download the update. A connection to GitHub is needed.',
   'Вход по passkey': 'Passkey sign-in',
   'Вход отпечатком, лицом или Windows Hello без пароля. Ключ шифрования открывает секрет PRF самого passkey, сервер его не видит. Работает в браузере на адресе этого сервера.':
     'Sign in with a fingerprint, face or Windows Hello without a password. The encryption key is opened by the passkey\'s own PRF secret, which the server never sees. Works in the browser at this server\'s address.',
