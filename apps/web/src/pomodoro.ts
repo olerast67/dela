@@ -78,10 +78,13 @@ export function onPomodoroChange(fn: () => void): () => void {
   };
 }
 
-/** Записать отработанное в задачу. Id записи — id отрезка, поэтому повтор не удваивает время. */
-function logWork(doc: Workspace, s: PomodoroState, now: number): void {
+/**
+ * Записать отработанное в задачу. Id записи — id отрезка, поэтому повтор не удваивает время.
+ * focus: отрезок закончен (в саду — дерево фокуса) или прерван (росток).
+ */
+function logWork(doc: Workspace, s: PomodoroState, now: number, focus: 'full' | 'cut'): void {
   const minutes = workedMinutes(s, now);
-  if (minutes > 0 && doc.task(s.taskId)) doc.logWork(s.taskId, minutes, { id: s.id, at: s.endsAt !== null && s.endsAt < now ? s.endsAt : now });
+  if (minutes > 0 && doc.task(s.taskId)) doc.logWork(s.taskId, minutes, { id: s.id, at: s.endsAt !== null && s.endsAt < now ? s.endsAt : now, focus });
 }
 
 /**
@@ -90,7 +93,7 @@ function logWork(doc: Workspace, s: PomodoroState, now: number): void {
  */
 export function startPomodoro(doc: Workspace, taskId: string, now = Date.now()): void {
   const prev = loadPomodoro();
-  if (prev && prev.phase === 'work' && !prev.logged) logWork(doc, prev, now);
+  if (prev && prev.phase === 'work' && !prev.logged) logWork(doc, prev, now, isOver(prev, now) ? 'full' : 'cut');
   save(startWork(uuidv7(now), taskId, pomodoroSettings().work, now));
 }
 
@@ -107,7 +110,7 @@ export function resumePomo(now = Date.now()): void {
 /** Остановить: отработанное записывается в задачу, перерыв просто заканчивается. */
 export function stopPomodoro(doc: Workspace, now = Date.now()): void {
   const s = loadPomodoro();
-  if (s && s.phase === 'work' && !s.logged) logWork(doc, s, now);
+  if (s && s.phase === 'work' && !s.logged) logWork(doc, s, now, isOver(s, now) ? 'full' : 'cut');
   save(null);
 }
 
@@ -124,7 +127,7 @@ export function settlePomodoro(doc: Workspace, now = Date.now()): 'work' | 'brea
   const s = loadPomodoro();
   if (!s || !isOver(s, now) || s.logged) return null;
   if (s.phase === 'work') {
-    logWork(doc, s, now);
+    logWork(doc, s, now, 'full');
     save({ ...s, logged: true });
     return 'work';
   }

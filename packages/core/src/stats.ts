@@ -8,12 +8,16 @@ export interface DoneEvent {
   readonly projectId: string;
   /** Когда задача создана; только у обычных (не повторяющихся) задач, для вехи «ждала долго». */
   readonly createdAt?: number;
+  /** Выполнение привычки (для сада: ягоды). */
+  readonly habit?: boolean;
 }
 
 /** Отрезок работы над задачей: минуты и время окончания. */
 export interface WorkEvent {
   readonly at: number;
   readonly minutes: number;
+  /** Отрезок таймера помодоро: закончен или прерван; нет — время вписано вручную или записано до сада. */
+  readonly focus?: 'full' | 'cut';
 }
 
 export interface Stats {

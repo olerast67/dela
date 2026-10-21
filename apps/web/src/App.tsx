@@ -18,6 +18,7 @@ import { checkDesktopUpdate, closeViewWindow, onBackButton, onNotificationOpen, 
 import { CalendarView } from './ui/Calendar.tsx';
 import { LockScreen } from './ui/Lock.tsx';
 import { StatsView } from './ui/Stats.tsx';
+import { GardenView } from './ui/Garden.tsx';
 import { ActivityView, TemplatesView } from './ui/History.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
@@ -365,6 +366,9 @@ function Shell() {
       break;
     case 'stats':
       view = <StatsView />;
+      break;
+    case 'garden':
+      view = <GardenView />;
       break;
     case 'templates':
       view = <TemplatesView />;

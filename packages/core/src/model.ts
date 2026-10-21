@@ -331,6 +331,8 @@ export interface WorkLog {
   readonly minutes: number;
   /** Когда отрезок закончился: по этой отметке время попадает в статистику. */
   readonly at: number;
+  /** Отрезок таймера: закончен (full) или прерван (cut); у правки вручную нет. */
+  readonly focus?: 'full' | 'cut';
 }
 
 export function toWorkLog(id: string, r: Rec): WorkLog | null {
@@ -339,7 +341,8 @@ export function toWorkLog(id: string, r: Rec): WorkLog | null {
   if (!taskId || minutes === null || r.deleted_at != null) return null;
   const m = Math.round(minutes);
   if (m <= 0 || m > 1_000_000) return null;
-  return { id, taskId, minutes: m, at: num(r.at) ?? 0 };
+  const focus = r.focus === 'full' || r.focus === 'cut' ? r.focus : undefined;
+  return { id, taskId, minutes: m, at: num(r.at) ?? 0, ...(focus ? { focus } : {}) };
 }
 
 /**

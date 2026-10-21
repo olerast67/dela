@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useAppState, useDoc, href, navigate, type Route } from '../hooks.ts';
+import { gameFeature } from '#core';
+import { useAppState, useDoc, useGame, href, navigate, type Route } from '../hooks.ts';
 import { TZ, todayDate } from '../format.ts';
 import { dropZone } from './dnd.ts';
-import { IconDone, IconHistory, IconStats, IconTemplate, IconFilter, IconUsers, IconInbox, IconCalendar, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
+import { IconDone, IconGarden, IconHistory, IconStats, IconTemplate, IconFilter, IconUsers, IconInbox, IconCalendar, IconPlus, IconSearch, IconSettings, IconTag, IconToday, IconTrash, IconUpcoming } from './icons.tsx';
 import { tr } from '../i18n.ts';
 
 function same(a: Route, b: Route): boolean {
@@ -39,6 +40,7 @@ function SyncBadge() {
 
 export function Sidebar({ route, onNavigate }: { route: Route; onNavigate?: () => void }) {
   const doc = useDoc();
+  const garden = gameFeature(useGame(), 'garden');
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState(route.view === 'search' ? route.q : '');
   const today = todayDate();
@@ -166,6 +168,7 @@ export function Sidebar({ route, onNavigate }: { route: Route; onNavigate?: () =
         {item({ view: 'completed' }, <IconDone />, tr('Выполненные'))}
         {item({ view: 'activity' }, <IconHistory />, tr('История'))}
         {item({ view: 'stats' }, <IconStats />, tr('Статистика'))}
+        {garden && item({ view: 'garden' }, <IconGarden />, tr('Сад'))}
         {item({ view: 'templates' }, <IconTemplate />, tr('Шаблоны'))}
         {item({ view: 'trash' }, <IconTrash />, tr('Корзина'))}
         {item({ view: 'settings' }, <IconSettings />, tr('Настройки'))}

@@ -4,6 +4,7 @@ import { controller, type MorningDigest } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
 import { href, navigate, setStartHash, startHash, useAppState, useDoc, useGame } from '../hooks.ts';
 import { DayClosedBurst, DayDone, GameSettingsSection, GoalBurst, GoalHint, TodayGoal } from './Game.tsx';
+import { GardenMini } from './Garden.tsx';
 import { DropContext, dropZone, type DropOnTask } from './dnd.ts';
 import { QuickAdd, type QuickAddDefaults } from './QuickAdd.tsx';
 import { EmptyArt, type EmptyKind } from './EmptyArt.tsx';
@@ -183,6 +184,7 @@ function TodayHead({ open, today, children }: { open: number; today: string; chi
           </span>
         </div>
       )}
+      <GardenMini today={today} />
       </div>
     </header>
   );

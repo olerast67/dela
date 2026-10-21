@@ -1,10 +1,11 @@
 /** Помодоро: управление в карточке задачи и компактный таймер поверх любого экрана. */
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { clockLabel, pomodoroRemaining, type PomodoroState } from '#core';
+import { clockLabel, gameFeature, pomodoroRemaining, type PomodoroState } from '#core';
 import { durationLabel } from '../format.ts';
-import { useDoc } from '../hooks.ts';
+import { useDoc, useGame } from '../hooks.ts';
 import { tr } from '../i18n.ts';
 import { loadPomodoro, onPomodoroChange, pausePomo, pomodoroSettings, resumePomo, setPomodoroSettings, settlePomodoro, startPomodoro, startRest, stopPomodoro } from '../pomodoro.ts';
+import { FocusSprout } from './Garden.tsx';
 import { IconPause, IconPlay, IconStop, IconTimer } from './icons.tsx';
 import { showToast } from './toast.tsx';
 
@@ -25,6 +26,16 @@ function usePomodoro(): { s: PomodoroState | null; now: number } {
 function phaseLabel(s: PomodoroState): string {
   if (s.phase === 'break') return tr('Перерыв');
   return s.logged ? tr('Помодоро закончен') : tr('Работа');
+}
+
+/**
+ * Дерево фокуса (сад): во время работы росток растёт по доле прошедшего времени, законченный отрезок — дерево.
+ * Без сада — прежний значок таймера.
+ */
+function FocusIcon({ s, now, size }: { s: PomodoroState; now: number; size: number }) {
+  if (!gameFeature(useGame(), 'garden')) return size > 24 ? null : <IconTimer width={16} height={16} />;
+  const done = s.logged === true || s.phase === 'break';
+  return <FocusSprout progress={done ? 1 : 1 - pomodoroRemaining(s, now) / Math.max(1, s.length)} done={done} size={size} />;
 }
 
 /** Пауза, продолжить, стоп; после работы — начать перерыв. */
@@ -73,7 +84,7 @@ export function PomodoroChip({ onOpen }: { onOpen: (taskId: string) => void }) {
   return (
     <div className={`pomo-chip pomo-${s.phase}${s.endsAt === null ? ' paused' : ''}`} role="timer" aria-label={tr('Таймер помодоро')}>
       <button className="pomo-open" onClick={() => onOpen(s.taskId)} title={task?.title ?? ''}>
-        <IconTimer width={16} height={16} />
+        <FocusIcon s={s} now={now} size={24} />
         <span className="pomo-time">{s.logged ? phaseLabel(s) : clockLabel(left)}</span>
         <span className="pomo-task">{s.phase === 'break' ? tr('Перерыв') : task?.title || tr('Задача')}</span>
       </button>
@@ -94,6 +105,7 @@ export function PomodoroField({ taskId, spent }: { taskId: string; spent: number
       <dd className="row wrap pomo-field">
         {mine ? (
           <>
+            <FocusIcon s={s} now={now} size={34} />
             <span className={`pomo-big pomo-${s.phase}`} role="timer">
               {s.logged ? phaseLabel(s) : clockLabel(pomodoroRemaining(s, now))}
             </span>

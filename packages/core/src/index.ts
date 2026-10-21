@@ -221,6 +221,23 @@ export { phonePushKey, signingKeys, signComment, verifyComment, type SigningKeys
 export { habitStreak, type HabitDayState, type HabitInput, type HabitStreak } from './habits.ts';
 export { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkEvent } from './stats.ts';
 export { computeMilestones, milestoneId, MILESTONES, type Milestones, type MilestoneInput, type MilestoneKind, type NextMilestone, type ReachedMilestone } from './milestones.ts';
+export {
+  computeGarden,
+  gardenDay,
+  gardenHash,
+  gardenSpecies,
+  gardenStage,
+  GARDEN_FULL,
+  GARDEN_SPECIES,
+  GARDEN_STAGES,
+  GARDEN_WEEKS,
+  type Garden,
+  type GardenDay,
+  type GardenInput,
+  type GardenSpecies,
+  type GardenStage,
+  type GardenWeek,
+} from './garden.ts';
 export { computeGoals, suggestDailyGoal, GOAL_SKIPS_PER_WEEK, GOAL_HINT_DAYS, type GoalDayState, type GoalProgress } from './goals.ts';
 export {
   clockLabel,

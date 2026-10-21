@@ -93,4 +93,6 @@ const EN_PLURAL: Readonly<Record<string, readonly [string, string]>> = {
   метка: ['label', 'labels'],
   фильтр: ['filter', 'filters'],
   раз: ['time', 'times'],
+  растение: ['plant', 'plants'],
+  'дерево фокуса': ['focus tree', 'focus trees'],
 };

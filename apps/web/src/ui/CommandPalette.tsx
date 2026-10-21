@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { normalizeText } from '#core';
+import { gameFeature, normalizeText } from '#core';
 import { controller } from '../controller.ts';
 import { navigate, useDoc, type Route } from '../hooks.ts';
 import { applyTheme } from './Views.tsx';
@@ -38,6 +38,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen, onCopyLink }: { on
       { id: 'calendar', label: tr('Календарь'), group: tr('Перейти'), run: go({ view: 'calendar', mode: null, date: null }) },
       { id: 'completed', label: tr('Выполненные'), group: tr('Перейти'), run: go({ view: 'completed' }) },
       { id: 'stats', label: tr('Статистика'), group: tr('Перейти'), run: go({ view: 'stats' }) },
+      ...(gameFeature(doc.getGameSettings(), 'garden') ? [{ id: 'garden', label: tr('Сад'), group: tr('Перейти'), run: go({ view: 'garden' }) }] : []),
       { id: 'activity', label: tr('История'), group: tr('Перейти'), run: go({ view: 'activity' }) },
       { id: 'templates', label: tr('Шаблоны'), group: tr('Перейти'), run: go({ view: 'templates' }) },
       { id: 'trash', label: tr('Корзина'), group: tr('Перейти'), run: go({ view: 'trash' }) },

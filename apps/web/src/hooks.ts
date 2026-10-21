@@ -42,6 +42,7 @@ export type Route =
   | { view: 'completed' }
   | { view: 'activity' }
   | { view: 'stats' }
+  | { view: 'garden' }
   | { view: 'templates' }
   | { view: 'trash' }
   | { view: 'settings' };
@@ -55,6 +56,7 @@ export function parseRoute(hash: string): Route {
     case 'completed':
     case 'activity':
     case 'stats':
+    case 'garden':
     case 'templates':
     case 'trash':
     case 'settings':

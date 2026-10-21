@@ -14,6 +14,7 @@ import type { HabitStreak } from './habits.ts';
 import { computeStats, type Stats, type StatsOptions } from './stats.ts';
 import { computeMilestones, type Milestones } from './milestones.ts';
 import { computeGoals, suggestDailyGoal, type GoalProgress } from './goals.ts';
+import { computeGarden, type Garden } from './garden.ts';
 import type { SavedPlace } from './places.ts';
 import type { GameSettings } from './game.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
@@ -255,6 +256,18 @@ export class Workspace {
     });
   }
 
+  /** Сад по личному и общим проектам вместе (garden.ts): weeks недель, текущая первой. */
+  garden(tz: string, today: string, weeks?: number): Garden {
+    return computeGarden({
+      events: this.docs().flatMap((d) => d.doneEvents()),
+      work: this.docs().flatMap((d) => d.workEvents()),
+      settings: this.getGameSettings(),
+      tz,
+      today,
+      ...(weeks ? { weeks } : {}),
+    });
+  }
+
   /** Подсказка цели дня по последним двум неделям; null — подсказывать нечего. */
   suggestDailyGoal(tz: string, today: string): number | null {
     return suggestDailyGoal(this.docs().flatMap((d) => d.doneEvents()), this.getGameSettings(), tz, today);
@@ -347,7 +360,7 @@ export class Workspace {
   }
 
   /** Записать отрезок работы над задачей (таймер помодоро). */
-  logWork(taskId: string, minutes: number, input: { id?: string; at?: number } = {}): string | null {
+  logWork(taskId: string, minutes: number, input: { id?: string; at?: number; focus?: 'full' | 'cut' } = {}): string | null {
     let id: string | null = null;
     this.batch(() => (id = this.docForTask(taskId).logWork(taskId, minutes, input)));
     return id;
