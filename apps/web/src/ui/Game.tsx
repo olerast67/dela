@@ -1,11 +1,11 @@
 /** Игровые элементы: празднование «День закрыт», цели дня и недели и раздел настроек (docs/gamification.md). */
 import { useEffect, useState } from 'react';
-import { DAILY_GOAL_MAX, WEEKLY_GOAL_MAX, type GameSettings, type GoalDayState, type GoalProgress } from '#core';
+import { DAILY_GOAL_MAX, WEEKLY_GOAL_MAX, gameFeature, type GameSettings, type GoalDayState, type GoalProgress, type MilestoneKind } from '#core';
 import { TZ, todayDate } from '../format.ts';
 import { useDoc, useGame } from '../hooks.ts';
-import { dayJustClosed, onDayClosed, onGoalReached } from '../game.ts';
+import { dayJustClosed, milestoneTitle, onDayClosed, onGoalReached } from '../game.ts';
 import { EmptyArt } from './EmptyArt.tsx';
-import { IconCheck, IconX } from './icons.tsx';
+import { IconCheck, IconFlame, IconInbox, IconX } from './icons.tsx';
 import { LOCALE, tn, tr } from '../i18n.ts';
 import { showToast } from './toast.tsx';
 
@@ -213,6 +213,83 @@ const STATE_LABEL: Record<GoalDayState, string> = {
 };
 
 /** Блок целей в «Статистике»: серии, неделя по дням и прогресс к цели недели. */
+/** Значок вехи: линейный рисунок в цвете акцента на спокойном круге. */
+function MilestoneIcon({ kind }: { kind: MilestoneKind }) {
+  const props = { width: 20, height: 20 };
+  const draw = (children: React.ReactNode) => (
+    <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  );
+  switch (kind) {
+    case 'tasks':
+      return <IconCheck {...props} />;
+    case 'inbox':
+      return <IconInbox {...props} />;
+    case 'habit':
+      return <IconFlame {...props} />;
+    case 'pomodoro':
+      return draw(
+        <>
+          <circle cx="12" cy="13.5" r="7" />
+          <path d="M12 13.5V10M12 6.5V4.5M12 6.5c1-1.6 3-1.8 4.2-1" />
+        </>,
+      );
+    case 'goal':
+      return draw(
+        <>
+          <circle cx="12" cy="12" r="8" />
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 12h.01" />
+        </>,
+      );
+    case 'waited':
+      return draw(<path d="M7 4h10M7 20h10M8 4v3a4 4 0 0 0 2 3.5l2 1.5-2 1.5A4 4 0 0 0 8 17v3M16 4v3a4 4 0 0 1-2 3.5L12 12l2 1.5a4 4 0 0 1 2 3.5v3" />);
+  }
+}
+
+/** Блок «Вехи» в «Статистике»: достигнутые тихими карточками и одна ближайшая с прогрессом. */
+export function MilestoneStats() {
+  const doc = useDoc();
+  const s = useGame();
+  if (!gameFeature(s, 'milestones')) return null;
+  const { reached, next } = doc.milestones(TZ, todayDate());
+  if (reached.length === 0 && !next) return null;
+  const date = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString(LOCALE, { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  return (
+    <section className="milestones">
+      <h2 className="stats-h">{tr('Вехи')}</h2>
+      <ul className="ms-list">
+        {reached.map((m) => (
+          <li key={m.id} className="ms-item" data-milestone={m.id}>
+            <span className="ms-icon">
+              <MilestoneIcon kind={m.kind} />
+            </span>
+            <span className="ms-text">
+              <b>{milestoneTitle(m.kind, m.target)}</b>
+              {m.date && <span className="muted">{date(m.date)}</span>}
+            </span>
+          </li>
+        ))}
+        {next && (
+          <li className="ms-item ms-next" data-milestone-next={next.id}>
+            <span className="ms-icon">
+              <MilestoneIcon kind={next.kind} />
+            </span>
+            <span className="ms-text">
+              <b>{milestoneTitle(next.kind, next.target)}</b>
+              <span className="muted">{tr('Осталось: {n}', { n: (next.target - next.progress).toLocaleString(LOCALE) })}</span>
+              <span className="ms-track" role="progressbar" aria-valuemin={0} aria-valuemax={next.target} aria-valuenow={next.progress}>
+                <span style={{ width: `${Math.round((next.progress / next.target) * 100)}%` }} />
+              </span>
+            </span>
+          </li>
+        )}
+      </ul>
+    </section>
+  );
+}
+
 export function GoalStats() {
   const doc = useDoc();
   const s = useGame();

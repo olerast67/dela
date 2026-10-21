@@ -8,6 +8,7 @@
 - When the last task in Today is done, a short burst of leaves and "Day closed", then a calm empty Today with how many tasks were done. The empty Inbox is calmer too.
 - Now and then, instead of "Task completed", a warm phrase based on facts: the oldest task in the Inbox, the fifth task today, no overdue tasks left, a habit or a run of days. At most once in five completions.
 - Daily and weekly goals: with a daily goal, Today shows a bar "3 of 5" instead of the ring, a tick when it is met, a short "Daily goal met" while tasks remain, and the goal streak from two days. The streak is fair: days off and vacation do not count, one missed day a week does not break it. Statistics show both streaks, this week by day and progress to the weekly goal. Settings and Today suggest a goal from your average over the last two weeks.
+- Milestones in Statistics: 10, 100, 500, 1000 and 5000 tasks, 50 tasks closed from the Inbox, 10 and 100 pomodoro sessions, a habit 30 and 100 times in a row, a 7 and 30 day goal streak, a task closed after waiting 100 days. Each shows its date and only the nearest next one is shown with the progress. A new milestone is marked once by a quiet toast on completion; everything is computed on the device, and old milestones do not announce themselves on a new device.
 
 ## 1.0.4
 

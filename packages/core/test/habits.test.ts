@@ -19,6 +19,12 @@ function streak(over: Partial<HabitInput> & { today: string }) {
 const stateOf = (s: ReturnType<typeof streak>, date: string) => s.days.find((d) => d.date === date)?.state;
 
 describe('привычки: серия', () => {
+  it('запоминает дату, когда серия впервые дошла до 30 и 100 (для вех)', () => {
+    const s = streak({ occurrences: run('2026-01-01', 120), today: '2026-04-30' });
+    expect(s.reached).toEqual({ 30: '2026-01-30', 100: '2026-04-10' });
+    expect(streak({ occurrences: run('2026-10-01', 5), today: '2026-10-05' }).reached).toEqual({});
+  });
+
   it('серия — выполненные подряд экземпляры, лучшая — максимум за историю', () => {
     const s = streak({ occurrences: run('2026-10-01', 5), today: '2026-10-05' });
     expect(s).toMatchObject({ current: 5, best: 5, done: 5 });

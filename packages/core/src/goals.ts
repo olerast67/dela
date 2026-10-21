@@ -51,7 +51,11 @@ const MAX_STREAK_DAYS = 1100;
 
 const offDay = (s: GameSettings, date: string): 'rest' | 'vacation' | null => (onVacation(s, date) ? 'vacation' : isRestDay(s, date) ? 'rest' : null);
 
-export function computeGoals(events: readonly DoneEvent[], s: GameSettings, tz: string, today: string): GoalProgress {
+/**
+ * onRun (необязательный) получает каждый день, засчитанный в серию, с длиной серии на этот день:
+ * так вехи узнают, когда серия впервые дошла до порога.
+ */
+export function computeGoals(events: readonly DoneEvent[], s: GameSettings, tz: string, today: string, onRun?: (run: number, date: string) => void): GoalProgress {
   const counts = perDay(events, tz);
   const count = (d: string) => counts.get(d) ?? 0;
   const goal = s.dailyGoal;
@@ -81,6 +85,7 @@ export function computeGoals(events: readonly DoneEvent[], s: GameSettings, tz: 
       else if (count(d) >= goal) {
         state = 'done';
         run++;
+        onRun?.(run, d);
       } else if (d === today) state = 'today';
       else if (allowed < GOAL_SKIPS_PER_WEEK) {
         allowed++;

@@ -24,6 +24,8 @@ export interface HabitStreak {
   readonly best: number;
   /** Сколько экземпляров выполнено за всю историю. */
   readonly done: number;
+  /** Дата, когда серия впервые дошла до порога (для вех): ключ — длина серии. */
+  readonly reached: Readonly<Record<number, string>>;
   /** Дни полоски: недели целиком, с понедельника; null — в этот день экземпляра нет. */
   readonly days: ReadonlyArray<{ readonly date: string; readonly state: HabitDayState | null }>;
 }
@@ -46,6 +48,9 @@ export interface HabitInput {
 
 const DAILY = parseRule('FREQ=DAILY')!;
 
+/** Длины серии, дату которых запоминаем для вех. */
+export const HABIT_MILESTONES = [30, 100] as const;
+
 export function habitStreak(input: HabitInput): HabitStreak {
   const { today } = input;
   const weeks = input.weeks ?? 5;
@@ -65,6 +70,7 @@ export function habitStreak(input: HabitInput): HabitStreak {
   let run = 0;
   let best = 0;
   let total = 0;
+  const reached: Record<number, string> = {};
   if (anchor !== null && anchor <= today) {
     const scheduled = new Set(occurrencesBetween(rule, anchor, anchor, addDays(today, 1), 100_000));
     // Выполнения и пропуски вне расписания (срок переносили вручную) тоже идут в ленту,
@@ -85,6 +91,7 @@ export function habitStreak(input: HabitInput): HabitStreak {
         state = 'done';
         run++;
         total++;
+        if ((HABIT_MILESTONES as readonly number[]).includes(run) && !(run in reached)) reached[run] = d;
       } else if (skips.has(d)) state = 'skipped';
       else if (d >= today) state = 'today';
       else if (allowed < input.habit.skipsPerWeek) {
@@ -104,5 +111,5 @@ export function habitStreak(input: HabitInput): HabitStreak {
 
   const days: Array<{ date: string; state: HabitDayState | null }> = [];
   for (let d = stripFrom; d < stripTo; d = addDays(d, 1)) days.push({ date: d, state: states.get(d) ?? null });
-  return { current: run, best, done: total, days };
+  return { current: run, best, done: total, reached, days };
 }

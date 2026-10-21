@@ -1481,7 +1481,9 @@ export class Doc {
       closed.add(`${t.id}:${c.completedAt}`);
     }
     for (const t of this.allTasks()) {
-      if (t.completedAt !== null && !closed.has(`${t.id}:${t.completedAt}`)) out.push({ at: t.completedAt, projectId: t.projectId });
+      if (t.completedAt !== null && !closed.has(`${t.id}:${t.completedAt}`)) {
+        out.push(t.recurrence || !t.createdAt ? { at: t.completedAt, projectId: t.projectId } : { at: t.completedAt, projectId: t.projectId, createdAt: t.createdAt });
+      }
     }
     return out;
   }
