@@ -588,7 +588,7 @@ describe('квоты и частота синхронизации', () => {
     const res = await s.app.request('/.well-known/security.txt');
     expect(res.status).toBe(200);
     const text = await res.text();
-    expect(text).toContain('Contact: https://olerast.com/security');
+    expect(text).toContain('Contact: https://olerast.com/security?project=dela');
     expect(text).toMatch(/^Expires: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/m);
     expect(Date.parse(/^Expires: (.+)$/m.exec(text)![1]!)).toBeGreaterThan(NOW + 30 * 24 * 3600_000);
   });
