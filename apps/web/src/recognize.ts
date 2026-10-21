@@ -120,7 +120,11 @@ function codeOf(e: unknown): string | undefined {
   return typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : undefined;
 }
 
-export function createRecognition(getApi: () => Promise<RecognizeApi | null>, lang: Lang = LANG): Recognition {
+/**
+ * getApi отдаёт плагин в обёртке { p }: прокси Capacitor нельзя возвращать из async-функции,
+ * await вызвал бы у него then() и не завершился бы никогда.
+ */
+export function createRecognition(getApi: () => Promise<{ readonly p: RecognizeApi } | null>, lang: Lang = LANG): Recognition {
   let state: RecognizeState = { phase: 'idle' };
   const listeners = new Set<() => void>();
   let onResult: ((r: Recognized) => void) | null = null;
@@ -191,7 +195,7 @@ export function createRecognition(getApi: () => Promise<RecognizeApi | null>, la
       onMessage = message;
     },
     async shared(kind) {
-      const api = await getApi();
+      const api = (await getApi())?.p;
       if (!api) return;
       // Новый файл заменил прежний: прежнее распознавание больше не нужно.
       if (state.phase === 'working') await api.cancel().catch(() => undefined);
@@ -200,16 +204,16 @@ export function createRecognition(getApi: () => Promise<RecognizeApi | null>, la
     async cancel() {
       run++;
       set({ phase: 'idle' });
-      await (await getApi())?.cancel().catch(() => undefined);
+      await (await getApi())?.p.cancel().catch(() => undefined);
     },
     async dismiss() {
       run++;
       set({ phase: 'idle' });
-      await (await getApi())?.discard().catch(() => undefined);
+      await (await getApi())?.p.discard().catch(() => undefined);
     },
     async modelReady() {
       if (state.phase !== 'need_model') return;
-      const api = await getApi();
+      const api = (await getApi())?.p;
       if (api) await start(api, state.kind);
     },
   };

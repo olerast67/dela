@@ -5,7 +5,7 @@ import { createRecognition, downloadError, packState, sizeMb, type RecognizeStat
 import { IconX } from './icons.tsx';
 
 /** Распознавание присланных картинок и голосовых сообщений; одно на приложение. */
-export const recognition = createRecognition(async () => (await recognizeApi())?.p ?? null);
+export const recognition = createRecognition(recognizeApi);
 
 export function useRecognition(): RecognizeState {
   return useSyncExternalStore(recognition.subscribe, recognition.getState);
@@ -169,7 +169,7 @@ export function RecognitionSettings() {
               </div>
             )}
             {state === 'missing' && (
-              <button type="button" disabled={st.downloading !== null} onClick={() => void download(pack)}>
+              <button type="button" disabled={st.downloading != null} onClick={() => void download(pack)}>
                 {tr('Скачать')}
               </button>
             )}

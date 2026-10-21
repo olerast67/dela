@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Android: "Show events from the phone calendars" works again. Ticking it did nothing because the web code returned the Capacitor plugin proxy from an async function, so `await` called the plugin's nonexistent `then()` and never finished; events also never loaded, since the plugin read the date range with `getDouble()`, which returns nothing for millisecond times. The "Download" buttons of on-device recognition were always disabled: the plugin dropped `downloading: null` from its status, and recognizing a shared file had the same proxy hang. Not related to R8: release builds are not minified.
+
 ## 1.0.0
 
 - Wear OS watch app (`apps/wear`, package `io.github.olerast67.dela.wear`, Wear OS 3 or newer): a standalone app that signs in to your Dela server by itself with email and password (and a TOTP code if it is on) as a separate device, revocable in Settings → Devices; it needs neither the phone nor Google services. It shows Today (overdue and due today), checks a task off (a repeating task moves to its next date, as in the app), syncs when opened and every 30 minutes, and shows reminders from its own exact alarms for the next two days, with a "Done" button in the notification. The "Dela: today" tile lists the first tasks. The watch runs the same core code as the other apps (`packages/core` and the dela-mcp client, built for the QuickJS engine) with libsodium for the cryptography; the keys and the task cache are kept in a file encrypted with a key from Android Keystore.

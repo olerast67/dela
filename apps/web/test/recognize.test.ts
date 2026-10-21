@@ -142,9 +142,21 @@ function fakeApi(st: RecognizerStatus) {
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
+/**
+ * Как прокси плагина Capacitor: у него есть любой метод, в том числе then, и неизвестный метод
+ * возвращает отклонённый промис, не вызывая переданные колбэки. Такой объект, отданный из async-функции,
+ * подвешивает await навсегда: на телефоне так не работали календари телефона и распознавание.
+ */
+function capacitorLike<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get: (t, prop) => (prop in t ? t[prop as keyof T] : () => Promise.reject(new Error(`"${String(prop)}()" is not implemented on android`))),
+  });
+}
+
 function setup(st: RecognizerStatus, lang: 'ru' | 'en' = 'ru') {
   const fake = fakeApi(st);
-  const rec = createRecognition(async () => fake.api, lang);
+  const plugin = capacitorLike(fake.api);
+  const rec = createRecognition(async () => ({ p: plugin }), lang);
   const results: Recognized[] = [];
   const messages: string[] = [];
   rec.setHandlers((r) => results.push(r), (m) => messages.push(m));

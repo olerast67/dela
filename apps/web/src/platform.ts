@@ -531,16 +531,19 @@ interface DelaWidgetPlugin {
 }
 
 /**
- * Прокси плагина Capacitor нельзя вернуть из async-функции напрямую: await вызовет у него then(),
- * а такого метода у плагина нет. Поэтому плагин лежит в обёртке и регистрируется один раз.
+ * Прокси плагина Capacitor нельзя вернуть из async-функции напрямую, в том числе из `async () => proxy`:
+ * у прокси есть любой метод, и await вызовет у него then(); такого метода в Android нет, вызов отклонится
+ * («"X.then()" is not implemented on android» в консоли), а колбэки await не вызовутся никогда. Поэтому плагин
+ * лежит в обёртке { p }, а достаётся из неё уже после await. Регистрируется один раз.
  */
 const plugins = new Map<string, unknown>();
 
-async function nativePlugin<T>(name: string): Promise<{ readonly p: T } | null> {
+export async function nativePlugin<T>(name: string): Promise<{ readonly p: T } | null> {
   if (platform() !== 'capacitor') return null;
   if (!plugins.has(name)) {
     const { registerPlugin } = await import('@capacitor/core');
-    plugins.set(name, registerPlugin<T>(name));
+    // Два одновременных первых вызова: второй не регистрирует плагин повторно.
+    if (!plugins.has(name)) plugins.set(name, registerPlugin<T>(name));
   }
   return { p: plugins.get(name) as T };
 }
