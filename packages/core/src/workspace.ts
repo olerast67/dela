@@ -12,6 +12,7 @@ import type { ActivityEvent, Change, Doc, Listener, Position, ProjectNode, Proje
 import { dayOrderChanges, dayOrdered, nestTasks } from './doc.ts';
 import type { HabitStreak } from './habits.ts';
 import { computeStats, type Stats, type StatsOptions } from './stats.ts';
+import { computeMilestones, type Milestones } from './milestones.ts';
 import { computeGoals, suggestDailyGoal, type GoalProgress } from './goals.ts';
 import type { SavedPlace } from './places.ts';
 import type { GameSettings } from './game.ts';
@@ -235,6 +236,23 @@ export class Workspace {
   /** Цели дня и недели и серия целей по личному и общим проектам вместе (goals.ts). */
   goals(tz: string, today: string): GoalProgress {
     return computeGoals(this.docs().flatMap((d) => d.doneEvents()), this.getGameSettings(), tz, today);
+  }
+
+  /** Вехи по личному и общим проектам вместе (milestones.ts). */
+  milestones(tz: string, today: string): Milestones {
+    const events = this.docs().flatMap((d) => d.doneEvents());
+    const reached = new Map<number, string>();
+    const goals = computeGoals(events, this.getGameSettings(), tz, today, (run, date) => {
+      if (!reached.has(run)) reached.set(run, date);
+    });
+    return computeMilestones({
+      events,
+      work: this.docs().flatMap((d) => d.workEvents()),
+      inboxId: this.inboxId,
+      habits: this.habits(today, tz).map((h) => h.streak),
+      goalStreak: goals.streak && { current: goals.streak.current, reached },
+      tz,
+    });
   }
 
   /** Подсказка цели дня по последним двум неделям; null — подсказывать нечего. */

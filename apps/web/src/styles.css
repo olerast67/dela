@@ -4441,6 +4441,77 @@ html:has(.quick-window) #root {
   margin: 0;
 }
 
+/* Блок «Вехи» в «Статистике»: тихие карточки без блеска. */
+.ms-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
+}
+
+.ms-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  min-width: 0;
+}
+
+.ms-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ms-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.ms-text b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.ms-next {
+  border-style: dashed;
+}
+
+.ms-next .ms-icon {
+  background: var(--surface-2);
+  color: var(--text-muted);
+}
+
+.ms-track {
+  display: block;
+  height: 6px;
+  margin-top: 4px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+
+.ms-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent) 72%, var(--surface));
+}
+
 /* Блок целей в «Статистике». */
 .goal-cards {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));

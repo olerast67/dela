@@ -6,6 +6,8 @@ import { weekStart } from './calendar.ts';
 export interface DoneEvent {
   readonly at: number;
   readonly projectId: string;
+  /** Когда задача создана; только у обычных (не повторяющихся) задач, для вехи «ждала долго». */
+  readonly createdAt?: number;
 }
 
 /** Отрезок работы над задачей: минуты и время окончания. */

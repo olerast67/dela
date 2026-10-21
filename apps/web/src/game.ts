@@ -2,9 +2,9 @@
  * Игровые элементы в вебе (docs/gamification.md): звук, празднование «День закрыт» и тёплые фразы при выполнении.
  * Настройки — запись личного пространства (Workspace.getGameSettings); здесь только отклик.
  */
-import { afterCompletion, beforeCompletion, completionFacts, DEFAULT_GAME_SETTINGS, gameFeature, pickPhrase, type GameSettings, type TaskView, type WarmFact, type Workspace } from '#core';
+import { afterCompletion, beforeCompletion, completionFacts, DEFAULT_GAME_SETTINGS, gameFeature, MILESTONES, pickPhrase, type GameSettings, type MilestoneKind, type TaskView, type WarmFact, type Workspace } from '#core';
 import { TZ, todayDate } from './format.ts';
-import { tn, tr, LANG } from './i18n.ts';
+import { tn, tr, LANG, LOCALE } from './i18n.ts';
 
 export function gameSettingsOf(doc: Workspace | null): GameSettings {
   return doc ? doc.getGameSettings() : DEFAULT_GAME_SETTINGS;
@@ -136,6 +136,63 @@ export function phraseText(f: WarmFact): string {
   }
 }
 
+// ---------- вехи ----------
+
+const SHOWN_KEY = 'gameMilestonesShown';
+
+/** Вехи, о которых это устройство уже сказало (или не должно говорить: достигнуты давно). */
+function readShown(): Set<string> {
+  try {
+    const v: unknown = JSON.parse(localStorage.getItem(SHOWN_KEY) ?? '[]');
+    return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeShown(ids: ReadonlySet<string>): void {
+  try {
+    localStorage.setItem(SHOWN_KEY, JSON.stringify([...ids]));
+  } catch {
+    // без хранилища веха может прозвучать ещё раз после перезагрузки
+  }
+}
+
+/** Название вехи для списка и тоста. */
+export function milestoneTitle(kind: MilestoneKind, target: number): string {
+  const n = target.toLocaleString(LOCALE);
+  switch (kind) {
+    case 'tasks':
+      return tr('Выполнено задач: {n}', { n });
+    case 'inbox':
+      return tr('Закрыто задач из «Входящих»: {n}', { n });
+    case 'pomodoro':
+      return tr('Отрезков помодоро: {n}', { n });
+    case 'habit':
+      return tr('Привычка: {n} подряд', { n: tn(target, 'раз', 'раза', 'раз') });
+    case 'goal':
+      return tr('Цель дня выполнена {n} подряд', { n: tn(target, 'день', 'дня', 'дней') });
+    case 'waited':
+      return tr('Закрыта задача, ждавшая {n}', { n: tn(target, 'день', 'дня', 'дней') });
+  }
+}
+
+/**
+ * Веха, которую пересекло это выполнение, ещё не названная на устройстве: текст тоста или null.
+ * Достигнутые раньше (в том числе на других устройствах) молчат и помечаются названными.
+ */
+function crossedMilestone(before: ReadonlySet<string>, doc: Workspace, today: string): string | null {
+  const after = doc.milestones(TZ, today).reached.map((m) => m.id);
+  const shown = readShown();
+  const fresh = MILESTONES.filter((m) => {
+    const id = `${m.kind}:${m.target}`;
+    return after.includes(id) && !before.has(id) && !shown.has(id);
+  });
+  writeShown(new Set([...shown, ...before, ...after]));
+  const m = fresh[fresh.length - 1];
+  return m ? tr('Новая веха: {title}', { title: milestoneTitle(m.kind, m.target) }) : null;
+}
+
 /**
  * Выполнить задачу с откликом игровых элементов. Возвращает текст тоста: тёплую фразу
  * или null (обычный тост). Сигнал «День закрыт» уходит подписчикам «Сегодня».
@@ -152,6 +209,7 @@ export function completeWithGame(doc: Workspace, task: TaskView): string | null 
   const inToday = list.overdue.some((t) => t.id === task.id) || list.today.some((t) => t.id === task.id);
   const before = s.phrases ? beforeCompletion(doc, task.id, today, TZ) : null;
   const goalBefore = s.celebrations && s.dailyGoal !== null ? doc.goals(TZ, today).day : null;
+  const milestonesBefore = gameFeature(s, 'milestones') ? new Set(doc.milestones(TZ, today).reached.map((m) => m.id)) : null;
   doc.completeTask(task.id);
   let closed = false;
   if (s.celebrations && inToday) {
@@ -166,7 +224,13 @@ export function completeWithGame(doc: Workspace, task: TaskView): string | null 
   const goal = goalBefore?.goal ?? null;
   const reached = !closed && goal !== null && goalBefore!.done < goal && doc.goals(TZ, today).day.done >= goal;
   let phrase: string | null = null;
-  if (before) {
+  // Веха важнее фразы и считается за неё в частоте: после вехи следующие выполнения обычные.
+  const milestone = milestonesBefore ? crossedMilestone(milestonesBefore, doc, today) : null;
+  if (milestone) {
+    phraseCount = 0;
+    writeCount(0);
+    phrase = milestone;
+  } else if (before) {
     phraseCount ??= readCount();
     const facts = completionFacts(before, afterCompletion(doc, before, today, TZ), today, TZ);
     const r = pickPhrase(facts, phraseCount + 1);
