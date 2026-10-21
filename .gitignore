@@ -36,3 +36,6 @@ apps/desktop/src-tauri/sherpa-onnx/
 
 # Манифест для olerast.com: сайт читает его из папки (npm run projects:sync в D:\olerast_com)
 site-release.json
+
+# Записи экрана для роликов (scripts/demo/record.ts): большие файлы, в git не нужны
+media/

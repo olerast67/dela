@@ -33,4 +33,8 @@
     <string name="tile_label">Dela: today</string>
     <string name="tile_signed_out">Open Dela to sign in</string>
     <string name="tile_more">+%d more</string>
+    <string name="report_bug">Report a bug</string>
+    <string name="report_bug_hint">Opens on the phone</string>
+    <string name="report_bug_opened">Opened on the phone</string>
+    <string name="report_bug_no_phone">No phone nearby. Report at olerast.com/security</string>
 </resources>

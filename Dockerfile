@@ -6,7 +6,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
-RUN npm run build:web
+# Короткий коммит для формы «Сообщить о баге»: .git в образ не копируется (.dockerignore).
+ARG DELA_BUILD=
+RUN DELA_BUILD="$DELA_BUILD" npm run build:web
 
 FROM node:24-alpine AS deps
 WORKDIR /app

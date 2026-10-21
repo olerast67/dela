@@ -6,6 +6,30 @@ import { platform, serverUrl } from './platform.ts';
  * без ключей аккаунта сервер по ней ничего не покажет.
  */
 
+declare const __DELA_VERSION__: string | undefined;
+declare const __DELA_BUILD__: string | undefined;
+
+/** Версия и короткий коммит сборки: их вшивает apps/web/vite.config.ts. В тестах без сборки — «dev». */
+export const APP_VERSION = typeof __DELA_VERSION__ === 'string' ? __DELA_VERSION__ : 'dev';
+export const APP_BUILD = typeof __DELA_BUILD__ === 'string' ? __DELA_BUILD__ : 'dev';
+
+export type ReportPlatform = 'android' | 'windows' | 'web' | 'wearos';
+
+/** Значение параметра формы olerast.com: латиница, цифры, точка и дефис, до 40 знаков. Лишнее сайт отбрасывает. */
+const REPORT_VALUE = /^[A-Za-z0-9.-]{1,40}$/;
+
+/**
+ * Форма «Сообщить о баге» на olerast.com: сайт сам выбирает проект Dela и подставляет версию,
+ * сборку, платформу и язык в заявку, пользователь их не вводит.
+ */
+export function bugReportUrl(o: { version: string; build: string; platform: ReportPlatform; lang: 'ru' | 'en' }): string {
+  const q = new URLSearchParams({ project: 'dela' });
+  for (const [k, v] of [['v', o.version], ['build', o.build], ['platform', o.platform], ['lang', o.lang]] as const) {
+    if (REPORT_VALUE.test(v)) q.set(k, v);
+  }
+  return `https://olerast.com/security?${q.toString()}#report`;
+}
+
 /** Схема приложения: dela://open#/task/<id> открывает маршрут в Android и Windows. */
 export const APP_SCHEME = 'dela';
 

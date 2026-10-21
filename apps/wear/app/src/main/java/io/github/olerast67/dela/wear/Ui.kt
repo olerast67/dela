@@ -163,6 +163,7 @@ fun TodayScreen(
     onComplete: (TaskItem) -> Unit,
     onRefresh: () -> Unit,
     onSignOut: () -> Unit,
+    onReportBug: () -> Unit = {},
 ) {
     ScalingLazyColumn(state = list, modifier = Modifier.fillMaxSize(), autoCentering = AutoCenteringParams(itemIndex = 0)) {
         if (snap.overdue.isNotEmpty()) {
@@ -187,6 +188,15 @@ fun TodayScreen(
             Chip(
                 onClick = onRefresh,
                 label = { Text(stringResource(if (busy) R.string.syncing else R.string.refresh)) },
+                colors = ChipDefaults.secondaryChipColors(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        item {
+            Chip(
+                onClick = onReportBug,
+                label = { Text(stringResource(R.string.report_bug)) },
+                secondaryLabel = { Text(stringResource(R.string.report_bug_hint), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 colors = ChipDefaults.secondaryChipColors(),
                 modifier = Modifier.fillMaxWidth(),
             )

@@ -32,4 +32,8 @@
     <string name="tile_label">Dela: сегодня</string>
     <string name="tile_signed_out">Откройте Dela, чтобы войти</string>
     <string name="tile_more">ещё %d</string>
+    <string name="report_bug">Сообщить о баге</string>
+    <string name="report_bug_hint">Откроется на телефоне</string>
+    <string name="report_bug_opened">Открыто на телефоне</string>
+    <string name="report_bug_no_phone">Телефона рядом нет. Напишите на olerast.com/security</string>
 </resources>
