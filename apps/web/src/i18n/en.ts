@@ -626,6 +626,9 @@ export const EN: Readonly<Record<string, string>> = {
   'Задачи зашифрованы и хранятся только в этом браузере, на другие устройства они не попадают. Чтобы синхронизировать телефон и компьютер, поставьте сервер Dela и перенесите задачи через экспорт в JSON и импорт.':
     'Tasks are encrypted and stored only in this browser; they do not reach other devices. To sync your phone and computer, set up a Dela server and move the tasks with a JSON export and import.',
   'Как поставить сервер': 'How to set up a server',
+  'Помощь': 'Help',
+  'Нашли ошибку или уязвимость? Напишите на olerast.com/security, там не нужен аккаунт GitHub. Обычные ошибки и пожелания можно оставить и в GitHub Issues.': 'Found a bug or a vulnerability? Write at olerast.com/security, no GitHub account needed. Ordinary bugs and suggestions can also go to GitHub Issues.',
+  'Сообщить о баге': 'Report a bug',
   'Выйти? Все задачи из этого браузера удалятся.': 'Sign out? All tasks in this browser will be deleted.',
   'Удалить данные и выйти': 'Delete data and sign out',
   'Аккаунт': 'Account',

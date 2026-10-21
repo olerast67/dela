@@ -14,7 +14,7 @@ import { LockSettings } from './Lock.tsx';
 import { passkeysSupported } from '../passkey.ts';
 import { passwordProof } from '#core';
 import { saveProjectAsTemplate } from './History.tsx';
-import { allowExactReminders, autostartEnabled, canOpenViewWindow, checkDesktopUpdate, exactRemindersAllowed, openViewWindow, platform, setAutostart } from '../platform.ts';
+import { allowExactReminders, autostartEnabled, canOpenViewWindow, checkDesktopUpdate, exactRemindersAllowed, openExternal, openViewWindow, platform, setAutostart } from '../platform.ts';
 import { isViewWindow } from '../viewWindow.ts';
 import { ShareDialog } from './Share.tsx';
 import { Description } from './Description.tsx';
@@ -826,6 +826,7 @@ export function SettingsView() {
         <LockSettings />
         <RecognitionSettings />
         <ImportExport />
+        <HelpLinks />
       </>
     );
   }
@@ -884,6 +885,7 @@ export function SettingsView() {
       <AndroidUpdates />
       <DeleteAccount />
       <ImportExport />
+      <HelpLinks />
       {isAdmin && (
         <section className="settings">
           <h2>{tr('Приглашения')}</h2>
@@ -1555,6 +1557,29 @@ export function DesktopUpdates() {
         {tr('Проверить обновления')}
       </button>
       {msg && <p className="muted">{msg}</p>}
+    </section>
+  );
+}
+
+const ISSUES_URL = 'https://github.com/olerast67/dela/issues';
+const BUG_REPORT_URL = 'https://olerast.com/security';
+
+/** Куда писать об ошибках: GitHub Issues и форма на olerast.com/security (без аккаунта GitHub, уязвимости — туда же). */
+function HelpLinks() {
+  const open = (url: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    void openExternal(url);
+  };
+  return (
+    <section className="settings">
+      <h2>{tr('Помощь')}</h2>
+      <p className="muted">{tr('Нашли ошибку или уязвимость? Напишите на olerast.com/security, там не нужен аккаунт GitHub. Обычные ошибки и пожелания можно оставить и в GitHub Issues.')}</p>
+      <a className="button-link" href={BUG_REPORT_URL} target="_blank" rel="noopener noreferrer" onClick={open(BUG_REPORT_URL)}>
+        {tr('Сообщить о баге')}
+      </a>
+      <a className="button-link" href={ISSUES_URL} target="_blank" rel="noopener noreferrer" onClick={open(ISSUES_URL)}>
+        GitHub Issues
+      </a>
     </section>
   );
 }

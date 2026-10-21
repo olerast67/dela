@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Settings → Help: "Report a bug" leads to olerast.com/security (no GitHub account needed, vulnerabilities too), next to GitHub Issues. The README links to both.
+
 ## 1.1.0
 
 - Settings → Game elements: one switch turns all of them off, and each one has its own switch (sound, celebrations, warm phrases, weekly review with day, time and notification, milestones, garden). Daily and weekly goals, days off and vacation dates are stored here too. The settings sync between devices encrypted, field by field.

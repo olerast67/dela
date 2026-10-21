@@ -245,6 +245,8 @@ npm run screenshots    # снимки экрана в docs/images из веб-в
 
 ## Поддержка и лицензия
 
+Нашли ошибку? [Сообщите о баге](https://olerast.com/security) на olerast.com (аккаунт GitHub не нужен, уязвимости тоже туда) или откройте задачу в [GitHub Issues](https://github.com/olerast67/dela/issues). Эти же ссылки есть в приложении: «Настройки → Помощь».
+
 Dela бесплатная, платных функций в ней нет. Донаты идут на время для новых платформ и на внешний аудит безопасности: [разовый донат на Boosty](https://boosty.to/olerast/donate), [подписка на Boosty](https://boosty.to/olerast) или USDT в сети TRON по адресу из [DONATE.md](DONATE.md).
 
 Я снимаю видео о проектах, которые делаю и проверяю на себе: [YouTube](https://www.youtube.com/@olerast), [Telegram](https://t.me/olerast), [olerast.com](https://olerast.com). Код проекта пишет Claude от Anthropic по моим задачам, его покрывают модульные и сквозные тесты, которые гоняются в GitHub Actions на каждом коммите.

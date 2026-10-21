@@ -245,6 +245,8 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. The relea
 
 ## Support and license
 
+Found a bug? [Report a bug](https://olerast.com/security) on olerast.com (no GitHub account needed, vulnerabilities too) or open an issue in [GitHub Issues](https://github.com/olerast67/dela/issues). The same links are in the app under Settings → Help.
+
 Dela is free and has no paid features. Donations pay for the time spent on new platforms and for an external security audit: a [one-off donation on Boosty](https://boosty.to/olerast/donate), [monthly support on Boosty](https://boosty.to/olerast), or USDT on TRON from [DONATE.md](DONATE.md).
 
 I make videos about the projects I build and test on myself: [YouTube](https://www.youtube.com/@olerast), [Telegram](https://t.me/olerast), [olerast.com](https://olerast.com). The code is written by Claude from Anthropic on my instructions and is covered by unit and end-to-end tests that run in GitHub Actions on every commit.
