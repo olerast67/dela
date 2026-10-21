@@ -181,6 +181,7 @@ describe('разбор iCal', () => {
   it('больше MAX_EVENTS событий не берётся', () => {
     const many = Array.from({ length: MAX_EVENTS + 5 }, (_, i) => vevent(`UID:e${i}`, 'DTSTART;VALUE=DATE:20261015'));
     expect(parseCalendar(ics(...many)).events).toHaveLength(MAX_EVENTS);
-  });
+    // Разбор 10 000 событий под нагрузкой полного прогона идёт дольше 5 секунд по умолчанию.
+  }, 30_000);
 });
 
