@@ -4846,3 +4846,407 @@ a.link:hover {
 .review-weeks a:hover {
   color: var(--accent);
 }
+
+/* ---------- сад (6.5) ---------- */
+
+/* Цвета сада: спокойные, в тон акценту; в тёмной теме светлее и приглушённее. */
+:root {
+  --g-soil: #ece3d2;
+  --g-pebble: #cfc2a8;
+  --g-trunk: #8b6a4c;
+  --g-round: #2e7d5b;
+  --g-round-soft: #d6eadc;
+  --g-pine: #1d6f63;
+  --g-pine-soft: #cfe5de;
+  --g-poplar: #5f8f2a;
+  --g-poplar-soft: #e2eecf;
+  --g-acacia: #b07a22;
+  --g-acacia-soft: #f4e5c6;
+  --g-bloom: #e0699a;
+  --g-bloom-alt: #f7f1e3;
+  --g-bloom-eye: #e9b52e;
+  --g-berry: #c8402f;
+  --g-focus: #2f78a8;
+  --g-focus-soft: #d5e7f2;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --g-soil: #2c2822;
+    --g-pebble: #4a443a;
+    --g-trunk: #b28d68;
+    --g-round: #6fcf9b;
+    --g-round-soft: #234032;
+    --g-pine: #58c0aa;
+    --g-pine-soft: #1d3a34;
+    --g-poplar: #a5d16a;
+    --g-poplar-soft: #2d3b1e;
+    --g-acacia: #e2aa5a;
+    --g-acacia-soft: #42331c;
+    --g-bloom: #f08ab3;
+    --g-bloom-alt: #efe8da;
+    --g-bloom-eye: #f2d16b;
+    --g-berry: #f07a68;
+    --g-focus: #7fb6e0;
+    --g-focus-soft: #1e3443;
+  }
+}
+
+:root[data-theme='dark'] {
+  --g-soil: #2c2822;
+  --g-pebble: #4a443a;
+  --g-trunk: #b28d68;
+  --g-round: #6fcf9b;
+  --g-round-soft: #234032;
+  --g-pine: #58c0aa;
+  --g-pine-soft: #1d3a34;
+  --g-poplar: #a5d16a;
+  --g-poplar-soft: #2d3b1e;
+  --g-acacia: #e2aa5a;
+  --g-acacia-soft: #42331c;
+  --g-bloom: #f08ab3;
+  --g-bloom-alt: #efe8da;
+  --g-bloom-eye: #f2d16b;
+  --g-berry: #f07a68;
+  --g-focus: #7fb6e0;
+  --g-focus-soft: #1e3443;
+}
+
+/* Порода задаёт цвет листвы и цветов. */
+.sp-round {
+  --lf: var(--g-round);
+  --lf-soft: var(--g-round-soft);
+  --bl: var(--g-bloom);
+}
+
+.sp-pine {
+  --lf: var(--g-pine);
+  --lf-soft: var(--g-pine-soft);
+  --bl: var(--g-bloom-eye);
+}
+
+.sp-poplar {
+  --lf: var(--g-poplar);
+  --lf-soft: var(--g-poplar-soft);
+  --bl: var(--g-bloom-alt);
+}
+
+.sp-acacia {
+  --lf: var(--g-acacia);
+  --lf-soft: var(--g-acacia-soft);
+  --bl: var(--g-bloom);
+}
+
+.g-plant {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.g-soil {
+  fill: var(--g-soil);
+}
+
+.g-pebble {
+  fill: var(--g-pebble);
+}
+
+.g-stem {
+  fill: none;
+  stroke: var(--g-trunk);
+  stroke-width: 2.2;
+}
+
+.g-leaf {
+  fill: var(--lf-soft);
+  stroke: var(--lf);
+  stroke-width: 1.6;
+}
+
+.g-bloom circle {
+  fill: var(--bl);
+  stroke: var(--surface);
+  stroke-width: 0.6;
+}
+
+.g-bloom .g-bloom-eye {
+  fill: var(--g-bloom-eye);
+  stroke: none;
+}
+
+.sp-pine .g-bloom .g-bloom-eye {
+  fill: var(--g-bloom-alt);
+}
+
+.g-berry {
+  fill: var(--g-berry);
+  stroke: var(--surface);
+  stroke-width: 0.5;
+}
+
+.g-focus-leaf {
+  fill: var(--g-focus-soft);
+  stroke: var(--g-focus);
+  stroke-width: 1.4;
+}
+
+.g-focus-tree .g-stem,
+.g-focus-cut .g-stem {
+  stroke-width: 1.6;
+}
+
+.g-focus-cut .g-focus-leaf {
+  stroke-width: 1.1;
+}
+
+.g-seed-mound {
+  fill: none;
+  stroke: var(--g-trunk);
+  stroke-width: 1.4;
+}
+
+.g-seed {
+  fill: var(--g-trunk);
+}
+
+.g-stone {
+  fill: var(--surface-2);
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+
+.g-sign path {
+  fill: none;
+  stroke: var(--g-trunk);
+  stroke-width: 1.6;
+}
+
+.g-sign rect {
+  fill: var(--surface);
+  stroke: var(--g-trunk);
+  stroke-width: 1.2;
+}
+
+/* Рост: внутри стадии — плавный масштаб, новая стадия — короткий прыжок от земли. */
+.g-body,
+.g-main {
+  transform-box: view-box;
+  transform-origin: 30px 62px;
+}
+
+.g-body {
+  transition: transform 600ms var(--ease);
+}
+
+.g-grow .g-main {
+  animation: g-grow 820ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes g-grow {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  55% {
+    opacity: 1;
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.garden {
+  max-width: 640px;
+}
+
+.garden-about {
+  margin: 4px 0 2px;
+  max-width: 560px;
+}
+
+.garden-sum {
+  margin: 0 0 14px;
+  font-weight: 600;
+}
+
+.g-weekdays,
+.g-bed {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.g-weekdays {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  text-transform: capitalize;
+}
+
+.g-week {
+  margin-top: 10px;
+}
+
+.g-week-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 2px 4px;
+  font-size: 13px;
+}
+
+.g-week-range {
+  font-weight: 600;
+}
+
+.g-bed {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+}
+
+.g-slot {
+  display: block;
+  min-width: 0;
+  padding: 6px 0 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.g-slot:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
+}
+
+.g-slot:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.g-slot:disabled {
+  cursor: default;
+}
+
+.g-slot.is-today {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+  box-shadow: inset 0 3px 0 var(--accent);
+}
+
+.g-slot.sel {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+
+.g-slot.is-future .g-soil {
+  opacity: 0.45;
+}
+
+.g-slot.is-future .g-pebble {
+  opacity: 0;
+}
+
+.g-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 8px 6px 8px 12px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  font-size: 13px;
+  line-height: 19px;
+}
+
+.g-tip-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.g-more {
+  display: block;
+  margin: 16px auto 8px;
+}
+
+/* Сегодняшнее растение в заголовке «Сегодня»: маленькая грядка-ссылка в сад. */
+.garden-mini {
+  display: block;
+  flex: none;
+  width: 42px;
+  padding-top: 2px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.garden-mini:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.garden-mini:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Дерево фокуса в таймере. */
+.focus-sprout {
+  flex: none;
+  overflow: visible;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.focus-sprout .fs-ground {
+  stroke: var(--g-trunk);
+  stroke-width: 1.4;
+  opacity: 0.7;
+}
+
+.focus-sprout .g-stem {
+  stroke-width: 1.8;
+}
+
+.focus-sprout .fs-stem,
+.focus-sprout .fs-leaves,
+.focus-sprout .fs-tree {
+  transform-box: view-box;
+}
+
+.focus-sprout .fs-stem {
+  transform-origin: 12px 21.5px;
+  transition: transform 1s linear;
+}
+
+.focus-sprout .fs-leaves {
+  transform-origin: 12px 10px;
+  transition: transform 1s linear;
+}
+
+.focus-sprout .fs-tree {
+  transform-origin: 12px 21.5px;
+  animation: g-grow 820ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.pomo-field .focus-sprout {
+  margin-right: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-body,
+  .focus-sprout .fs-stem,
+  .focus-sprout .fs-leaves {
+    transition: none;
+  }
+
+  .g-grow .g-main,
+  .focus-sprout .fs-tree {
+    animation: none;
+  }
+}

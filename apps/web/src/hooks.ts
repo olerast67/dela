@@ -44,6 +44,7 @@ export type Route =
   | { view: 'stats' }
   /** Итоги недели с понедельника week; null — список последних недель. */
   | { view: 'review'; week: string | null }
+  | { view: 'garden' }
   | { view: 'templates' }
   | { view: 'trash' }
   | { view: 'settings' };
@@ -57,6 +58,7 @@ export function parseRoute(hash: string): Route {
     case 'completed':
     case 'activity':
     case 'stats':
+    case 'garden':
     case 'templates':
     case 'trash':
     case 'settings':

@@ -1067,7 +1067,7 @@ export class Doc {
    * Записать отрезок работы над задачей. Id задаёт вызывающий: таймер передаёт id своего отрезка,
    * поэтому повторная запись того же отрезка (две вкладки, перезапуск) не удваивает время.
    */
-  logWork(taskId: string, minutes: number, input: { id?: string; at?: number } = {}): string | null {
+  logWork(taskId: string, minutes: number, input: { id?: string; at?: number; focus?: 'full' | 'cut' } = {}): string | null {
     const m = Math.round(minutes);
     if (m <= 0) return null;
     const id = input.id ?? uuidv7(this.now());
@@ -1076,6 +1076,8 @@ export class Doc {
       ['work', id, 'minutes', m],
       ['work', id, 'at', input.at ?? this.now()],
     ];
+    // Отрезок таймера: закончен или прерван. По этой отметке сад сажает дерево фокуса или росток.
+    if (input.focus) changes.push(['work', id, 'focus', input.focus]);
     if (this.actor && this.kind === 'shared') changes.push(['work', id, 'by', this.actor]);
     // Время от таймера не отменяется Ctrl+Z вместе с соседними правками.
     this.write(changes, { undoable: false });
@@ -1196,7 +1198,7 @@ export class Doc {
   workEvents(): WorkEvent[] {
     const s = this.snapshot();
     const out: WorkEvent[] = [];
-    for (const w of s.work.values()) if (s.alive.has(w.taskId)) out.push({ at: w.at, minutes: w.minutes });
+    for (const w of s.work.values()) if (s.alive.has(w.taskId)) out.push(w.focus ? { at: w.at, minutes: w.minutes, focus: w.focus } : { at: w.at, minutes: w.minutes });
     return out;
   }
 
@@ -1527,7 +1529,7 @@ export class Doc {
     for (const c of s.completions.values()) {
       const t = s.tasks.get(c.taskId);
       if (!t || !s.alive.has(t.id)) continue;
-      out.push({ at: c.completedAt, projectId: t.projectId });
+      out.push(t.habit ? { at: c.completedAt, projectId: t.projectId, habit: true } : { at: c.completedAt, projectId: t.projectId });
       closed.add(`${t.id}:${c.completedAt}`);
     }
     for (const t of this.allTasks()) {
