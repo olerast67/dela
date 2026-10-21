@@ -590,7 +590,8 @@ svg.c-gray, svg.c-red, svg.c-orange, svg.c-yellow, svg.c-green, svg.c-teal, svg.
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 14px 12px 6px;
+  /* Слева место под стрелку подзадач: она сдвинута влево и иначе налезала на рамку карточки. */
+  padding: 12px 14px 12px 12px;
   touch-action: pan-y;
   background: var(--surface);
   border-radius: var(--radius-card);
@@ -1589,7 +1590,7 @@ kbd {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-bottom: 6px;
-  padding: 8px 6px;
+  padding: 8px 6px 8px 12px;
 }
 
 .cards .twisty-space {

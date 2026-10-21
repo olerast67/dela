@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The arrow that folds subtasks stays inside the task card instead of covering its left border (reported in #9).
+
 ## 1.0.1
 
 - Windows: Ctrl+Shift+Space and "New task" in the tray open a small quick add bar on top of all programs, centered near the top of the screen with the mouse, instead of bringing up the whole Dela window. It parses the phrase, highlights dates, projects and labels and takes pasted lists like the usual quick add; Enter adds the task and hides the bar, so you are back in the program you were typing in; Esc, a click elsewhere or the shortcut again hide it. The task is saved to the local database and the main window, which keeps syncing while hidden in the tray, sends it to the server. With a PIN lock the bar shows that Dela is locked and offers to open the main window. A task opened in its own window now fills the window: no list behind it, no sheet handle, and closing the card closes the window; a task card in a project window also opens full-window.
