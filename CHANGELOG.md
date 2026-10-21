@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0
 
 - Settings → Game elements: one switch turns all of them off, and each one has its own switch (sound, celebrations, warm phrases, weekly review with day, time and notification, milestones, garden). Daily and weekly goals, days off and vacation dates are stored here too. The settings sync between devices encrypted, field by field.
 - Completing a task feels nicer: the circle fills from the centre with a small spring, the title is struck through and the row slides away. Calendar chips do the same. With "reduce motion" in the system only the colour changes.
