@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1
 
 - Windows: Ctrl+Shift+Space and "New task" in the tray open a small quick add bar on top of all programs, centered near the top of the screen with the mouse, instead of bringing up the whole Dela window. It parses the phrase, highlights dates, projects and labels and takes pasted lists like the usual quick add; Enter adds the task and hides the bar, so you are back in the program you were typing in; Esc, a click elsewhere or the shortcut again hide it. The task is saved to the local database and the main window, which keeps syncing while hidden in the tray, sends it to the server. With a PIN lock the bar shows that Dela is locked and offers to open the main window. A task opened in its own window now fills the window: no list behind it, no sheet handle, and closing the card closes the window; a task card in a project window also opens full-window.
 - Android: "Show events from the phone calendars" works again. Ticking it did nothing because the web code returned the Capacitor plugin proxy from an async function, so `await` called the plugin's nonexistent `then()` and never finished; events also never loaded, since the plugin read the date range with `getDouble()`, which returns nothing for millisecond times. The "Download" buttons of on-device recognition were always disabled: the plugin dropped `downloading: null` from its status, and recognizing a shared file had the same proxy hang. Not related to R8: release builds are not minified.

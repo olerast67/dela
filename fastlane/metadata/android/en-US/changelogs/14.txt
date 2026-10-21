@@ -1,0 +1,1 @@
+Phone calendars and downloading the recognition models work again. Pictures and voice messages shared to Dela are recognized. The quick add field has room around the text.
