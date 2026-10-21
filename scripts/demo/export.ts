@@ -14,7 +14,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** Версия схемы, для которой составлен список таблиц. Новая миграция — пересмотреть TABLE_POLICY. */
-export const KNOWN_SCHEMA = 13;
+export const KNOWN_SCHEMA = 14;
 
 /** Что из каждой таблицы попадает в выгрузку. Таблица, которой здесь нет, останавливает выгрузку. */
 export const TABLE_POLICY: Readonly<Record<string, string>> = {
@@ -26,7 +26,9 @@ export const TABLE_POLICY: Readonly<Record<string, string>> = {
   devices: 'частично: число устройств и их времена created_at/last_seen_at/revoked_at; id и имена заменены на device-N',
   sessions: 'нет: хеши токенов',
   invites: 'нет: приглашения и их авторы',
-  spaces: 'да для пространств, где демо-аккаунт единственный участник: id, kind, created_at, last_seq, key_version; created_by только как «свой/чужой»',
+  spaces:
+    'да для пространств, где демо-аккаунт единственный участник: id, kind, created_at, last_seq, key_version, sync_bytes (сумма длин шифротекста); ' +
+    'created_by только как «свой/чужой»',
   members: 'да для тех же пространств: role, key_kind, key (ключ пространства, обёрнутый мастер-ключом)',
   envelopes: 'да для тех же пространств: seq, slot, hlc, payload (шифротекст)',
   push_subscriptions: 'нет: адреса push-сервисов устройств',
@@ -37,6 +39,32 @@ export const TABLE_POLICY: Readonly<Record<string, string>> = {
   rotations: 'нет: незаконченная смена ключа живёт до 30 минут',
   rotation_envelopes: 'нет: то же',
 };
+
+/** Колонки, для которых составлено правило. Новая колонка останавливает выгрузку. */
+export const TABLE_COLUMNS: Readonly<Record<string, readonly string[]>> = {
+  devices: ['id', 'user_id', 'name', 'created_at', 'last_seen_at', 'revoked_at'],
+  envelopes: ['space_id', 'slot', 'hlc', 'payload', 'seq'],
+  file_parts: ['space_id', 'file_id', 'idx', 'data'],
+  files: ['space_id', 'id', 'size', 'created_by', 'created_at', 'data', 'parts', 'complete', 'touched_at'],
+  invites: ['code_hash', 'created_by', 'created_at', 'expires_at', 'used_by', 'used_at'],
+  members: ['space_id', 'user_id', 'role', 'key_kind', 'key'],
+  meta: ['key', 'value'],
+  passkeys: ['id', 'user_id', 'name', 'public_key', 'counter', 'transports', 'wrapped_master', 'created_at', 'last_used_at'],
+  push_schedule: ['device_id', 'id', 'fire_at', 'payload'],
+  push_subscriptions: ['device_id', 'endpoint', 'p256dh', 'auth', 'created_at', 'kind', 'offsets'],
+  rotation_envelopes: ['rotation_id', 'slot', 'hlc', 'payload'],
+  rotations: ['id', 'space_id', 'key_version', 'created_at'],
+  sessions: ['token_hash', 'device_id', 'user_id', 'created_at', 'expires_at'],
+  spaces: ['id', 'kind', 'created_by', 'created_at', 'last_seq', 'key_version', 'sync_bytes'],
+  users: [
+    'id', 'email', 'auth_salt', 'auth_hash', 'bundle', 'is_admin', 'created_at', 'recovery_salt', 'recovery_hash',
+    'totp_secret', 'totp_enabled', 'totp_last', 'recovery_totp', 'sign_key',
+  ],
+};
+
+export function columnsOf(db: DatabaseSync, table: string): string[] {
+  return (db.prepare(`PRAGMA table_info(${JSON.stringify(table)})`).all() as Array<{ name: string }>).map((c) => String(c.name));
+}
 
 export interface ChallengeEnvelope {
   readonly seq: number;
@@ -64,6 +92,8 @@ export interface ChallengeSpace {
   readonly role: string;
   readonly lastSeq: number;
   readonly keyVersion: number;
+  /** Сумма длин шифротекста в журнале (квота сервера): видна серверу и так. */
+  readonly syncBytes: number;
   readonly keyKind: string;
   readonly key: string;
   readonly envelopes: readonly ChallengeEnvelope[];
@@ -150,13 +180,20 @@ export function exportChallenge(db: DatabaseSync, target: ExportTarget, options:
   }
   const unknown = tables(db).filter((t) => !(t in TABLE_POLICY));
   if (unknown.length > 0) throw new ExportError(`таблицы без правила выгрузки: ${unknown.join(', ')}`);
+  for (const t of tables(db)) {
+    const extra = columnsOf(db, t).filter((c) => !TABLE_COLUMNS[t]?.includes(c));
+    if (extra.length > 0) throw new ExportError(`колонки без правила выгрузки: ${t}.${extra.join(`, ${t}.`)}`);
+  }
 
+  const cols = 'id, bundle, is_admin, created_at, sign_key, totp_enabled';
   const user = (
     target.userId !== undefined
-      ? db.prepare('SELECT id, bundle, is_admin, created_at, sign_key FROM users WHERE id = ?').get(target.userId)
-      : db.prepare('SELECT id, bundle, is_admin, created_at, sign_key FROM users WHERE email = ?').get((target.email ?? '').trim().toLowerCase())
+      ? db.prepare(`SELECT ${cols} FROM users WHERE id = ?`).get(target.userId)
+      : db.prepare(`SELECT ${cols} FROM users WHERE email = ?`).get((target.email ?? '').trim().toLowerCase())
   ) as Row | undefined;
   if (!user) throw new ExportError('пользователь не найден');
+  // Демо-аккаунт с TOTP не выгружается: при нём вызов зависел бы от второго фактора, а не от шифрования.
+  if (num(user.totp_enabled) === 1) throw new ExportError('у аккаунта включён TOTP: выключите его перед выгрузкой');
   const userId = String(user.id);
   const bundle = JSON.parse(String(user.bundle)) as { kdf: { alg: string; ops: number; mem: number }; publicKey: string; secretKeyByMaster: string };
 
@@ -169,7 +206,7 @@ export function exportChallenge(db: DatabaseSync, target: ExportTarget, options:
 
   const memberships = db
     .prepare(
-      `SELECT s.id, s.kind, s.created_by, s.created_at, s.last_seq, s.key_version, m.role, m.key_kind, m.key,
+      `SELECT s.id, s.kind, s.created_by, s.created_at, s.last_seq, s.key_version, s.sync_bytes, m.role, m.key_kind, m.key,
               (SELECT count(*) FROM members x WHERE x.space_id = s.id) AS members
        FROM spaces s JOIN members m ON m.space_id = s.id AND m.user_id = ?
        ORDER BY s.created_at, s.id`,
@@ -209,6 +246,7 @@ export function exportChallenge(db: DatabaseSync, target: ExportTarget, options:
       role: String(s.role),
       lastSeq: num(s.last_seq),
       keyVersion: num(s.key_version),
+      syncBytes: num(s.sync_bytes),
       keyKind: String(s.key_kind),
       key: String(s.key),
       envelopes,
