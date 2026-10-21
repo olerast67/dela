@@ -984,8 +984,13 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const t = now();
     const envelopes = parseEnvelopes(b.envelopes);
     if (envelopes.some((e) => exceedsDrift(e.hlc, t, config.maxClockDrift))) fail(409, 'clock_drift', { serverTime: t });
-    const staged = Number((db.prepare('SELECT count(*) AS n FROM rotation_envelopes WHERE rotation_id = ?').get(rotationId) as { n: number }).n);
-    if (staged + envelopes.length > config.maxRecordsPerSpace) fail(413, 'space_full');
+    const staged = db.prepare('SELECT count(*) AS n, coalesce(sum(length(payload)), 0) AS bytes FROM rotation_envelopes WHERE rotation_id = ?').get(rotationId) as {
+      n: number;
+      bytes: number;
+    };
+    if (Number(staged.n) + envelopes.length > config.maxRecordsPerSpace) fail(413, 'space_full');
+    const incoming = envelopes.reduce((n, e) => n + Buffer.byteLength(e.payload, 'base64'), 0);
+    if (Number(staged.bytes) + incoming > config.maxSyncBytesPerSpace) fail(413, 'space_full');
     const upsert = db.prepare(
       `INSERT INTO rotation_envelopes (rotation_id, slot, hlc, payload) VALUES (?, ?, ?, ?)
        ON CONFLICT (rotation_id, slot) DO UPDATE SET hlc = excluded.hlc, payload = excluded.payload WHERE excluded.hlc > rotation_envelopes.hlc`,
@@ -993,7 +998,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     tx(db, () => {
       for (const e of envelopes) upsert.run(rotationId, e.slot, e.hlc, Buffer.from(e.payload, 'base64'));
     });
-    return c.json({ ok: true, staged: staged + envelopes.length });
+    return c.json({ ok: true, staged: Number(staged.n) + envelopes.length });
   });
 
   app.post('/api/spaces/:id/rotate/:rid/commit', requireAuth, async (c) => {
@@ -1065,6 +1070,17 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     return Number((db.prepare('SELECT coalesce(sum(size), 0) AS n FROM files WHERE space_id = ?').get(spaceId) as { n: number }).n);
   }
 
+  /** Сколько байт файлов загрузил пользователь во все пространства, вместе с незаконченными загрузками. */
+  function fileBytesByUser(userId: string): number {
+    return Number((db.prepare('SELECT coalesce(sum(size), 0) AS n FROM files WHERE created_by = ?').get(userId) as { n: number }).n);
+  }
+
+  /** Квоты пространства и аккаунта: 413 space_full или user_full, если size байт не помещается. */
+  function checkFileQuota(spaceId: string, userId: string, size: number): void {
+    if (fileBytesUsed(spaceId) + size > config.maxFileBytesPerSpace) fail(413, 'space_full');
+    if (fileBytesByUser(userId) + size > config.maxFileBytesPerUser) fail(413, 'user_full');
+  }
+
   /** Удалить брошенные загрузки вместе с частями. */
   function sweepUploads(): number {
     return Number(db.prepare('DELETE FROM files WHERE complete = 0 AND touched_at < ?').run(now() - UPLOAD_TTL).changes);
@@ -1095,7 +1111,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     const data = new Uint8Array(await c.req.arrayBuffer());
     if (data.length === 0) bad('empty file');
     if (data.length > Math.min(MAX_FILE_BYTES, config.maxFileBytes + FILE_PART_OVERHEAD)) fail(413, 'file_too_large', { maxFileBytes: config.maxFileBytes });
-    if (fileBytesUsed(spaceId) + data.length > config.maxFileBytesPerSpace) fail(413, 'space_full');
+    checkFileQuota(spaceId, userId, data.length);
     if (fileRow(spaceId, fileId)) fail(409, 'file_exists');
     db.prepare('INSERT INTO files (space_id, id, size, created_by, created_at, data) VALUES (?, ?, ?, ?, ?, ?)').run(spaceId, fileId, data.length, userId, now(), data);
     return c.json({ ok: true }, 201);
@@ -1122,7 +1138,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
         db.prepare('UPDATE files SET touched_at = ? WHERE space_id = ? AND id = ?').run(now(), spaceId, fileId);
         return;
       }
-      if (fileBytesUsed(spaceId) + size > config.maxFileBytesPerSpace) fail(413, 'space_full');
+      checkFileQuota(spaceId, userId, size);
       db.prepare("INSERT INTO files (space_id, id, size, created_by, created_at, data, parts, complete, touched_at) VALUES (?, ?, ?, ?, ?, X'', ?, 0, ?)").run(
         spaceId,
         fileId,
@@ -1202,11 +1218,41 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     return c.json({ ok: true });
   });
 
+  /** Частота отправок на пользователя: клиент при отказе оставляет изменения в очереди и повторит позже. */
+  const syncLimiter = new RateLimiter(config.syncRateLimit, 15 * 60_000, now);
+
+  /**
+   * Квоты пространства по числу записей и байтам. Считается только прирост: замена ячейки
+   * той же или меньшей длины проходит и в полном пространстве, чтобы правки не застревали.
+   */
+  function checkSyncQuota(spaceId: string, envelopes: ReadonlyArray<{ slot: string; payload: string }>): void {
+    const existing = db.prepare('SELECT length(payload) AS n FROM envelopes WHERE space_id = ? AND slot = ?');
+    let added = 0;
+    let bytes = 0;
+    const seen = new Set<string>();
+    for (const e of envelopes) {
+      if (seen.has(e.slot)) continue;
+      seen.add(e.slot);
+      const row = existing.get(spaceId, e.slot) as { n: number } | undefined;
+      const size = Buffer.byteLength(e.payload, 'base64');
+      if (row) bytes += size - Number(row.n);
+      else {
+        added++;
+        bytes += size;
+      }
+    }
+    const space = db.prepare('SELECT sync_bytes FROM spaces WHERE id = ?').get(spaceId) as { sync_bytes: number };
+    const stored = Number((db.prepare('SELECT count(*) AS n FROM envelopes WHERE space_id = ?').get(spaceId) as { n: number }).n);
+    if (added > 0 && stored + added > config.maxRecordsPerSpace) fail(413, 'space_full');
+    if (bytes > 0 && Number(space.sync_bytes) + bytes > config.maxSyncBytesPerSpace) fail(413, 'space_full');
+  }
+
   app.post('/api/spaces/:id/push', requireAuth, async (c) => {
     const { userId } = c.get('auth');
     const spaceId = c.req.param('id') ?? '';
     const { role } = membership(spaceId, userId);
     if (role === 'viewer') fail(403, 'forbidden');
+    if (!syncLimiter.hit(`push:${userId}`)) fail(429, 'rate_limited');
     const b = await body(c);
     if (!Array.isArray(b.envelopes)) bad('envelopes must be an array');
     if (b.envelopes.length > MAX_ENVELOPES_PER_PUSH) bad(`at most ${MAX_ENVELOPES_PER_PUSH} envelopes per push`);
@@ -1219,8 +1265,7 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
     if (envelopes.some((e) => exceedsDrift(e.hlc, t, config.maxClockDrift))) {
       fail(409, 'clock_drift', { serverTime: t });
     }
-    const stored = Number((db.prepare('SELECT count(*) AS n FROM envelopes WHERE space_id = ?').get(spaceId) as { n: number }).n);
-    if (stored + envelopes.length > config.maxRecordsPerSpace) fail(413, 'space_full');
+    checkSyncQuota(spaceId, envelopes);
     const { accepted, seq } = relay.push(spaceId, envelopes);
     if (accepted > 0) {
       const members = (db.prepare('SELECT user_id FROM members WHERE space_id = ?').all(spaceId) as Array<{ user_id: string }>).map(
@@ -1414,6 +1459,20 @@ export function createApp(db: Db, config: Config, now: () => number = Date.now, 
   }
 
   app.get('/api/ws', (c) => c.json({ error: 'upgrade_required' }, 426));
+
+  // RFC 9116: куда сообщать об уязвимостях. Срок годности обязателен, поэтому он всегда на полгода вперёд.
+  app.get('/.well-known/security.txt', (c) => {
+    const expires = new Date(now() + 180 * 24 * 3600 * 1000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const text = [
+      'Contact: https://olerast.com/security',
+      'Contact: https://github.com/olerast67/dela/security/advisories/new',
+      `Expires: ${expires}`,
+      'Policy: https://github.com/olerast67/dela/blob/main/SECURITY.md',
+      'Preferred-Languages: en, ru',
+      '',
+    ].join('\n');
+    return c.text(text, 200, { 'cache-control': 'public, max-age=86400' });
+  });
 
   // ---------- веб-клиент ----------
 

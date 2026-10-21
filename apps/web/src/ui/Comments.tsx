@@ -177,6 +177,9 @@ export function Comments({ taskId }: { taskId: string }) {
       } else if (code === 'space_full') {
         pending.current = null;
         setMsg(tr('В этом проекте кончилось место для файлов.'));
+      } else if (code === 'user_full') {
+        pending.current = null;
+        setMsg(tr('Кончилось место для ваших файлов на этом сервере. Удалите старые вложения.'));
       } else if (code === 'offline') setMsg(tr('Файл не загрузился. Нужна связь с сервером. Отправьте ещё раз, и загрузка продолжится.'));
       else setMsg(tr('Файл не загрузился.'));
     } finally {

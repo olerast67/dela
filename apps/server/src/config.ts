@@ -36,6 +36,12 @@ export interface Config {
   readonly maxRecordsPerSpace: number;
   /** Сколько байт файлов может лежать в одном пространстве. */
   readonly maxFileBytesPerSpace: number;
+  /** Сколько байт файлов может загрузить один пользователь во все пространства вместе. */
+  readonly maxFileBytesPerUser: number;
+  /** Сколько байт шифротекста синхронизации может лежать в одном пространстве. */
+  readonly maxSyncBytesPerSpace: number;
+  /** Сколько отправок изменений (push) один пользователь может сделать за 15 минут. */
+  readonly syncRateLimit: number;
   /** Предел одного файла (открытый текст), байт. */
   readonly maxFileBytes: number;
   /** Свои распространители UnifiedPush: имена хостов через запятую в DELA_PUSH_HOSTS. */
@@ -71,6 +77,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     adminEmail: (env.DELA_ADMIN_EMAIL ?? '').trim().toLowerCase(),
     maxRecordsPerSpace: Number(env.DELA_MAX_RECORDS_PER_SPACE ?? 500_000),
     maxFileBytesPerSpace: Number(env.DELA_MAX_FILE_MB_PER_SPACE ?? 1024) * 1024 * 1024,
+    maxFileBytesPerUser: Number(env.DELA_MAX_FILE_MB_PER_USER ?? 2048) * 1024 * 1024,
+    maxSyncBytesPerSpace: Number(env.DELA_MAX_SYNC_MB_PER_SPACE ?? 256) * 1024 * 1024,
+    syncRateLimit: Number(env.DELA_SYNC_RATE_LIMIT ?? 1200),
     maxFileBytes: Number(env.DELA_MAX_FILE_MB ?? 100) * 1024 * 1024,
     maxSharedSpaces: Number(env.DELA_MAX_SHARED_SPACES ?? 200),
     publicUrl: (env.DELA_PUBLIC_URL ?? '').replace(/\/+$/, ''),
@@ -96,6 +105,9 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     adminEmail: '',
     maxRecordsPerSpace: 500_000,
     maxFileBytesPerSpace: 1024 * 1024 * 1024,
+    maxFileBytesPerUser: 2048 * 1024 * 1024,
+    maxSyncBytesPerSpace: 256 * 1024 * 1024,
+    syncRateLimit: 1200,
     maxFileBytes: 100 * 1024 * 1024,
     pushHosts: [],
     calendarHosts: [],

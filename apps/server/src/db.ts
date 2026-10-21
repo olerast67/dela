@@ -187,6 +187,23 @@ const MIGRATIONS: readonly string[] = [
     FOREIGN KEY (space_id, file_id) REFERENCES files(space_id, id) ON DELETE CASCADE
   ) STRICT;
   `,
+  `
+  -- Сколько байт шифротекста синхронизации лежит в пространстве: квота DELA_MAX_SYNC_MB_PER_SPACE.
+  -- Счётчик ведут триггеры, поэтому он верен при любой записи, замене и удалении, в том числе при смене ключа.
+  ALTER TABLE spaces ADD COLUMN sync_bytes INTEGER NOT NULL DEFAULT 0;
+  UPDATE spaces SET sync_bytes = (SELECT coalesce(sum(length(payload)), 0) FROM envelopes WHERE envelopes.space_id = spaces.id);
+  CREATE TRIGGER envelopes_bytes_insert AFTER INSERT ON envelopes BEGIN
+    UPDATE spaces SET sync_bytes = sync_bytes + length(NEW.payload) WHERE id = NEW.space_id;
+  END;
+  CREATE TRIGGER envelopes_bytes_update AFTER UPDATE OF payload ON envelopes BEGIN
+    UPDATE spaces SET sync_bytes = sync_bytes - length(OLD.payload) + length(NEW.payload) WHERE id = NEW.space_id;
+  END;
+  CREATE TRIGGER envelopes_bytes_delete AFTER DELETE ON envelopes BEGIN
+    UPDATE spaces SET sync_bytes = sync_bytes - length(OLD.payload) WHERE id = OLD.space_id;
+  END;
+  -- Квота файлов на аккаунт (DELA_MAX_FILE_MB_PER_USER) считается по тому, кто загрузил.
+  CREATE INDEX files_by_user ON files(created_by);
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

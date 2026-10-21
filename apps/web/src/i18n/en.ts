@@ -451,6 +451,7 @@ export const EN: Readonly<Record<string, string>> = {
   'Удалить комментарий? Отменить это нельзя.': 'Delete the comment? This cannot be undone.',
   'Файл больше {n} МБ: такой предел на этом сервере.': 'The file is larger than {n} MB, the limit on this server.',
   'В этом проекте кончилось место для файлов.': 'This project has no room left for files.',
+  'Кончилось место для ваших файлов на этом сервере. Удалите старые вложения.': 'You are out of space for your files on this server. Delete old attachments.',
   'Файл не загрузился. Нужна связь с сервером. Отправьте ещё раз, и загрузка продолжится.': 'The file did not upload. A connection to the server is needed. Send it again and the upload will continue.',
   'Файл не загрузился.': 'The file did not upload.',
   'Загрузка файла': 'File upload',

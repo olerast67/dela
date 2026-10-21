@@ -115,11 +115,12 @@ export async function downloadAttachment(spaceId: string, file: Attachment, onPr
 }
 
 /** Чем кончилась неудачная загрузка или скачивание. */
-export function uploadErrorCode(err: unknown): 'cancelled' | 'too_large' | 'space_full' | 'offline' | 'failed' {
+export function uploadErrorCode(err: unknown): 'cancelled' | 'too_large' | 'space_full' | 'user_full' | 'offline' | 'failed' {
   if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled';
   if (err instanceof NetworkError && err.cause instanceof DOMException && err.cause.name === 'AbortError') return 'cancelled';
   if (err instanceof ApiError && err.code === 'file_too_large') return 'too_large';
   if (err instanceof ApiError && err.code === 'space_full') return 'space_full';
+  if (err instanceof ApiError && err.code === 'user_full') return 'user_full';
   if (err instanceof NetworkError) return 'offline';
   return 'failed';
 }

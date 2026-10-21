@@ -527,6 +527,71 @@ describe('защита сервера за прокси', () => {
   });
 });
 
+describe('квоты и частота синхронизации', () => {
+  async function space(overrides: Partial<Config>) {
+    const s = makeServer({ openRegistration: true, ...overrides });
+    const { acc, res } = await register(s, 'a@x.yz', 'p');
+    const token = res.json.token as string;
+    const spaceId = uuidv7(NOW);
+    await s.call('POST', '/api/spaces', { id: spaceId, key: wrapSpaceKey(newKey(), acc.keys.masterKey, spaceId) }, token);
+    const env = (i: number, bytes: number, wall = NOW) => ({ slot: i.toString(16).padStart(32, '0'), hlc: ts(wall), payload: Buffer.alloc(bytes, i).toString('base64') });
+    const push = (...envelopes: unknown[]) => s.call('POST', `/api/spaces/${spaceId}/push`, { envelopes }, token);
+    return { s, acc, token, spaceId, env, push };
+  }
+
+  it('квота байт считает только прирост: полное пространство принимает правки той же длины', async () => {
+    const { s, spaceId, env, push } = await space({ maxSyncBytesPerSpace: 300 });
+    expect((await push(env(1, 100), env(2, 100), env(3, 100))).status).toBe(200);
+    expect(await push(env(4, 1))).toEqual({ status: 413, json: { error: 'space_full' } });
+    // Замена ячейки той же длины проходит, длиннее — нет.
+    expect((await push(env(1, 100, NOW + 1))).status).toBe(200);
+    expect((await push(env(2, 150, NOW + 2))).status).toBe(413);
+    // Короче — проходит и освобождает место.
+    expect((await push(env(2, 40, NOW + 3))).status).toBe(200);
+    expect((await push(env(4, 60))).status).toBe(200);
+    // Счётчик из триггеров совпадает с настоящим объёмом.
+    const row = s.db.prepare('SELECT sync_bytes AS b, (SELECT sum(length(payload)) FROM envelopes WHERE space_id = ?) AS real FROM spaces WHERE id = ?').get(spaceId, spaceId) as { b: number; real: number };
+    expect(Number(row.b)).toBe(300);
+    expect(Number(row.real)).toBe(300);
+  });
+
+  it('частота отправок ограничена на пользователя и восстанавливается через 15 минут', async () => {
+    const { s, env, push } = await space({ syncRateLimit: 3 });
+    for (let i = 1; i <= 3; i++) expect((await push(env(i, 10))).status).toBe(200);
+    expect(await push(env(4, 10))).toEqual({ status: 429, json: { error: 'rate_limited' } });
+    s.advance(15 * 60_000);
+    expect((await push(env(4, 10))).status).toBe(200);
+  });
+
+  it('квота файлов считается и на аккаунт, по всем его пространствам', async () => {
+    const { s, acc, token, spaceId } = await space({ maxFileBytesPerUser: 10 });
+    const second = uuidv7(NOW + 1);
+    await s.call('POST', '/api/spaces', { id: second, kind: 'shared', key: wrapSpaceKey(newKey(), acc.keys.masterKey, second) }, token);
+    const put = (space: string, bytes: number) =>
+      s.app.request(`/api/spaces/${space}/files/${uuidv7(NOW + bytes)}`, {
+        method: 'PUT',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/octet-stream' },
+        body: new Uint8Array(bytes) as BodyInit,
+      });
+    expect((await put(spaceId, 6)).status).toBe(201);
+    const over = await put(second, 5);
+    expect(over.status).toBe(413);
+    expect(await over.json()).toEqual({ error: 'user_full' });
+    expect((await s.call('POST', `/api/spaces/${second}/files/${uuidv7(NOW + 9)}/upload`, { size: fileSealedSize(1), parts: 1 }, token)).json).toEqual({ error: 'user_full' });
+    expect((await put(second, 4)).status).toBe(201);
+  });
+
+  it('security.txt говорит, куда писать об уязвимостях', async () => {
+    const s = makeServer();
+    const res = await s.app.request('/.well-known/security.txt');
+    expect(res.status).toBe(200);
+    const text = await res.text();
+    expect(text).toContain('Contact: https://olerast.com/security');
+    expect(text).toMatch(/^Expires: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/m);
+    expect(Date.parse(/^Expires: (.+)$/m.exec(text)![1]!)).toBeGreaterThan(NOW + 30 * 24 * 3600_000);
+  });
+});
+
 describe('удаление аккаунта', () => {
   it('нужен пароль; аккаунт, личное пространство и сессии исчезают, общий проект переходит участнику', async () => {
     const s = makeServer({ openRegistration: true });

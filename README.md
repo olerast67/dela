@@ -164,11 +164,14 @@ Settings are environment variables. With the bundled `docker-compose.yml`, put t
 | `DELA_OPEN_REGISTRATION` | `false` | `true` lets anyone register without an invite |
 | `DELA_MAX_FILE_MB` | `100` | Largest file attached to a comment, MB |
 | `DELA_MAX_FILE_MB_PER_SPACE` | `1024` | All encrypted files of one project space, MB |
+| `DELA_MAX_FILE_MB_PER_USER` | `2048` | All files one user has uploaded to all spaces, MB |
 | `DELA_CALENDAR_HOSTS` | empty | Calendar hosts the web app may load iCal subscriptions from, comma-separated, for example `calendar.example.com`. The Android and Windows apps load any calendar without it |
 | `DELA_PUSH_HOSTS` | empty | Your own UnifiedPush distributors, host names comma-separated. ntfy.sh is allowed by default |
 | `DELA_BACKUP_KEEP` | `7` | Daily database snapshots kept in `<data>/backups`. `0` turns them off |
 | `DELA_SESSION_TTL_DAYS` | `180` | Lifetime of a device session, days |
 | `DELA_MAX_RECORDS_PER_SPACE` | `500000` | Stored fields per project space |
+| `DELA_MAX_SYNC_MB_PER_SPACE` | `256` | Encrypted task data of one project space, MB. Files are counted separately |
+| `DELA_SYNC_RATE_LIMIT` | `1200` | Sync uploads one user may send in 15 minutes. Over the limit the app keeps changes and sends them later |
 | `DELA_MAX_SHARED_SPACES` | `200` | Shared projects one user can create |
 | `DELA_TRUST_PROXY` | `false` (`true` in `docker-compose.yml`) | Take the client address from `X-Forwarded-For` for login rate limits. Turn it on only behind a reverse proxy, because the header can be forged |
 | `DELA_VAPID_SUBJECT` | `https://github.com/olerast67/dela` | Contact for push services, `mailto:` or `https:` |

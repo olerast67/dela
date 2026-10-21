@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Server: a quota on encrypted task data per space (`DELA_MAX_SYNC_MB_PER_SPACE`, 256 MB by default; editing a field in a full space still works), a limit on how often one user can send changes (`DELA_SYNC_RATE_LIMIT`, 1200 per 15 minutes; the app keeps changes and sends them later), and a file quota per account across all spaces (`DELA_MAX_FILE_MB_PER_USER`, 2048 MB). Before, an account could fill the disk with many spaces or endless sync records.
+- Server: `/.well-known/security.txt` (RFC 9116) points to olerast.com/security and GitHub private reports.
 - Settings → Help: "Report a bug" leads to olerast.com/security (no GitHub account needed, vulnerabilities too), next to GitHub Issues. The README links to both.
 
 ## 1.1.0
