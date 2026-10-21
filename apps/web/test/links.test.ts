@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { appLink, linkHash, shareLink, taskHash } from '../src/links.ts';
+import { APP_BUILD, APP_VERSION, appLink, bugReportUrl, linkHash, shareLink, taskHash } from '../src/links.ts';
 
 describe('ссылки на экран и задачу', () => {
   it('https-ссылка: адрес сервера и hash-маршрут', () => {
@@ -32,5 +32,23 @@ describe('ссылки на экран и задачу', () => {
     expect(linkHash('javascript:alert(1)//#/today')).toBeNull();
     expect(linkHash('file:///c:/x#/today')).toBeNull();
     expect(linkHash('не ссылка')).toBeNull();
+  });
+});
+
+describe('форма «Сообщить о баге»', () => {
+  it('проект, версия, сборка, платформа и язык в адресе, якорь на форме', () => {
+    expect(bugReportUrl({ version: '1.1.3', build: 'a1b2c3d', platform: 'android', lang: 'ru' })).toBe(
+      'https://olerast.com/security?project=dela&v=1.1.3&build=a1b2c3d&platform=android&lang=ru#report',
+    );
+  });
+
+  it('значение не по правилам сайта не попадает в адрес', () => {
+    const url = bugReportUrl({ version: '1.1.3 beta', build: 'x'.repeat(41), platform: 'web', lang: 'en' });
+    expect(url).toBe('https://olerast.com/security?project=dela&platform=web&lang=en#report');
+  });
+
+  it('без сборки версия и коммит — «dev»', () => {
+    expect(APP_VERSION).toBe('dev');
+    expect(APP_BUILD).toBe('dev');
   });
 });

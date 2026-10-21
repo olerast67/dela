@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.3
+
+- "Report a bug" in Settings → Help (web, Windows, Android) and a new "Report a bug" button on the Wear OS watch open the form on olerast.com with the version, build, platform and language already filled in: `olerast.com/security?project=dela&v=…&build=…&platform=…&lang=…#report`. On the watch the form opens on the paired phone.
+- The build commit is built into the app (`DELA_BUILD`, the Docker image gets it as a build argument).
+- `/.well-known/security.txt`: the policy is olerast.com/security, languages ru and en, `Expires` a year ahead at every request, and `Canonical` from `DELA_PUBLIC_URL`.
+- `scripts/demo/record.ts` records the screen video for the "read my task" challenge on a local server: the app, the sync request bodies and what the server stores. It stops if the secret task ever shows up on screen.
+
 ## 1.1.2
 
 - "Report a bug", security.txt and the README link to olerast.com/security?project=dela, so the form opens with Dela already chosen.

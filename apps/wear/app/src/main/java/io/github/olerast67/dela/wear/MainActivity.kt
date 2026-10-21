@@ -1,6 +1,8 @@
 package io.github.olerast67.dela.wear
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,8 +14,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.wear.remote.interactions.RemoteActivityHelper
 import kotlinx.coroutines.launch
 import org.json.JSONObject
+import java.util.Locale
 
 private sealed interface Screen {
     data object Loading : Screen
@@ -43,7 +47,7 @@ class MainActivity : ComponentActivity() {
                 when (s) {
                     Screen.Loading -> LoadingScreen()
                     is Screen.SignIn -> SignInScreen(list, form, s.needTotp, busy, message, { form = it }, ::signIn)
-                    is Screen.Today -> TodayScreen(list, s.snap, completing, busy, message, confirmSignOut, ::complete, ::refresh, ::signOut)
+                    is Screen.Today -> TodayScreen(list, s.snap, completing, busy, message, confirmSignOut, ::complete, ::refresh, ::signOut, ::reportBug)
                 }
             }
         }
@@ -148,6 +152,26 @@ class MainActivity : ComponentActivity() {
             message = null
             screen = Screen.SignIn()
         }
+    }
+
+    /** Форма «Сообщить о баге» открывается на телефоне: набирать текст на часах неудобно. */
+    private fun reportBug() {
+        val url = bugReportUrl(BuildConfig.VERSION_NAME, BuildConfig.GIT_BUILD, Locale.getDefault().language)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+        val future = try {
+            RemoteActivityHelper(this).startRemoteActivity(intent)
+        } catch (e: Exception) {
+            message = getString(R.string.report_bug_no_phone)
+            return
+        }
+        future.addListener({
+            message = try {
+                future.get()
+                getString(R.string.report_bug_opened)
+            } catch (e: Exception) {
+                getString(R.string.report_bug_no_phone)
+            }
+        }, mainExecutor)
     }
 
     private fun requestNotifications() {

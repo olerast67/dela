@@ -16,6 +16,7 @@ import { passwordProof } from '#core';
 import { saveProjectAsTemplate } from './History.tsx';
 import { allowExactReminders, autostartEnabled, canOpenViewWindow, checkDesktopUpdate, exactRemindersAllowed, openExternal, openViewWindow, platform, setAutostart } from '../platform.ts';
 import { isViewWindow } from '../viewWindow.ts';
+import { APP_BUILD, APP_VERSION, bugReportUrl } from '../links.ts';
 import { ShareDialog } from './Share.tsx';
 import { Description } from './Description.tsx';
 import { REMINDER_OPTIONS } from './TaskPanel.tsx';
@@ -1566,6 +1567,12 @@ const BUG_REPORT_URL = 'https://olerast.com/security?project=dela';
 
 /** Куда писать об ошибках: GitHub Issues и форма на olerast.com/security (без аккаунта GitHub, уязвимости — туда же). */
 function HelpLinks() {
+  const report = bugReportUrl({
+    version: APP_VERSION,
+    build: APP_BUILD,
+    platform: platform() === 'tauri' ? 'windows' : platform() === 'capacitor' ? 'android' : 'web',
+    lang: LANG,
+  });
   const open = (url: string) => (e: React.MouseEvent) => {
     e.preventDefault();
     void openExternal(url);
@@ -1574,7 +1581,7 @@ function HelpLinks() {
     <section className="settings">
       <h2>{tr('Помощь')}</h2>
       <p className="muted">{tr('Нашли ошибку или уязвимость? Напишите на olerast.com/security, там не нужен аккаунт GitHub. Обычные ошибки и пожелания можно оставить и в GitHub Issues.')}</p>
-      <a className="button-link" href={BUG_REPORT_URL} target="_blank" rel="noopener noreferrer" onClick={open(BUG_REPORT_URL)}>
+      <a className="button-link" href={report} target="_blank" rel="noopener noreferrer" onClick={open(report)}>
         {tr('Сообщить о баге')}
       </a>
       <a className="button-link" href={ISSUES_URL} target="_blank" rel="noopener noreferrer" onClick={open(ISSUES_URL)}>

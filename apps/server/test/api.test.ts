@@ -590,7 +590,14 @@ describe('квоты и частота синхронизации', () => {
     const text = await res.text();
     expect(text).toContain('Contact: https://olerast.com/security?project=dela');
     expect(text).toMatch(/^Expires: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/m);
-    expect(Date.parse(/^Expires: (.+)$/m.exec(text)![1]!)).toBeGreaterThan(NOW + 30 * 24 * 3600_000);
+    // Срок считается при отдаче: всегда около года вперёд.
+    expect(Date.parse(/^Expires: (.+)$/m.exec(text)![1]!)).toBe(NOW + 365 * 24 * 3600_000);
+    expect(text).toMatch(/^Policy: https:\/\/olerast\.com\/security$/m);
+    expect(text).toContain('Preferred-Languages: ru, en');
+    expect(text).toContain('Canonical: http://localhost/.well-known/security.txt');
+    // Без DELA_PUBLIC_URL строки Canonical нет: адрес запроса за прокси может быть внутренним.
+    const bare = await makeServer({ publicUrl: '' }).app.request('/.well-known/security.txt');
+    expect(await bare.text()).not.toContain('Canonical');
   });
 });
 
