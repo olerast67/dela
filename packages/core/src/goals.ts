@@ -46,6 +46,9 @@ function perDay(events: readonly DoneEvent[], tz: string): Map<string, number> {
   return out;
 }
 
+/** Сколько дней назад серия целей ещё учитывается. */
+const MAX_STREAK_DAYS = 1100;
+
 const offDay = (s: GameSettings, date: string): 'rest' | 'vacation' | null => (onVacation(s, date) ? 'vacation' : isRestDay(s, date) ? 'rest' : null);
 
 export function computeGoals(events: readonly DoneEvent[], s: GameSettings, tz: string, today: string): GoalProgress {
@@ -57,7 +60,10 @@ export function computeGoals(events: readonly DoneEvent[], s: GameSettings, tz: 
 
   let streak: GoalProgress['streak'] = null;
   if (goal !== null) {
-    const past = [...counts.keys()].filter((d) => d <= today);
+    // Окно перебора ограничено тремя годами: дата из испорченной записи или от участника общего проекта
+    // (например, год 0001) иначе заставила бы перебирать сотни тысяч дней при каждой отрисовке.
+    const floor = addDays(today, -MAX_STREAK_DAYS);
+    const past = [...counts.keys()].filter((d) => d <= today && d >= floor);
     const anchor = past.length ? past.reduce((a, b) => (a < b ? a : b)) : today;
     let run = 0;
     let best = 0;
