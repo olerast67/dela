@@ -33,3 +33,6 @@ apps/desktop/src-tauri/gen/
 
 # Библиотеки sherpa-onnx для установщика программы (копирует build.rs из выпуска sherpa-onnx)
 apps/desktop/src-tauri/sherpa-onnx/
+
+# Манифест для olerast.com: сайт читает его из папки (npm run projects:sync в D:\olerast_com)
+site-release.json
