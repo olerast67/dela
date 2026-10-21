@@ -2614,7 +2614,8 @@ kbd {
   background: var(--fab-bg, var(--accent));
   color: #fff;
   border-radius: 20px;
-  box-shadow: 0 10px 24px color-mix(in srgb, var(--accent) 40%, transparent);
+  /* Ореол ровно вокруг кнопки: со смещением вниз он выглядел съехавшим. */
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 40%, transparent);
   transition: transform 160ms var(--ease);
 }
 
@@ -2864,6 +2865,11 @@ kbd {
     animation: sheet-up 280ms var(--ease);
     transition: transform 220ms var(--ease);
     overflow: hidden;
+  }
+
+  /* Нижняя полоса карточки (дата создания, «Удалить») над системной панелью навигации Android. */
+  .panel-foot {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   }
 
   .panel-grip {

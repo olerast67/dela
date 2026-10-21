@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Phone: the bottom bar of the task card (creation date, Delete) is no longer hidden under the Android navigation bar.
+- The glow of the add button is centred around it.
+
 ## 1.0.2
 
 - The arrow that folds subtasks stays inside the task card instead of covering its left border (reported in #9).
