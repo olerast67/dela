@@ -360,3 +360,23 @@ export function toSkip(id: string, r: Rec): Skip | null {
   if (!taskId || at === null || !isDate(r.occurrence)) return null;
   return { id, taskId, occurrence: r.occurrence as string, at };
 }
+
+/**
+ * Перенос срока открытой задачи на более позднюю дату (для итогов недели, «Часто переносятся»).
+ * Каждый перенос — своя запись с уникальным id, а не LWW-счётчик: переносы с двух устройств офлайн
+ * складываются, ни один не теряется (как отрезки помодоро).
+ */
+export interface Postpone {
+  readonly id: string;
+  readonly taskId: string;
+  readonly from: string;
+  readonly to: string;
+  readonly at: number;
+}
+
+export function toPostpone(id: string, r: Rec): Postpone | null {
+  const taskId = idOrNull(r.task);
+  const at = num(r.at);
+  if (!taskId || at === null || r.deleted_at != null || !isDate(r.from) || !isDate(r.to)) return null;
+  return { id, taskId, from: r.from as string, to: r.to as string, at };
+}

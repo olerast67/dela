@@ -8,7 +8,7 @@
 import { habitStreak, type HabitStreak } from './habits.ts';
 import { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkEvent } from './stats.ts';
 import { computeGoals, type GoalProgress } from './goals.ts';
-import { addDays, daysBetween, instant, localDate, today as todayIn, type DateSpec } from './dates.ts';
+import { addDays, daysBetween, instant, isDateSpec, localDate, today as todayIn, type DateSpec } from './dates.ts';
 import type { CommentSigned } from './crypto.ts';
 import { normalizeCalendarUrl, toCalendarSub, type CalendarSub } from './events.ts';
 import { compareOrder, keyBetween, keysBetween } from './fractional.ts';
@@ -23,6 +23,8 @@ import {
   toTask,
   toWorkLog,
   toSkip,
+  toPostpone,
+  type Postpone,
   type Completion,
   type Habit,
   type Skip,
@@ -135,7 +137,7 @@ export interface TaskPatch {
 const PROJECT_PALETTE = ['blue', 'green', 'orange', 'violet', 'teal', 'red', 'pink', 'yellow', 'brown'] as const;
 
 /** Таблицы с мягким удалением: отмена создания помечает запись удалённой. */
-const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template', 'work', 'place', 'calendar']);
+const DELETABLE = new Set(['task', 'project', 'section', 'label', 'filter', 'comment', 'template', 'work', 'place', 'calendar', 'postpone']);
 
 const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   title: 'title',
@@ -258,8 +260,10 @@ export class Doc {
   // ---------- операции ----------
 
   /** Записать локальные изменения. Возвращает созданные операции. */
-  write(changes: readonly Change[], options: { undoable?: boolean } = {}): Op[] {
+  write(changes: readonly Change[], options: { undoable?: boolean; postpones?: boolean } = {}): Op[] {
     if (changes.length === 0) return [];
+    // Перенос срока на более позднюю дату пишет запись о переносе в том же действии: отмена снимет и её.
+    if (options.undoable !== false && options.postpones !== false) changes = [...changes, ...this.postponeChanges(changes)];
     if (options.undoable !== false) {
       // Прежние значения в обратном порядке: отмена возвращает ячейки к состоянию до записи.
       const inverse: Change[] = [];
@@ -796,7 +800,8 @@ export class Doc {
         if (s.tasks.get(d)!.completedAt !== null) changes.push(['task', d, 'completed_at', null]);
       }
     }
-    this.write(changes);
+    // Срок повтора сдвигает выполнение или пропуск экземпляра: это не перенос.
+    this.write(changes, { postpones: false });
   }
 
   /**
@@ -1142,7 +1147,52 @@ export class Doc {
     this.write(changes);
   }
 
+  // ---------- переносы срока ----------
+
+  /**
+   * Записи о переносах для изменений срока в changes: открытая задача, срок был и стал позже по дате.
+   * Убрать срок или перенести раньше — не перенос.
+   */
+  private postponeChanges(changes: readonly Change[]): Change[] {
+    const out: Change[] = [];
+    const seen = new Set<string>();
+    for (const [table, id, field, value] of changes) {
+      if (table !== 'task' || field !== 'due' || seen.has(id)) continue;
+      const rec = this.replica.get('task', id);
+      if (!rec || rec.completed_at != null || rec.deleted_at != null) continue;
+      const from = rec.due;
+      if (!isDateSpec(from) || !isDateSpec(value) || value.date <= from.date) continue;
+      seen.add(id);
+      const pid = uuidv7(this.now());
+      out.push(['postpone', pid, 'task', id], ['postpone', pid, 'from', from.date], ['postpone', pid, 'to', value.date], ['postpone', pid, 'at', this.now()]);
+    }
+    return out;
+  }
+
+  /** Переносы срока задач, которые видны (не в корзине), старые первыми. */
+  postpones(): Postpone[] {
+    const s = this.snapshot();
+    const out: Postpone[] = [];
+    for (const [id, rec] of this.replica.all('postpone')) {
+      const p = toPostpone(id, rec);
+      if (p && s.alive.has(p.taskId)) out.push(p);
+    }
+    return out.sort((a, b) => a.at - b.at || a.id.localeCompare(b.id));
+  }
+
+  /** Отметка «Оставить» в итогах недели: переносы до неё не считаются. 0 — отметки нет. */
+  postponeKeptAt(taskId: string): number {
+    const v = this.replica.get('task', taskId)?.postpone_kept;
+    return typeof v === 'number' ? v : 0;
+  }
+
+  /** «Оставить» задачу, которую часто переносят: счёт переносов начинается заново. */
+  keepPostponed(taskId: string): void {
+    this.write([['task', taskId, 'postpone_kept', this.now()]]);
+  }
+
   /** Отрезки работы для статистики: без задач из корзины. */
+
   workEvents(): WorkEvent[] {
     const s = this.snapshot();
     const out: WorkEvent[] = [];
@@ -1549,6 +1599,9 @@ export class Doc {
     }
     for (const [wid, rec] of this.replica.all('work')) {
       if (typeof rec.task === 'string' && ids.has(rec.task) && rec.deleted_at == null) changes.push(['work', wid, 'deleted_at', t]);
+    }
+    for (const [pid, rec] of this.replica.all('postpone')) {
+      if (typeof rec.task === 'string' && ids.has(rec.task) && rec.deleted_at == null) changes.push(['postpone', pid, 'deleted_at', t]);
     }
     this.write(changes, { undoable: false });
     return files;

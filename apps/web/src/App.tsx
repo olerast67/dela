@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { controller } from './controller.ts';
+import { controller, reviewWeekOfKey } from './controller.ts';
 import { href, useAppState, useDoc, useGameAttribute, useMedia, useRoute, type Route } from './hooks.ts';
 import { AuthScreen, RecoveryScreen } from './ui/Auth.tsx';
 import { IconPlus, IconX } from './ui/icons.tsx';
@@ -18,6 +18,7 @@ import { checkDesktopUpdate, closeViewWindow, onBackButton, onNotificationOpen, 
 import { CalendarView } from './ui/Calendar.tsx';
 import { LockScreen } from './ui/Lock.tsx';
 import { StatsView } from './ui/Stats.tsx';
+import { ReviewView } from './ui/Review.tsx';
 import { ActivityView, TemplatesView } from './ui/History.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
@@ -223,6 +224,11 @@ function Shell() {
           setSelected(null);
           location.hash = '#/today';
         },
+        (week) => {
+          // Итоги недели.
+          setSelected(null);
+          location.hash = `#/review/${week}`;
+        },
       ),
     );
     // Программа для Windows и Android: через несколько секунд после запуска проверяем новую версию на GitHub.
@@ -307,10 +313,20 @@ function Shell() {
       setSelected(null);
       location.hash = '#/today';
     };
-    controller.onReminder = (r) => showToast(`⏰ ${r.title}`, { label: tr('Открыть'), run: () => (r.taskId ? setSelected(r.taskId) : openToday()) }, 60_000);
-    const onMessage = (e: MessageEvent<{ type?: string; taskId?: string; key?: string; title?: string }>) => {
+    // Итоги недели: ключ «review:<понедельник>», открывается их экран.
+    const openReview = (week: string) => {
+      setSelected(null);
+      location.hash = `#/review/${week}`;
+    };
+    controller.onReminder = (r) => {
+      const week = reviewWeekOfKey(r.key);
+      showToast(`⏰ ${r.title}`, { label: tr('Открыть'), run: () => (r.taskId ? setSelected(r.taskId) : week ? openReview(week) : openToday()) }, 60_000);
+    };
+    const onMessage = (e: MessageEvent<{ type?: string; taskId?: string; key?: string; title?: string; week?: string }>) => {
       if (e.data?.type === 'open-task' && e.data.taskId) setSelected(e.data.taskId);
       if (e.data?.type === 'open-today') openToday();
+      if (e.data?.type === 'open-review' && e.data.week) openReview(e.data.week);
+
       if (e.data?.type === 'push-reminder' && e.data.key)
         controller.receivePushReminder({ key: e.data.key, title: e.data.title ?? '', taskId: e.data.taskId ?? '' });
     };
@@ -365,6 +381,9 @@ function Shell() {
       break;
     case 'stats':
       view = <StatsView />;
+      break;
+    case 'review':
+      view = <ReviewView week={route.week} onOpen={open} />;
       break;
     case 'templates':
       view = <TemplatesView />;

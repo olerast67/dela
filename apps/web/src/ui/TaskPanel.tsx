@@ -45,7 +45,15 @@ function useDraft(value: string, commit: (v: string) => void) {
   };
 }
 
+let subtaskRequest: string | null = null;
+
+/** Открыть карточку сразу с полем новой подзадачи: «Разбить на шаги» в итогах недели. */
+export function requestSubtaskInput(id: string): void {
+  subtaskRequest = id;
+}
+
 export function TaskPanel({
+
   id,
   onClose,
   onOpen,
@@ -66,6 +74,11 @@ export function TaskPanel({
   // Редактор повтора относится к открытой задаче: при переходе к другой он закрывается.
   useEffect(() => setRepeatEditor(false), [id]);
   const [addingSub, setAddingSub] = useState(false);
+  useEffect(() => {
+    if (subtaskRequest !== id) return;
+    subtaskRequest = null;
+    setAddingSub(true);
+  }, [id]);
   const [editingDesc, setEditingDesc] = useState(false);
   useEffect(() => setEditingDesc(false), [id]);
   const title = useDraft(task?.title ?? '', (v) => v.trim() && doc.updateTask(id, { title: v }));

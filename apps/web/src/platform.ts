@@ -95,6 +95,8 @@ export interface NativeReminder {
   readonly body: string;
   /** null — утренняя сводка: нажатие открывает «Сегодня». */
   readonly taskId: string | null;
+  /** Итоги недели: понедельник недели, нажатие открывает их экран. */
+  readonly review?: string;
   /** Срочное напоминание: на Android звенит будильником, а не приходит уведомлением. */
   readonly alarm?: boolean;
 }
@@ -175,7 +177,7 @@ async function replaceNativeReminders(list: readonly NativeReminder[], alarmTask
       body: r.body,
       schedule: { at: new Date(r.at), allowWhileIdle: true },
       isExactNotification: exact,
-      extra: r.taskId ? { taskId: r.taskId } : { today: true },
+      extra: r.taskId ? { taskId: r.taskId } : r.review ? { review: r.review } : { today: true },
       smallIcon: 'ic_stat_dela',
     })),
   });
@@ -343,14 +345,16 @@ export async function allowExactReminders(): Promise<boolean> {
   return (await LocalNotifications.changeExactNotificationSetting()).exact_alarm === 'granted';
 }
 
-/** Телефон: тап по уведомлению открывает задачу, а по утренней сводке — «Сегодня». */
-export async function onNotificationOpen(fn: (taskId: string) => void, onToday: () => void): Promise<() => void> {
+/** Телефон: тап по уведомлению открывает задачу, по утренней сводке — «Сегодня», по итогам недели — их экран. */
+export async function onNotificationOpen(fn: (taskId: string) => void, onToday: () => void, onReview: (week: string) => void): Promise<() => void> {
   if (platform() !== 'capacitor') return () => undefined;
   const { LocalNotifications } = await import('@capacitor/local-notifications');
   const handle = await LocalNotifications.addListener('localNotificationActionPerformed', (e) => {
-    const extra = e.notification.extra as { taskId?: string; today?: boolean } | undefined;
+    const extra = e.notification.extra as { taskId?: string; today?: boolean; review?: string } | undefined;
     if (extra?.taskId) fn(extra.taskId);
+    else if (extra?.review) onReview(extra.review);
     else if (extra?.today) onToday();
+
   });
   return () => void handle.remove();
 }

@@ -108,6 +108,7 @@ export {
   type WorkLog,
   type Habit,
   type Skip,
+  type Postpone,
   MAX_HABIT_SKIPS,
 } from './model.ts';
 export {
@@ -222,6 +223,7 @@ export { habitStreak, type HabitDayState, type HabitInput, type HabitStreak } fr
 export { computeStats, type DoneEvent, type Stats, type StatsOptions, type WorkEvent } from './stats.ts';
 export { computeMilestones, milestoneId, MILESTONES, type Milestones, type MilestoneInput, type MilestoneKind, type NextMilestone, type ReachedMilestone } from './milestones.ts';
 export { computeGoals, suggestDailyGoal, GOAL_SKIPS_PER_WEEK, GOAL_HINT_DAYS, type GoalDayState, type GoalProgress } from './goals.ts';
+export { computeWeekReview, lastReview, reviewMoment, reviewsBetween, reviewWeekOf, reviewWeeks, POSTPONE_THRESHOLD, REVIEW_LIST, REVIEW_WAITED, type ReviewInput, type ReviewTask, type WeekReview } from './review.ts';
 export {
   clockLabel,
   isOver,
