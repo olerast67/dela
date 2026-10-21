@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.3
 
 - Phone: the bottom bar of the task card (creation date, Delete) is no longer hidden under the Android navigation bar.
 - The glow of the add button is centred around it.

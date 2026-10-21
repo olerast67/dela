@@ -1,0 +1,1 @@
+Reorder tasks in Today and Upcoming. Times said in words are understood ("tomorrow at ten am"). The task card no longer hides under the navigation bar.
