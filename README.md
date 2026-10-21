@@ -87,6 +87,7 @@ Every device keeps a full copy of the tasks, so the apps open without waiting fo
 - An urgent task on Android rings as a full-screen alarm over the lock screen, in silent mode and with Do Not Disturb on.
 - Location reminders on Android fire on arrival at a place or on leaving it. The phone watches the zones with `LocationManager`, without Google Play services, and the coordinates reach the server only inside the encrypted task.
 - Share a picture or a voice message to Dela on Android, and the text is recognized on the phone (Tesseract for text, sherpa-onnx for speech) and opens in quick add. The models are downloaded on request.
+- Voice input without the cloud on Android and Windows: the microphone button in quick add recognizes the phrase on the device with the same sherpa-onnx models, and the audio is not sent anywhere.
 - A morning summary at the chosen time: "Today: 5 tasks, 2 overdue".
 - The Android home screen widget shows Today, the week or a project, and a quick settings tile opens quick add.
 

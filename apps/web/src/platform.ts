@@ -405,11 +405,11 @@ export async function resizeQuickWindow(height: number): Promise<void> {
   await invoke('quick_resize', { height });
 }
 
-/** Из всплывающей строки или отдельного окна: показать главное окно. */
-export async function showMainWindow(): Promise<void> {
+/** Из всплывающей строки или отдельного окна: показать главное окно, по route — на этом экране (#/settings). */
+export async function showMainWindow(route?: string): Promise<void> {
   if (platform() !== 'tauri') return;
   const { invoke } = await import('@tauri-apps/api/core');
-  await invoke('show_main_window');
+  await invoke('show_main_window', { route: route ?? null });
 }
 
 /** Закрыть отдельное окно задачи. В браузере — обычное закрытие вкладки. */
@@ -506,10 +506,30 @@ export interface RecognizeApi {
   addListener(event: 'modelProgress', cb: (e: { pack: ModelPack; done: number; total: number }) => void): Promise<{ remove(): Promise<void> }>;
 }
 
-/** Плагин распознавания на телефоне; null в браузере и на компьютере. */
+/**
+ * Плагин распознавания на телефоне, а в программе для Windows — модели речи для голосового ввода
+ * (команды voice_* оболочки; картинок и присланных файлов там нет). null в браузере.
+ */
 export async function recognizeApi(): Promise<{ readonly p: RecognizeApi } | null> {
+  if (platform() === 'tauri') return { p: tauriRecognizeApi };
   return nativePlugin<RecognizeApi>('Recognize');
 }
+
+const tauriRecognizeApi = {
+  status: () => tauriInvoke<RecognizerStatus>('voice_status'),
+  download: ({ pack }: { pack: ModelPack }) => tauriInvoke<void>('voice_download', { pack }).catch((e: unknown) => Promise.reject(codeError(e))),
+  cancelDownload: () => tauriInvoke<void>('voice_cancel_download'),
+  remove: ({ pack }: { pack: ModelPack }) => tauriInvoke<void>('voice_remove', { pack }).catch((e: unknown) => Promise.reject(codeError(e))),
+  recognize: () => Promise.reject({ code: 'unsupported' }),
+  cancel: async () => undefined,
+  discard: async () => undefined,
+  async addListener(event: string, cb: (e: never) => void) {
+    if (event !== 'modelProgress') return { remove: async () => undefined };
+    const { listen } = await import('@tauri-apps/api/event');
+    const off = await listen('model-progress', (e) => cb(e.payload as never));
+    return { remove: async () => off() };
+  },
+} as RecognizeApi;
 
 /** Открыть ссылку в системном браузере. */
 export async function openExternal(url: string): Promise<void> {
@@ -676,20 +696,101 @@ export async function checkDesktopUpdate(): Promise<DesktopUpdate | null> {
   };
 }
 
-/** Голосовой ввод на телефоне: системное окно распознавания. null, если отменили или ничего не распознано. */
-export async function voiceAvailable(): Promise<boolean> {
-  if (platform() !== 'capacitor') return false;
-  const { registerPlugin } = await import('@capacitor/core');
-  const Voice = registerPlugin<{ available(): Promise<{ available: boolean }> }>('VoiceInput');
-  return (await Voice.available().catch(() => ({ available: false }))).available;
+// ---------- голосовой ввод ----------
+
+/** Что умеет устройство для голосового ввода задачи. */
+export interface VoiceSupport {
+  /** Распознавание на устройстве возможно: есть библиотеки sherpa-onnx (64-битный телефон ARM или программа для Windows). */
+  readonly offlineSupported: boolean;
+  /** Скачана хотя бы одна модель речи: звук распознаётся на устройстве и никуда не уходит. */
+  readonly offlineReady: boolean;
+  /** Сколько весит модель языка интерфейса, байт: для предложения её скачать. */
+  readonly modelSize: number;
+  /** Системное распознавание Android: может отправлять звук в облако Google или производителя телефона. */
+  readonly system: boolean;
 }
 
+/** Ход записи: микрофон открыт, распознанный пока текст, громкость от 0 до 1. */
+export type VoiceEvent = { readonly kind: 'listening' } | { readonly kind: 'partial'; readonly text: string } | { readonly kind: 'level'; readonly level: number };
+
+/** Плагин VoiceInput в Android. Ошибки записи приходят с кодом: unsupported, no_model, permission, no_mic, busy, cancelled, failed. */
+interface VoiceInputPlugin {
+  support(o: { lang: string }): Promise<VoiceSupport>;
+  listen(o: { lang: string }): Promise<{ text?: string }>;
+  record(o: { lang: string }): Promise<{ text: string }>;
+  stop(): Promise<void>;
+  cancel(): Promise<void>;
+  addListener(event: 'voice', cb: (e: VoiceEvent) => void): Promise<{ remove(): Promise<void> }>;
+}
+
+const voiceLang = (): string => (LOCALE.startsWith('en') ? 'en' : 'ru');
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<T>(cmd, args);
+}
+
+/** Ошибка команды Tauri приходит строкой; здесь она становится { code } как у плагинов Android. */
+function codeError(e: unknown): { code: string } {
+  return { code: typeof e === 'string' ? e : typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: unknown }).code) : 'failed' };
+}
+
+/** Голосовой ввод на этом устройстве; null в браузере: модель слишком велика для страницы, и кнопки там нет. */
+export async function voiceSupport(): Promise<VoiceSupport | null> {
+  if (platform() === 'tauri') {
+    const st = await tauriInvoke<RecognizerStatus>('voice_status').catch(() => null);
+    if (!st) return null;
+    return { offlineSupported: st.speechSupported, offlineReady: st.ru.ready || st.en.ready, modelSize: st[voiceLang() as 'ru' | 'en'].size, system: false };
+  }
+  const v = (await nativePlugin<VoiceInputPlugin>('VoiceInput'))?.p;
+  if (!v) return null;
+  return v.support({ lang: voiceLang() }).catch(() => null);
+}
+
+/**
+ * Записать фразу с микрофона и распознать её на устройстве. Запись кончается паузой после слов,
+ * stopVoice() или через 30 секунд; cancelVoice() отменяет её. Ход записи приходит в onEvent.
+ * Ошибка — объект { code }. Пустая строка — слов не было.
+ */
+export async function recordVoice(onEvent: (e: VoiceEvent) => void): Promise<string> {
+  if (platform() === 'tauri') {
+    const { listen } = await import('@tauri-apps/api/event');
+    const off = await listen<VoiceEvent>('voice-event', (e) => onEvent(e.payload));
+    try {
+      return await tauriInvoke<string>('voice_record', { lang: voiceLang() });
+    } catch (e) {
+      throw codeError(e);
+    } finally {
+      off();
+    }
+  }
+  const v = (await nativePlugin<VoiceInputPlugin>('VoiceInput'))?.p;
+  if (!v) throw { code: 'unsupported' };
+  const sub = await v.addListener('voice', onEvent);
+  try {
+    return (await v.record({ lang: voiceLang() })).text;
+  } finally {
+    void sub.remove();
+  }
+}
+
+/** Закончить фразу (второе нажатие на микрофон): сказанное распознаётся. */
+export async function stopVoice(): Promise<void> {
+  if (platform() === 'tauri') return tauriInvoke('voice_stop');
+  await (await nativePlugin<VoiceInputPlugin>('VoiceInput'))?.p.stop();
+}
+
+/** Отменить запись: текст не вставляется. */
+export async function cancelVoice(): Promise<void> {
+  if (platform() === 'tauri') return tauriInvoke('voice_cancel');
+  await (await nativePlugin<VoiceInputPlugin>('VoiceInput'))?.p.cancel();
+}
+
+/** Системное окно распознавания Android (может уходить в облако). null, если отменили или ничего не распознано. */
 export async function listenVoice(): Promise<string | null> {
-  if (platform() !== 'capacitor') return null;
-  const { registerPlugin } = await import('@capacitor/core');
-  const Voice = registerPlugin<{ listen(o: { lang: string }): Promise<{ text?: string }> }>('VoiceInput');
-  const lang = LOCALE;
-  return (await Voice.listen({ lang })).text ?? null;
+  const v = (await nativePlugin<VoiceInputPlugin>('VoiceInput'))?.p;
+  if (!v) return null;
+  return (await v.listen({ lang: LOCALE })).text ?? null;
 }
 
 interface UnifiedPushPlugin {

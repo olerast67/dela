@@ -995,6 +995,56 @@ svg.c-gray, svg.c-red, svg.c-orange, svg.c-yellow, svg.c-green, svg.c-teal, svg.
   margin-left: auto;
 }
 
+/* Голосовой ввод: идёт запись — микрофон красный, точка дышит в такт громкости, ниже распознанный текст. */
+.qa-mic.recording {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.qa-voice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 2px;
+  font-size: 14px;
+  line-height: 20px;
+  min-width: 0;
+}
+
+.qa-voice > span:last-child {
+  overflow-wrap: anywhere;
+}
+
+.qa-voice-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--danger);
+  transition: transform 0.1s linear;
+}
+
+.qa-voice-offer {
+  padding: 8px 2px 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.qa-voice-offer p {
+  margin: 0 0 8px;
+}
+
+.qa-voice-offer .qa-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qa-voice-dot {
+    transition: none;
+  }
+}
+
 .modal-scrim {
   position: fixed;
   inset: 0;

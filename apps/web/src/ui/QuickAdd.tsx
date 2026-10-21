@@ -1,4 +1,8 @@
-import { listenVoice, voiceAvailable } from '../platform.ts';
+import { cancelVoice, listenVoice, platform, recordVoice, showMainWindow, stopVoice, voiceSupport, type VoiceSupport } from '../platform.ts';
+import { appendSpeech, chooseSystemVoice, systemVoiceChosen, voiceError, voiceMode } from '../voice.ts';
+import { sizeMb, speechToQuickAdd } from '../recognize.ts';
+import { isQuickWindow } from '../viewWindow.ts';
+import { openModelSettings } from './Recognition.tsx';
 import { IconMic } from './icons.tsx';
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
 import { parseTask, splitTaskList, type DateSpec, type ListLine, type ParsedTask, type Priority, type Token, type Workspace } from '#core';
@@ -16,6 +20,16 @@ export interface QuickAddDefaults {
   /** Приоритет по умолчанию: колонка доски «Сегодня». */
   readonly priority?: Priority;
 }
+
+/** Голосовой ввод: идёт запись или предложение скачать модель. */
+interface Listening {
+  readonly phase: 'listening';
+  /** Микрофон открыт. */
+  readonly ready: boolean;
+  readonly partial: string;
+  readonly level: number;
+}
+type Rec = Listening | { readonly phase: 'offer' } | null;
 
 interface Ignored {
   readonly start: number;
@@ -98,19 +112,73 @@ export function QuickAdd({
     if (draft === null) input.current?.focus();
   }, [draft === null]);
 
-  // Голосовой ввод на телефоне: фраза попадает в поле и разбирается так же, как набранная.
-  const [voice, setVoice] = useState(false);
+  // Голосовой ввод: фраза попадает в поле и разбирается так же, как набранная. По умолчанию звук
+  // распознаёт модель на устройстве; второе нажатие на микрофон или пауза в речи заканчивают запись.
+  const [voice, setVoice] = useState<VoiceSupport | null>(null);
+  const [rec, setRec] = useState<Rec>(null);
+  const recording = useRef(false);
   useEffect(() => {
-    void voiceAvailable().then(setVoice);
+    void voiceSupport()
+      .then(setVoice)
+      .catch(() => undefined);
+    // Поле закрыли во время записи: микрофон выключается, текст не нужен.
+    return () => {
+      if (recording.current) void cancelVoice().catch(() => undefined);
+    };
   }, []);
-  const dictate = async () => {
+
+  const recordOffline = async () => {
+    recording.current = true;
+    setRec({ phase: 'listening', ready: false, partial: '', level: 0 });
+    const update = (fn: (r: Listening) => Listening) => setRec((r) => (r?.phase === 'listening' ? fn(r) : r));
+    try {
+      const said = await recordVoice((e) => update((r) => (e.kind === 'listening' ? { ...r, ready: true } : e.kind === 'partial' ? { ...r, partial: e.text } : { ...r, level: e.level })));
+      if (said.trim()) setText((prev) => appendSpeech(prev, said));
+      else showToast(tr('Не удалось разобрать слова. Попробуйте ещё раз.'));
+    } catch (e) {
+      const msg = voiceError(typeof e === 'object' && e && 'code' in e ? String(e.code) : undefined, platform());
+      if (msg) showToast(msg);
+    } finally {
+      recording.current = false;
+      setRec(null);
+      input.current?.focus();
+    }
+  };
+
+  const recordSystem = async () => {
+    setRec(null);
     const said = await listenVoice().catch(() => null);
-    if (said) setText((prev) => (prev.trim() ? `${prev.trim()} ${said}` : said));
+    if (said) setText((prev) => appendSpeech(prev, said));
     input.current?.focus();
+  };
+
+  const dictate = async () => {
+    if (recording.current) {
+      void stopVoice().catch(() => undefined);
+      return;
+    }
+    // Модель могли скачать, пока поле было открыто: состояние читается при каждом нажатии.
+    const s = await voiceSupport().catch(() => null);
+    setVoice(s);
+    const mode = voiceMode(s, systemVoiceChosen());
+    if (mode === 'offline') await recordOffline();
+    else if (mode === 'system') await recordSystem();
+    else if (mode === 'need_model') setRec({ phase: 'offer' });
   };
   useEffect(() => {
     if (autoVoice) void dictate();
   }, [autoVoice]);
+
+  const openModels = () => {
+    setRec(null);
+    // Всплывающая строка на Windows: настройки открываются в главном окне.
+    if (isQuickWindow(location.search)) {
+      void showMainWindow('#/settings');
+      return;
+    }
+    onClose?.();
+    openModelSettings();
+  };
 
   const ctx = useMemo(
     () => ({
@@ -178,6 +246,14 @@ export function QuickAdd({
   }
 
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
+    // Esc во время записи отменяет только её.
+    if (e.key === 'Escape' && rec) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (recording.current) void cancelVoice().catch(() => undefined);
+      else setRec(null);
+      return;
+    }
     if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
       e.preventDefault();
       submit();
@@ -337,6 +413,43 @@ export function QuickAdd({
           spellCheck
         />
       </div>
+      {rec?.phase === 'listening' && (
+        <div className="qa-voice" role="status" aria-live="polite">
+          <span className="qa-voice-dot" style={{ transform: `scale(${(1 + rec.level * 0.9).toFixed(2)})` }} aria-hidden="true" />
+          <span className={rec.partial ? undefined : 'muted'}>
+            {rec.partial ? speechToQuickAdd(rec.partial) : rec.ready ? tr('Говорите. Запись закончится на паузе.') : tr('Включаю микрофон…')}
+          </span>
+        </div>
+      )}
+      {rec?.phase === 'offer' && (
+        <div className="qa-voice-offer" role="alert">
+          <p>
+            {tr('Чтобы говорить задачи голосом, скачайте модель речи ({size}). Это нужно один раз: звук распознаётся на этом устройстве и никуда не отправляется.', {
+              size: sizeMb(voice?.modelSize ?? 0),
+            })}
+          </p>
+          {voice?.system && <p className="muted">{tr('Системное распознавание Android работает без скачивания, но может отправлять звук в облако Google или производителя телефона.')}</p>}
+          <div className="qa-actions">
+            <button type="button" onClick={() => setRec(null)}>
+              {tr('Отмена')}
+            </button>
+            {voice?.system && (
+              <button
+                type="button"
+                onClick={() => {
+                  chooseSystemVoice();
+                  void recordSystem();
+                }}
+              >
+                {tr('Системное распознавание')}
+              </button>
+            )}
+            <button type="button" className="primary" onClick={openModels}>
+              {tr('Скачать модель')}
+            </button>
+          </div>
+        </div>
+      )}
       {(chips.length > 0 || !compact) && (
         <div className="qa-bar">
           <div className="chips">
@@ -352,8 +465,15 @@ export function QuickAdd({
             ))}
           </div>
           <div className="qa-actions">
-            {voice && (
-              <button type="button" className="icon qa-mic" onClick={() => void dictate()} aria-label={tr('Сказать задачу голосом')} title={tr('Голосом')}>
+            {voiceMode(voice, false) && (
+              <button
+                type="button"
+                className={rec?.phase === 'listening' ? 'icon qa-mic recording' : 'icon qa-mic'}
+                onClick={() => void dictate()}
+                aria-label={rec?.phase === 'listening' ? tr('Закончить запись') : tr('Сказать задачу голосом')}
+                aria-pressed={rec?.phase === 'listening'}
+                title={rec?.phase === 'listening' ? tr('Закончить запись') : tr('Голосом')}
+              >
                 <IconMic />
               </button>
             )}

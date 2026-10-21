@@ -67,7 +67,7 @@ final class AudioTranscriber {
             codec.configure(format, null, null, 0);
             codec.start();
 
-            recognizer = new OnlineRecognizer(null, config(modelDir));
+            recognizer = new OnlineRecognizer(null, config(modelDir, 2.4f, 1.2f, 20f));
             stream = recognizer.createStream("");
 
             StringBuilder text = new StringBuilder();
@@ -135,8 +135,11 @@ final class AudioTranscriber {
         }
     }
 
-    /** Модель как в Суфлёре, но без подсказок слов: жадный поиск, конец фразы после 1,2 с паузы. */
-    private static OnlineRecognizerConfig config(File dir) {
+    /**
+     * Модель как в Суфлёре, но без подсказок слов: жадный поиск. Конец фразы: silence — столько секунд тишины
+     * без слов, pause — пауза после слов, longest — самая длинная фраза.
+     */
+    static OnlineRecognizerConfig config(File dir, float silence, float pause, float longest) {
         OnlineTransducerModelConfig transducer = new OnlineTransducerModelConfig();
         transducer.setEncoder(new File(dir, "encoder.int8.onnx").getPath());
         transducer.setDecoder(new File(dir, "decoder.onnx").getPath());
@@ -155,9 +158,9 @@ final class AudioTranscriber {
         config.setModelConfig(model);
         config.setEnableEndpoint(true);
         config.setEndpointConfig(new com.k2fsa.sherpa.onnx.EndpointConfig(
-            new com.k2fsa.sherpa.onnx.EndpointRule(false, 2.4f, 0f),
-            new com.k2fsa.sherpa.onnx.EndpointRule(true, 1.2f, 0f),
-            new com.k2fsa.sherpa.onnx.EndpointRule(false, 0f, 20f)
+            new com.k2fsa.sherpa.onnx.EndpointRule(false, silence, 0f),
+            new com.k2fsa.sherpa.onnx.EndpointRule(true, pause, 0f),
+            new com.k2fsa.sherpa.onnx.EndpointRule(false, 0f, longest)
         ));
         config.setDecodingMethod("greedy_search");
         return config;
