@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The arrow that folds subtasks stays inside the task card instead of covering its left border (reported in #9).
+- Windows: dragging tasks with the mouse works, including onto a project in the sidebar to move the task there. The Tauri drag handler caught the drag before the page did; it is off now, and files dropped into a comment go through the page as well.
 
 ## 1.0.1
 

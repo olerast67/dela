@@ -72,6 +72,8 @@ async fn open_view_window(app: AppHandle, label: String, url: String, title: Str
         .title(title)
         .inner_size(420.0, 640.0)
         .min_inner_size(320.0, 400.0)
+        // Перетаскивание задач и файлов делает сама страница; обработчик Tauri перехватил бы его в Windows.
+        .disable_drag_drop_handler()
         .build()
         .map_err(|err| err.to_string())?;
     Ok(())
@@ -283,6 +285,7 @@ fn quick_add(app: &AppHandle) {
         let built = WebviewWindowBuilder::new(&app, QUICK, WebviewUrl::App("?quick=1".into()))
             .title("Dela")
             .inner_size(QUICK_WIDTH, 64.0)
+            .disable_drag_drop_handler()
             .decorations(false)
             .resizable(false)
             .maximizable(false)
