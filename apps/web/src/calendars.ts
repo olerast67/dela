@@ -13,7 +13,7 @@ import { FeedTooLargeError, declaredTooLarge, MAX_CALENDAR_BYTES, openFeed, read
 import { controller } from './controller.ts';
 import { TZ } from './format.ts';
 import type { ParsedCalendar } from './ical.ts';
-import { platform } from './platform.ts';
+import { nativePlugin, platform } from './platform.ts';
 
 type IcalModule = typeof import('./ical.ts');
 
@@ -332,17 +332,11 @@ interface DevicePlugin {
   }>;
 }
 
-let devicePlugin: { readonly p: DevicePlugin } | null = null;
-
-async function plugin(): Promise<DevicePlugin | null> {
-  if (platform() !== 'capacitor') return null;
-  if (!devicePlugin) {
-    const { registerPlugin } = await import('@capacitor/core');
-    // Прокси плагина нельзя вернуть из async-функции напрямую (await вызвал бы у него then).
-    devicePlugin = { p: registerPlugin<DevicePlugin>('DeviceCalendar') };
-  }
-  return devicePlugin.p;
-}
+/**
+ * Плагин календарей телефона в обёртке { p }. Сам прокси Capacitor нельзя возвращать из async-функции:
+ * await вызвал бы у него then(), и промис не завершился бы никогда (см. nativePlugin).
+ */
+const plugin = () => nativePlugin<DevicePlugin>('DeviceCalendar');
 
 export function devicePrefs(): DevicePrefs {
   try {
@@ -371,7 +365,7 @@ export function deviceCalendarsSupported(): boolean {
 
 /** Спросить разрешение READ_CALENDAR. true — разрешено. */
 export async function requestDeviceAccess(): Promise<boolean> {
-  const p = await plugin();
+  const p = (await plugin())?.p;
   if (!p) return false;
   if ((await p.checkPermissions()).calendar === 'granted') return true;
   return (await p.requestPermissions()).calendar === 'granted';
@@ -382,7 +376,7 @@ function argb(c: number): string {
 }
 
 export async function deviceCalendars(): Promise<DeviceCalendar[]> {
-  const p = await plugin();
+  const p = (await plugin())?.p;
   if (!p) return [];
   const r = await p.calendars();
   return r.calendars.map((c) => ({ id: String(c.id), name: c.name, account: c.account, color: argb(c.color) }));
@@ -402,7 +396,7 @@ function ensureDevice(from: number, to: number): void {
   const range = { from: from - 60 * 86_400_000, to: to + 60 * 86_400_000 };
   void (async () => {
     try {
-      const p = await plugin();
+      const p = (await plugin())?.p;
       if (!p || (await p.checkPermissions()).calendar !== 'granted') return;
       const r = await p.events({ ...range, ids: prefs.ids ? [...prefs.ids] : null });
       deviceEvents = r.events.map((e): CalEvent => {

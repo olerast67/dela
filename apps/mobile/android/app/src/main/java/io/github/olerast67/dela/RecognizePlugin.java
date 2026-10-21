@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.json.JSONObject;
 
 /**
  * Распознавание присланной картинки (Tesseract) и голосового сообщения (sherpa-onnx) на телефоне
@@ -44,8 +45,12 @@ public class RecognizePlugin extends Plugin {
         }
         r.put("ocrSupported", ocrSupported(c));
         r.put("speechSupported", AudioTranscriber.supported(c));
-        r.put("downloading", downloading);
-        r.put("pending", SharedMedia.pending());
+        // JSONObject.put(key, null) удаляет ключ: в веб пришёл бы undefined вместо null, а кнопки «Скачать»
+        // проверяют downloading !== null и были бы выключены всегда. Пустое значение передаётся явно.
+        String d = downloading;
+        String pending = SharedMedia.pending();
+        r.put("downloading", d != null ? d : JSONObject.NULL);
+        r.put("pending", pending != null ? pending : JSONObject.NULL);
         call.resolve(r);
     }
 

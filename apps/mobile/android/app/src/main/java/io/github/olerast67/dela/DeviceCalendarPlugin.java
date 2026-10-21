@@ -71,9 +71,11 @@ public class DeviceCalendarPlugin extends Plugin {
             call.reject("calendar permission", "denied");
             return;
         }
-        Double fromD = call.getDouble("from");
-        Double toD = call.getDouble("to");
-        if (fromD == null || toD == null || toD <= fromD) {
+        // Время в миллисекундах не помещается в int, и мост отдаёт его как Long, а call.getDouble() понимает
+        // только Double, Float и Integer: вернул бы null. optDouble читает любое число.
+        double from = call.getData().optDouble("from", Double.NaN);
+        double to = call.getData().optDouble("to", Double.NaN);
+        if (Double.isNaN(from) || Double.isNaN(to) || to <= from) {
             call.reject("bad range");
             return;
         }
@@ -86,8 +88,8 @@ public class DeviceCalendarPlugin extends Plugin {
             for (int i = 0; i < a.length(); i++) only.add(a.optString(i));
         }
         Uri.Builder b = CalendarContract.Instances.CONTENT_URI.buildUpon();
-        ContentUris.appendId(b, fromD.longValue());
-        ContentUris.appendId(b, toD.longValue());
+        ContentUris.appendId(b, (long) from);
+        ContentUris.appendId(b, (long) to);
         String[] cols = {
             CalendarContract.Instances._ID,
             CalendarContract.Instances.EVENT_ID,
