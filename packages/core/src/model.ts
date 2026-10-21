@@ -83,9 +83,19 @@ export interface Task {
   /** Исполнитель в общем проекте (id пользователя). */
   readonly assignee: string | null;
   readonly order: string;
+  /**
+   * Ручной порядок в «Сегодня» и «Предстоящих»: ключ того же вида, что order, и день, к которому он относится.
+   * Порядок другого дня не действует; null — задачу в днях не переставляли.
+   */
+  readonly dayOrder: DayOrder | null;
   readonly completedAt: number | null;
   readonly deletedAt: number | null;
   readonly createdAt: number;
+}
+
+export interface DayOrder {
+  readonly date: string;
+  readonly key: string;
 }
 
 export interface Label {
@@ -147,6 +157,12 @@ function priority(v: Json | undefined): Priority {
 
 function order(v: Json | undefined): string {
   return typeof v === 'string' && v.length <= 512 ? v : '';
+}
+
+function dayOrder(v: Json | undefined): DayOrder | null {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null;
+  const { date, key } = v;
+  return isDate(date) && typeof key === 'string' && key.length > 0 && key.length <= 512 ? { date: date as string, key } : null;
 }
 
 function dateSpec(v: Json | undefined): DateSpec | null {
@@ -275,6 +291,7 @@ export function toTask(id: string, r: Rec): Task {
     place: placeReminder(r.place),
     assignee: idOrNull(r.assignee),
     order: order(r.order),
+    dayOrder: dayOrder(r.day_order),
     completedAt: num(r.completed_at),
     deletedAt: num(r.deleted_at),
     createdAt: num(r.created_at) ?? 0,

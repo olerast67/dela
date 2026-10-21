@@ -94,6 +94,41 @@ function Arranged({ tasks, opts, onOpen, selectedId }: ViewProps & { tasks: read
   return <Groups groups={groupNodes(doc, doc.nested(tasks), opts.group, opts.sort, todayDate())} matched={ids(tasks)} onOpen={onOpen} selectedId={selectedId} />;
 }
 
+/** Список дня для перетаскивания: показанные задачи верхнего уровня; move — дата, на которую переносит бросок из другого списка. */
+interface DayList {
+  readonly date: string;
+  readonly roots: readonly string[];
+  readonly move?: string;
+}
+
+const dayRoots = (nodes: readonly TaskNode[]): string[] => nodes.filter((n) => !n.task.projected && n.task.doneOccurrence === undefined).map((n) => n.task.id);
+
+/**
+ * Перетаскивание в «Сегодня» и «Предстоящих»: перед или после задачи — ручной порядок дня (порядок в проекте
+ * не меняется), из другого дня — перенос на этот день рядом с задачей, внутрь — подзадача, как в проекте.
+ */
+function dayDrop(doc: ReturnType<typeof useDoc>, lists: readonly DayList[]): DropOnTask {
+  return (dragId, target, where) => {
+    const drag = doc.task(dragId);
+    if (!drag || target.projected || target.doneOccurrence !== undefined) return;
+    const pos = where === 'before' ? { before: target.id } : { after: target.id };
+    try {
+      if (where === 'inside') return doc.moveTask(dragId, { parentId: target.id });
+      const to = lists.find((l) => l.roots.includes(target.id));
+      // Строка подзадачи под родителем: подзадачи идут в порядке проекта.
+      if (!to)
+        return doc.moveTask(dragId, { projectId: target.projectId, sectionId: target.parentId ? null : target.sectionId, parentId: target.parentId, position: pos });
+      const from = lists.find((l) => l.roots.includes(dragId));
+      if (from === to) return doc.placeInDay(dragId, to.date, to.roots, pos);
+      // Подзадача из-под родителя или бросок туда, куда перенести нельзя (в «Просрочено»): ничего не меняем.
+      if (!from || to.move === undefined) return;
+      doc.placeInDay(dragId, to.date, to.roots, pos, { ...(drag.due ?? {}), date: to.move });
+    } catch {
+      showToast(tr('Нельзя положить задачу внутрь её самой'));
+    }
+  };
+}
+
 /** Заголовок «Сегодня»: дата и кольцо прогресса (выполнено сегодня из запланированного на сегодня). */
 function TodayHead({ open, today, children }: { open: number; today: string; children?: React.ReactNode }) {
   const doc = useDoc();
@@ -216,8 +251,16 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
   const nodes = sortNodes(doc.nested([...overdue, ...todays]), opts.sort);
   const overdueNodes = nodes.filter((n) => overdueIds.has(n.task.id));
   const todayNodes = nodes.filter((n) => !overdueIds.has(n.task.id));
+  // Порядок по умолчанию: перетаскивание задаёт ручной порядок дня; при сортировке задачи не переставляются.
+  const onDropTask =
+    opts.sort === 'manual'
+      ? dayDrop(doc, [
+          { date: today, roots: dayRoots(overdueNodes) },
+          { date: today, roots: dayRoots(todayNodes), move: today },
+        ])
+      : null;
   return (
-    <>
+    <DropContext.Provider value={onDropTask}>
       {head}
       <TodayEvents date={today} />
       {overdue.length > 0 && (
@@ -248,7 +291,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
         <AddTask defaults={{ due: { date: today } }} />
       </section>
       {overdue.length + todays.length === 0 && <Empty art="today">{tr('На сегодня всё. Новые задачи с датой «сегодня» появятся здесь.')}</Empty>}
-    </>
+    </DropContext.Provider>
   );
 }
 
@@ -265,9 +308,16 @@ export function UpcomingView({ onOpen, selectedId }: ViewProps) {
     const t = doc.task(taskId);
     if (t) doc.updateTask(taskId, { due: { ...(t.due ?? {}), date } });
   };
-  const onDropTask: DropOnTask = (dragId, target) => {
-    if (target.due) moveTo(dragId, target.due.date);
-  };
+  // «По времени»: ручной порядок дня и перенос рядом с задачей другого дня; при сортировке бросок только переносит на день.
+  const onDropTask: DropOnTask =
+    opts.sort === 'manual'
+      ? dayDrop(doc, [
+          { date: today, roots: dayRoots(doc.nested(overdue)) },
+          ...groups.map((g) => ({ date: g.date, roots: dayRoots(doc.nested(g.tasks)), move: g.date })),
+        ])
+      : (dragId, target) => {
+          if (target.due && !target.doneOccurrence) moveTo(dragId, target.due.date);
+        };
   return (
     <DropContext.Provider value={onDropTask}>
       <header className="view-head">

@@ -1,6 +1,7 @@
 /**
  * Перетаскивание задач (мышь, компьютер). Экран задаёт, что значит «бросить задачу сюда»:
- * в проекте — переставить, в «Предстоящих» — перенести на день, в боковой панели — в проект.
+ * в проекте — переставить, в «Сегодня» и «Предстоящих» — задать порядок дня или перенести на день,
+ * в боковой панели — в проект.
  */
 import { createContext, useContext } from 'react';
 import type { TaskView } from '#core';
@@ -38,7 +39,10 @@ const touchZones = new WeakMap<Element, (taskId: string) => void>();
 const touchTasks = new WeakMap<Element, { task: TaskView; drop: DropOnTask }>();
 
 export function registerTouchTask(el: Element | null, task: TaskView, drop: DropOnTask | null): void {
-  if (el && drop) touchTasks.set(el, { task, drop });
+  if (!el) return;
+  // Экран мог выключить перестановку (сортировка): старый обработчик у строки не должен остаться.
+  if (drop) touchTasks.set(el, { task, drop });
+  else touchTasks.delete(el);
 }
 
 /**

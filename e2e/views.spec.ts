@@ -85,3 +85,67 @@ test('«Сегодня» доской: перенос карточки в кол
   await expect(column(2)).toContainText('Разобрать почту');
   await shot(page, 'today-board-390.png');
 });
+
+/** Дождаться, пока строка перестанет сдвигаться (экран ещё догружается), чтобы бросок попал в нужное место. */
+async function settled(row: ReturnType<Page['locator']>): Promise<void> {
+  let last = -1;
+  await expect
+    .poll(async () => {
+      const y = (await row.boundingBox())?.y ?? -2;
+      const same = y === last;
+      last = y;
+      return same;
+    }, { intervals: [300] })
+    .toBe(true);
+}
+
+/** Названия задач в списке по порядку: только из names, задачи знакомства пропускаются. */
+async function order(list: ReturnType<Page['locator']>, names: string[]): Promise<string[]> {
+  const rows = await list.locator('.task').allInnerTexts();
+  return rows.flatMap((r) => names.filter((n) => r.includes(n)).slice(0, 1));
+}
+
+test('«Сегодня»: перетаскивание мышью задаёт порядок дня и переживает перезагрузку', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await startLocal(page);
+  const names = ['Первая задача', 'Вторая задача', 'Третья задача'];
+  await addTasks(page, names.map((n) => `${n} сегодня`));
+  await page.goto('/#/today');
+  const list = page.locator('.content');
+  await expect.poll(() => order(list, names)).toEqual(names);
+
+  // Третью — на верхнюю часть первой строки: встаёт перед ней.
+  await settled(page.locator('.task', { hasText: 'Первая задача' }));
+  await page.locator('.task', { hasText: 'Третья задача' }).dragTo(page.locator('.task', { hasText: 'Первая задача' }), { targetPosition: { x: 40, y: 3 } });
+  const want = ['Третья задача', 'Первая задача', 'Вторая задача'];
+  await expect.poll(() => order(list, names)).toEqual(want);
+  await page.reload();
+  await expect.poll(() => order(list, names)).toEqual(want);
+
+  // Порядок в проекте не изменился.
+  await page.goto('/#/inbox');
+  await expect.poll(() => order(page.locator('.content'), names)).toEqual(names);
+});
+
+test('«Предстоящие»: перетаскивание внутри дня задаёт порядок, на задачу другого дня — переносит рядом с ней', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await startLocal(page);
+  const names = ['Альфа', 'Бета', 'Гамма', 'Дельта'];
+  await addTasks(page, ['Альфа завтра', 'Бета завтра', 'Гамма завтра', 'Дельта сегодня']);
+  await page.goto('/#/upcoming');
+  const tomorrow = page.locator('section.day').nth(1);
+  await expect.poll(() => order(tomorrow, names)).toEqual(['Альфа', 'Бета', 'Гамма']);
+
+  await settled(tomorrow.locator('.task', { hasText: 'Альфа' }));
+  await tomorrow.locator('.task', { hasText: 'Гамма' }).dragTo(tomorrow.locator('.task', { hasText: 'Альфа' }), { targetPosition: { x: 40, y: 3 } });
+  await expect.poll(() => order(tomorrow, names)).toEqual(['Гамма', 'Альфа', 'Бета']);
+  await page.reload();
+  await expect.poll(() => order(tomorrow, names)).toEqual(['Гамма', 'Альфа', 'Бета']);
+
+  // Задача сегодняшнего дня — на нижнюю часть строки «Альфа»: переносится на завтра и встаёт после неё.
+  const alpha = tomorrow.locator('.task', { hasText: 'Альфа' });
+  await settled(alpha);
+  const box = (await alpha.boundingBox())!;
+  await page.locator('section.day').nth(0).locator('.task', { hasText: 'Дельта' }).dragTo(alpha, { targetPosition: { x: 40, y: box.height - 3 } });
+  await expect.poll(() => order(tomorrow, names)).toEqual(['Гамма', 'Альфа', 'Дельта', 'Бета']);
+});

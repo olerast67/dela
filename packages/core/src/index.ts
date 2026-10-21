@@ -102,6 +102,7 @@ export {
   type SavedFilter,
   type Section,
   type Task,
+  type DayOrder,
   type Attachment,
   type Comment,
   type WorkLog,

@@ -4,6 +4,7 @@
 
 - Phone: the bottom bar of the task card (creation date, Delete) is no longer hidden under the Android navigation bar.
 - The glow of the add button is centred around it.
+- Today and Upcoming: drag a task above or below another to set your own order for that day, with the mouse or a long press. The order in the project stays as it was, and a task dropped on a task of another day moves to that day next to it. New tasks for the day slot in by time and priority as before.
 
 ## 1.0.2
 
