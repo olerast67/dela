@@ -1,0 +1,1 @@
+Voice input recognized on the phone, without the cloud. The app updates itself from GitHub releases. The subtask arrow stays inside the task card.
