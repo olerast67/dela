@@ -407,10 +407,96 @@ function dayPart(h: number, part: string | undefined): number | null {
   const p = part.toLowerCase().replace(/\./g, '');
   if (h < 1 || h > 12) return null;
   if (p === 'утра' || p === 'am') return h === 12 ? 0 : h;
-  if (p === 'ночи') return h === 12 ? 0 : h < 6 ? h : null;
+  // «в 11 ночи» — 23:00, «в 2 ночи» — 02:00.
+  if (p === 'ночи') return h === 12 ? 0 : h < 6 ? h : h >= 9 ? h + 12 : null;
   if (p === 'дня') return h === 12 ? 12 : h < 6 ? h + 12 : null;
   if (p === 'вечера' || p === 'pm') return h === 12 ? 12 : h + 12;
   return h;
+}
+
+// ---------- время словами (голосовой ввод) ----------
+
+const WORD_NUM: Record<string, number> = {
+  ноль: 0, час: 1, один: 1, одна: 1, два: 2, две: 2, три: 3, четыре: 4, пять: 5, шесть: 6, семь: 7, восемь: 8, девять: 9,
+  десять: 10, одиннадцать: 11, двенадцать: 12, тринадцать: 13, четырнадцать: 14, пятнадцать: 15, шестнадцать: 16,
+  семнадцать: 17, восемнадцать: 18, девятнадцать: 19, двадцать: 20, тридцать: 30, сорок: 40, пятьдесят: 50,
+  первого: 1, второго: 2, третьего: 3, четвертого: 4, четвёртого: 4, пятого: 5, шестого: 6, седьмого: 7, восьмого: 8,
+  девятого: 9, десятого: 10, одиннадцатого: 11, двенадцатого: 12,
+  zero: 0, oh: 0, o: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18,
+  nineteen: 19, twenty: 20, thirty: 30, forty: 40, fifty: 50,
+};
+
+/** «двадцать три» → 23, «ноль пять» → 5, «forty-five» → 45. */
+function wordNum(phrase: string): number {
+  return phrase
+    .toLowerCase()
+    .split(/[\s-]+/u)
+    .reduce((sum, w) => sum + (WORD_NUM[w] ?? NaN), 0);
+}
+
+const ONES_RU = 'один|одна|два|две|три|четыре|пять|шесть|семь|восемь|девять';
+const TEENS_RU = 'десять|одиннадцать|двенадцать|тринадцать|четырнадцать|пятнадцать|шестнадцать|семнадцать|восемнадцать|девятнадцать';
+// «один» в часах не берём: «в один клик», «в один день».
+const HOUR_RU = `двадцать\\s+(?:один|два|три)|двадцать|${TEENS_RU}|два|три|четыре|пять|шесть|семь|восемь|девять|час`;
+const MIN_RU = `ноль\\s+(?:ноль|${ONES_RU})|(?:двадцать|тридцать|сорок|пятьдесят)(?:\\s+(?:${ONES_RU}))?|${TEENS_RU}`;
+const ORD_RU = 'первого|второго|третьего|четв[её]ртого|пятого|шестого|седьмого|восьмого|девятого|десятого|одиннадцатого|двенадцатого';
+// После числа — не время: «в два раза», «в пять минут», «в десять яиц».
+const NOT_TIME_RU =
+  'раз|рубл|минут|секунд|дн|ден|сут|недел|месяц|год|лет|кило|кг|грамм|литр|метр|штук|человек|процент|этаж|класс|урок|ряд|строк|слов|част|подход|при[её]м|шаг|сч[её]т|экземпляр|копи|раунд|круг|лист|страниц|глав|яиц|яйц|бутыл|банк|пачк';
+
+/** «в десять», «в семь вечера», «в два часа дня», «в десять тридцать», «в половине восьмого», «в полночь». */
+function ruWordTime(prefix: string): string {
+  return (
+    `${prefix}\\s+(?:(?<h>${HOUR_RU})(?:\\s+час(?:а|ов)?)?(?:\\s+(?<mi>${MIN_RU})(?:\\s+минут[аы]?)?)?` +
+    `|пол(?:овине\\s+|\\s*)(?<halfNext>${ORD_RU})|четверть\\s+(?<quarterNext>${ORD_RU})|(?<noon>полдень|полночь))` +
+    `(?:\\s+(?<part>утра|дня|вечера|ночи))?(?!\\s+(?:${NOT_TIME_RU}))`
+  );
+}
+
+const ONES_EN = 'one|two|three|four|five|six|seven|eight|nine';
+const HOUR_EN = `${ONES_EN}|ten|eleven|twelve`;
+const MIN_EN = `(?:oh|o)\\s+(?:${ONES_EN})|(?:twenty|thirty|forty|fifty)(?:[-\\s](?:${ONES_EN}))?|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen`;
+const NOT_TIME_EN = 'of|point|times?|least|once|another|percent|degrees|years?|months?|weeks?|days?|hours?|minutes?|people|dollars?|euros?';
+
+/** «at ten», «at seven thirty pm», «at half past seven», «at nine o'clock», «at noon». */
+function enWordTime(prefix: string): string {
+  return (
+    `${prefix}\\s+(?:(?<h>${HOUR_EN})(?:\\s+(?<mi>${MIN_EN}))?(?:\\s+o['’]?\\s?clock)?|half\\s+past\\s+(?<half>${HOUR_EN})` +
+    `|(?:a\\s+)?quarter\\s+past\\s+(?<quarter>${HOUR_EN})|(?:a\\s+)?quarter\\s+to\\s+(?<quarterTo>${HOUR_EN})|(?<noon>noon|midnight))` +
+    `(?:\\s*(?<part>am|pm|a\\.m\\.|p\\.m\\.)|\\s+(?<partEn>in\\s+the\\s+(?:morning|afternoon|evening)|at\\s+night))?(?!\\s+(?:${NOT_TIME_EN})${E})`
+  );
+}
+
+/** Время из совпадения ruWordTime/enWordTime; null — не время. */
+function wordTime(g: Record<string, string | undefined>): string | null {
+  if (g.noon) return /полдень|noon/iu.test(g.noon) ? '12:00' : '00:00';
+  let h: number;
+  let mi = 0;
+  if (g.h) {
+    h = wordNum(g.h);
+    if (g.mi) mi = wordNum(g.mi);
+    // «в час» без уточнения — днём: так говорят про обед, а не про ночь.
+    if (/^час$/iu.test(g.h) && !g.part && !g.mi) return '13:00';
+  } else if (g.half || g.quarter) {
+    h = wordNum((g.half ?? g.quarter)!);
+    mi = g.half ? 30 : 15;
+  } else if (g.quarterTo) {
+    h = (wordNum(g.quarterTo) + 10) % 12 + 1;
+    mi = 45;
+  } else {
+    // «половина восьмого» — 7:30, «половина первого» — 12:30.
+    h = (wordNum((g.halfNext ?? g.quarterNext)!) + 10) % 12 + 1;
+    mi = g.halfNext ? 30 : 15;
+  }
+  let part = g.part;
+  if (g.partEn) {
+    const p = g.partEn.toLowerCase();
+    // «eleven at night» — 23:00, «two at night» — 02:00.
+    part = /morning/.test(p) ? 'am' : /night/.test(p) ? 'ночи' : 'pm';
+  }
+  const hour = dayPart(h, part);
+  return hour === null || Number.isNaN(mi) ? null : clampTime(hour, mi);
 }
 
 export function parseTask(text: string, ctx: ParseContext): ParsedTask {
@@ -505,6 +591,14 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
       return true;
     },
   );
+  // То же словами: «напомни в девять», «remind me at seven pm».
+  for (const p of [ruWordTime('(?:напомн(?:и|ить|ите)|напоминание)\\s+(?:в|во)'), enWordTime('remind(?:\\s+me)?\\s+at')]) {
+    if ((remindAt as string | null) !== null) break;
+    sc.find(p, 'reminder', (m) => {
+      remindAt = wordTime(m.groups ?? {});
+      return remindAt !== null;
+    });
+  }
   sc.find('без\\s+напоминани[йяе]|no\\s+reminders?', 'reminder', () => {
     reminders = [];
     return true;
@@ -553,6 +647,14 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
         return true;
       },
     );
+  }
+  // Время словами — так его выдаёт распознавание речи: «в десять утра», «at seven pm».
+  for (const p of [ruWordTime('(?:в|во)'), enWordTime('at')]) {
+    if ((time as string | null) !== null) break;
+    sc.find(p, 'time', (m) => {
+      time = wordTime(m.groups ?? {});
+      return time !== null;
+    });
   }
   if (!time) {
     sc.find('утром|in\\s+the\\s+morning|morning|в\\s+полдень|днём|днем|noon|midday|вечером|in\\s+the\\s+evening|evening|tonight', 'time', (m) => {

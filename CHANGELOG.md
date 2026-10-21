@@ -4,6 +4,7 @@
 
 - Phone: the bottom bar of the task card (creation date, Delete) is no longer hidden under the Android navigation bar.
 - The glow of the add button is centred around it.
+- Quick add understands times spoken as words, as voice input writes them: "завтра в десять утра", "в два часа дня", "в половине восьмого", "в полночь", "at seven thirty pm", "at half past seven", "at noon", and in reminders ("напомни в девять"). Numbers without "в"/"at" stay in the title ("купить десять яиц"). "в 11 ночи" now means 23:00.
 
 ## 1.0.2
 
