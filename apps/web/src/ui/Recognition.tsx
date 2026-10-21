@@ -14,7 +14,7 @@ export function useRecognition(): RecognizeState {
 /** Настройки открыли из плашки «нужна модель»: раздел моделей прокручивается в вид. */
 let scrollToModels = false;
 
-function openModelSettings(): void {
+export function openModelSettings(): void {
   scrollToModels = true;
   location.hash = '#/settings';
 }
@@ -67,7 +67,10 @@ const PACKS: ReadonlyArray<readonly [ModelPack, string]> = [
   ['en', tr('Голос: английский')],
 ];
 
-/** Настройки на телефоне: скачать и удалить модели распознавания. */
+/** Программа для Windows: только модели речи для голосового ввода. */
+const DESKTOP_PACKS = PACKS.filter(([pack]) => pack !== 'ocr');
+
+/** Настройки на телефоне и в программе для Windows: скачать и удалить модели распознавания. */
 export function RecognitionSettings() {
   const [st, setSt] = useState<RecognizerStatus | null>(null);
   const [progress, setProgress] = useState<{ pack: ModelPack; done: number; total: number } | null>(null);
@@ -82,7 +85,7 @@ export function RecognitionSettings() {
       .catch(() => undefined);
 
   useEffect(() => {
-    if (platform() !== 'capacitor') return;
+    if (platform() === 'web') return;
     refresh();
     let off: { remove(): Promise<void> } | null = null;
     let cancelled = false;
@@ -107,7 +110,8 @@ export function RecognitionSettings() {
     }
   }, [st !== null]);
 
-  if (platform() !== 'capacitor' || !st) return null;
+  if (platform() === 'web' || !st) return null;
+  const desktop = platform() === 'tauri';
 
   const download = async (pack: ModelPack) => {
     const api = (await recognizeApi())?.p;
@@ -120,7 +124,7 @@ export function RecognitionSettings() {
       // Присланный файл ждал эту модель: распознаём сразу.
       void recognition.modelReady();
     } catch (e) {
-      setError(downloadError(typeof e === 'object' && e && 'code' in e ? String(e.code) : undefined));
+      setError(downloadError(typeof e === 'object' && e && 'code' in e ? String(e.code) : undefined, platform() === 'tauri'));
     } finally {
       setProgress(null);
       refresh();
@@ -134,14 +138,18 @@ export function RecognitionSettings() {
 
   return (
     <section className="settings" ref={ref}>
-      <h2>{tr('Распознавание на телефоне')}</h2>
+      <h2>{desktop ? tr('Голосовой ввод') : tr('Распознавание на телефоне')}</h2>
       <p className="muted">
-        {tr(
-          'Картинку или голосовое сообщение можно отправить в Dela через «Поделиться»: текст распознаётся на телефоне и открывается в быстром добавлении для правки. Файл никуда не отправляется. Модели скачиваются один раз: языковые данные Tesseract с GitHub, модели речи sherpa-onnx с Hugging Face; каждый файл сверяется по контрольной сумме.',
-        )}
+        {desktop
+          ? tr(
+              'Задачу можно сказать голосом: кнопка с микрофоном в быстром добавлении и во всплывающей строке (Ctrl+Shift+Space). Речь распознаётся на этом компьютере, звук никуда не отправляется. Модель скачивается один раз с Hugging Face и сверяется по контрольной сумме.',
+            )
+          : tr(
+              'Картинку или голосовое сообщение можно отправить в Dela через «Поделиться», а задачу сказать голосом кнопкой с микрофоном в быстром добавлении: текст распознаётся на телефоне, звук и файлы никуда не отправляются. Модели скачиваются один раз: языковые данные Tesseract с GitHub, модели речи sherpa-onnx с Hugging Face; каждый файл сверяется по контрольной сумме.',
+            )}
       </p>
       {waiting.phase === 'need_model' && <p className="notice">{waiting.kind === 'image' ? tr('Картинка ждёт распознавания: скачайте модель для текста.') : tr('Голосовое сообщение ждёт распознавания: скачайте модель речи.')}</p>}
-      {PACKS.map(([pack, label]) => {
+      {(desktop ? DESKTOP_PACKS : PACKS).map(([pack, label]) => {
         const state = packState(pack, st);
         const p = progress?.pack === pack ? progress : null;
         return (
@@ -151,9 +159,11 @@ export function RecognitionSettings() {
               <br />
               <span className="muted">
                 {state === 'unsupported'
-                  ? pack === 'ocr'
-                    ? tr('Недоступно на этом телефоне')
-                    : tr('Недоступно на этом телефоне: нужен 64-битный процессор ARM')
+                  ? desktop
+                    ? tr('Недоступно: не найдены библиотеки распознавания, переустановите Dela')
+                    : pack === 'ocr'
+                      ? tr('Недоступно на этом телефоне')
+                      : tr('Недоступно на этом телефоне: нужен 64-битный процессор ARM')
                   : state === 'ready'
                     ? tr('Скачано, {size}', { size: sizeMb(st[pack].size) })
                     : sizeMb(st[pack].size)}

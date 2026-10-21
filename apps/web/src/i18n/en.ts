@@ -820,8 +820,6 @@ export const EN: Readonly<Record<string, string>> = {
   'Голос: русский': 'Voice: Russian',
   'Голос: английский': 'Voice: English',
   'Распознавание на телефоне': 'On-device recognition',
-  'Картинку или голосовое сообщение можно отправить в Dela через «Поделиться»: текст распознаётся на телефоне и открывается в быстром добавлении для правки. Файл никуда не отправляется. Модели скачиваются один раз: языковые данные Tesseract с GitHub, модели речи sherpa-onnx с Hugging Face; каждый файл сверяется по контрольной сумме.':
-    'Send a picture or a voice message to Dela with “Share”: the text is recognized on the phone and opens in quick add for editing. The file is not sent anywhere. The models are downloaded once: Tesseract language data from GitHub, sherpa-onnx speech models from Hugging Face; every file is checked against its checksum.',
   'Картинка ждёт распознавания: скачайте модель для текста.': 'A picture is waiting to be read: download the text model.',
   'Голосовое сообщение ждёт распознавания: скачайте модель речи.': 'A voice message is waiting to be transcribed: download a speech model.',
   'Недоступно на этом телефоне': 'Not available on this phone',
@@ -839,4 +837,30 @@ export const EN: Readonly<Record<string, string>> = {
   'Распознавание речи работает только на 64-битных телефонах.': 'Speech recognition works only on 64-bit phones.',
   'На картинке не нашлось текста.': 'No text found in the picture.',
   'В сообщении не удалось разобрать слова.': 'No words could be made out in the message.',
+
+  // ---------- голосовой ввод без облака ----------
+  'Закончить запись': 'Stop recording',
+  'Говорите. Запись закончится на паузе.': 'Speak. Recording stops when you pause.',
+  'Включаю микрофон…': 'Turning on the microphone…',
+  'Чтобы говорить задачи голосом, скачайте модель речи ({size}). Это нужно один раз: звук распознаётся на этом устройстве и никуда не отправляется.':
+    'To say tasks by voice, download the speech model ({size}). This is needed once: speech is recognized on this device and the audio is not sent anywhere.',
+  'Системное распознавание Android работает без скачивания, но может отправлять звук в облако Google или производителя телефона.':
+    'Android system recognition works without a download, but it may send the audio to the cloud of Google or the phone maker.',
+  'Системное распознавание': 'System recognition',
+  'Скачать модель': 'Download the model',
+  'Не удалось разобрать слова. Попробуйте ещё раз.': 'No words could be made out. Try again.',
+  'Нет доступа к микрофону. Разрешите его Dela в настройках Android.': 'No access to the microphone. Allow it for Dela in the Android settings.',
+  'Не удалось включить микрофон. Проверьте, что он подключён и что в параметрах Windows классическим приложениям разрешён доступ к микрофону.':
+    'Could not turn on the microphone. Check that it is connected and that desktop apps may use the microphone in the Windows privacy settings.',
+  'Не удалось включить микрофон. Возможно, его занимает другое приложение.': 'Could not turn on the microphone. Another app may be using it.',
+  'Модель речи не скачана.': 'The speech model is not downloaded.',
+  'Распознавание речи на этом устройстве недоступно.': 'Speech recognition is not available on this device.',
+  'Не удалось распознать речь.': 'Could not recognize the speech.',
+  'Голосовой ввод': 'Voice input',
+  'Задачу можно сказать голосом: кнопка с микрофоном в быстром добавлении и во всплывающей строке (Ctrl+Shift+Space). Речь распознаётся на этом компьютере, звук никуда не отправляется. Модель скачивается один раз с Hugging Face и сверяется по контрольной сумме.':
+    'You can say a task: the microphone button in quick add and in the pop-up line (Ctrl+Shift+Space). Speech is recognized on this computer and the audio is not sent anywhere. The model is downloaded once from Hugging Face and checked against its checksum.',
+  'Картинку или голосовое сообщение можно отправить в Dela через «Поделиться», а задачу сказать голосом кнопкой с микрофоном в быстром добавлении: текст распознаётся на телефоне, звук и файлы никуда не отправляются. Модели скачиваются один раз: языковые данные Tesseract с GitHub, модели речи sherpa-onnx с Hugging Face; каждый файл сверяется по контрольной сумме.':
+    'Send a picture or a voice message to Dela with “Share”, or say a task with the microphone button in quick add: the text is recognized on the phone, and the audio and files are not sent anywhere. The models are downloaded once: Tesseract language data from GitHub, sherpa-onnx speech models from Hugging Face; every file is checked against its checksum.',
+  'Недоступно: не найдены библиотеки распознавания, переустановите Dela': 'Not available: the recognition libraries are missing, reinstall Dela',
+  'На диске не хватает места для модели.': 'There is not enough disk space for the model.',
 };

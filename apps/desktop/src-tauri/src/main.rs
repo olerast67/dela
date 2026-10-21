@@ -1,6 +1,8 @@
 // Dela для компьютера: встроенный веб-клиент, трей, всплывающая строка быстрой задачи по глобальной клавише, ссылки dela://,
-// запуск при входе в Windows и проекты или задачи в отдельных окнах.
+// запуск при входе в Windows, проекты или задачи в отдельных окнах и голосовой ввод без облака.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod voice;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -326,13 +328,19 @@ fn quick_resize(window: WebviewWindow, height: f64) {
     }
 }
 
-/** Из всплывающей строки или отдельного окна: главное окно вперёд, строка прячется. */
+/**
+ * Из всплывающей строки или отдельного окна: главное окно вперёд, строка прячется.
+ * route — экран главного окна, например #/settings (скачать модель голосового ввода).
+ */
 #[tauri::command]
-fn show_main_window(app: AppHandle) {
+fn show_main_window(app: AppHandle, route: Option<String>) {
     if let Some(w) = app.get_webview_window(QUICK) {
         let _ = w.hide();
     }
-    show_main(&app);
+    match route.filter(|r| r.starts_with("#/") && !r.contains(char::is_whitespace)) {
+        Some(r) => open_link(&app, format!("dela://open{r}")),
+        None => show_main(&app),
+    }
 }
 
 /** Закрыть отдельное окно задачи крестиком карточки. Главное окно и строку так не закрыть. */
@@ -366,6 +374,7 @@ fn main() {
                 })
                 .build(),
         )
+        .manage(voice::VoiceState::default())
         .setup(move |app| {
             // Главное окно создаётся скрытым: при запуске со входом в систему оно остаётся в трее.
             if !std::env::args().any(|arg| arg == MINIMIZED_ARG) {
@@ -426,18 +435,29 @@ fn main() {
             quick_hide,
             quick_resize,
             show_main_window,
-            close_view_window
+            close_view_window,
+            voice::voice_status,
+            voice::voice_download,
+            voice::voice_cancel_download,
+            voice::voice_remove,
+            voice::voice_record,
+            voice::voice_stop,
+            voice::voice_cancel
         ])
         // Закрытие главного окна прячет его в трей: напоминания и синхронизация продолжаются.
         // Всплывающая строка тоже только прячется, в том числе при потере фокуса. Отдельные окна закрываются.
+        // Запись голоса в спрятанном или закрытом окне отменяется: микрофон не слушает невидимо.
         .on_window_event(|window, event| match event {
             WindowEvent::CloseRequested { api, .. } if window.label() == "main" || window.label() == QUICK => {
                 let _ = window.hide();
                 api.prevent_close();
+                window.state::<voice::VoiceState>().cancel_for(window.label());
             }
             WindowEvent::Focused(false) if window.label() == QUICK => {
                 let _ = window.hide();
+                window.state::<voice::VoiceState>().cancel_for(window.label());
             }
+            WindowEvent::Destroyed => window.state::<voice::VoiceState>().cancel_for(window.label()),
             _ => {}
         })
         .run(tauri::generate_context!())

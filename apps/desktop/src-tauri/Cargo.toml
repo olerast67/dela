@@ -8,6 +8,8 @@ publish = false
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+# сверка DLL sherpa-onnx по SHA-256
+sha2 = "0.10"
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon"] }
@@ -25,6 +27,13 @@ serde_json = "1"
 # подписки на календари iCal: запрос без ограничений CORS, только https; тот же reqwest, что у обновлений
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# голосовой ввод без облака: официальные биндинги sherpa-onnx (DLL из выпуска v1.13.8, хэши сверяет build.rs),
+# запись с микрофона через WASAPI, проверка скачанных моделей по SHA-256
+sherpa-onnx = { version = "=1.13.8", default-features = false, features = ["shared"] }
+cpal = "0.18"
+sha2 = "0.10"
+libloading = "0.7"
+
 
 [profile.release]
 codegen-units = 1

@@ -30,3 +30,6 @@ apps/desktop/src-tauri/gen/
 
 # Рабочие копии агентов (git worktree)
 .claude/worktrees/
+
+# Библиотеки sherpa-onnx для установщика программы (копирует build.rs из выпуска sherpa-onnx)
+apps/desktop/src-tauri/sherpa-onnx/

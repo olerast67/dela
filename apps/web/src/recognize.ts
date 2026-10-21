@@ -73,13 +73,13 @@ export function sizeMb(bytes: number): string {
   return tr('{n} МБ', { n: Math.max(1, Math.round(bytes / 1024 / 1024)) });
 }
 
-/** Сообщение об ошибке скачивания модели по коду из плагина; null — отменено пользователем. */
-export function downloadError(code: string | undefined): string | null {
+/** Сообщение об ошибке скачивания модели по коду из плагина; null — отменено пользователем. desktop — программа для Windows. */
+export function downloadError(code: string | undefined, desktop = false): string | null {
   switch (code) {
     case 'cancelled':
       return null;
     case 'no_space':
-      return tr('На телефоне не хватает места для модели.');
+      return desktop ? tr('На диске не хватает места для модели.') : tr('На телефоне не хватает места для модели.');
     case 'checksum':
       return tr('Скачанный файл не совпал с ожидаемым, он удалён. Попробуйте ещё раз.');
     case 'busy':
