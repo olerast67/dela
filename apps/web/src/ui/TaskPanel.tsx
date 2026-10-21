@@ -45,7 +45,20 @@ function useDraft(value: string, commit: (v: string) => void) {
   };
 }
 
-export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onClose: () => void; onOpen: (id: string) => void; onCopyLink: () => void }) {
+export function TaskPanel({
+  id,
+  onClose,
+  onOpen,
+  onCopyLink,
+  inWindow = false,
+}: {
+  id: string;
+  onClose: () => void;
+  onOpen: (id: string) => void;
+  onCopyLink: () => void;
+  /** Карточка в отдельном окне задачи: на всё окно, без полоски листа и кнопки «В отдельном окне». */
+  inWindow?: boolean;
+}) {
   const doc = useDoc();
   const task = doc.task(id);
   const [repeatText, setRepeatText] = useState('');
@@ -103,7 +116,7 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
 
   if (!task || !doc.isAlive(id)) {
     return (
-      <aside className="panel">
+      <aside className={inWindow ? 'panel in-window' : 'panel'}>
         <div className="panel-head">
           <span className="muted">{tr('Задача удалена')}</span>
           <button className="icon" onClick={onClose} aria-label={tr('Закрыть')}>
@@ -135,8 +148,8 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
   }
 
   return (
-    <aside className="panel" aria-label={tr('Задача')} ref={panelRef}>
-      <div className="panel-grip" {...grip} aria-hidden="true" />
+    <aside className={inWindow ? 'panel in-window' : 'panel'} aria-label={tr('Задача')} ref={panelRef}>
+      {!inWindow && <div className="panel-grip" {...grip} aria-hidden="true" />}
       <div className="panel-head">
         <select
           className="ghost"
@@ -166,7 +179,7 @@ export function TaskPanel({ id, onClose, onOpen, onCopyLink }: { id: string; onC
         <button className="icon panel-link" onClick={onCopyLink} aria-label={tr('Копировать ссылку')} title={tr('Копировать ссылку (Ctrl+Shift+C)')}>
           <IconLink />
         </button>
-        {canOpenViewWindow() && (
+        {canOpenViewWindow() && !inWindow && (
           <button className="icon panel-popout" onClick={() => void openViewWindow(taskHash(id), task.title || tr('Задача'))} aria-label={tr('В отдельном окне')} title={tr('В отдельном окне')}>
             <IconPopout />
           </button>

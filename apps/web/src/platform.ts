@@ -1,6 +1,6 @@
 import { splitAlarms } from './alarms.ts';
 import { LOCALE, tr } from './i18n.ts';
-import { isViewWindow, viewWindowLabel, viewWindowUrl } from './viewWindow.ts';
+import { isQuickWindow, isViewWindow, viewWindowLabel, viewWindowUrl } from './viewWindow.ts';
 /**
  * Где запущен клиент: браузер (сервер отдаёт клиент сам), оболочка Tauri на компьютере
  * или Capacitor на телефоне. В оболочках клиент встроен в приложение, а адрес сервера
@@ -367,14 +367,59 @@ export async function onBackButton(fn: () => boolean): Promise<() => void> {
 
 /** Windows: подписи меню в трее на языке интерфейса. */
 export async function localizeTray(): Promise<void> {
-  if (platform() !== 'tauri') return;
+  if (platform() !== 'tauri' || inViewWindow()) return;
   const { invoke } = await import('@tauri-apps/api/core');
   await invoke('tray_labels', { open: tr('Открыть Dela'), add: tr('Новая задача (Ctrl+Shift+Space)'), quit: tr('Выйти из Dela') });
 }
 
-/** Отдельное окно программы для Windows: трей, глобальные клавиши и ссылки dela:// обслуживает главное окно. */
+/** Отдельное окно или всплывающая строка программы для Windows: трей, глобальные клавиши и ссылки dela:// обслуживает главное окно. */
 function inViewWindow(): boolean {
-  return typeof location !== 'undefined' && isViewWindow(location.search);
+  return typeof location !== 'undefined' && (isViewWindow(location.search) || isQuickWindow(location.search));
+}
+
+/** Всплывающая строка: оболочка показала её снова — очистить поле и перечитать PIN. */
+export async function onQuickWindowShown(fn: () => void): Promise<() => void> {
+  if (platform() !== 'tauri') return () => undefined;
+  const { listen } = await import('@tauri-apps/api/event');
+  return listen('quick-open', () => fn());
+}
+
+/** Всплывающая строка готова: оболочка ставит её по центру сверху и показывает. Вызывается один раз после загрузки. */
+export async function quickWindowReady(): Promise<void> {
+  if (platform() !== 'tauri') return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('quick_ready');
+}
+
+/** Спрятать всплывающую строку: Windows вернёт фокус программе, где был пользователь. */
+export async function hideQuickWindow(): Promise<void> {
+  if (platform() !== 'tauri') return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('quick_hide');
+}
+
+/** Высота всплывающей строки по содержимому (в CSS-пикселях): список и чипы делают её выше. */
+export async function resizeQuickWindow(height: number): Promise<void> {
+  if (platform() !== 'tauri') return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('quick_resize', { height });
+}
+
+/** Из всплывающей строки или отдельного окна: показать главное окно. */
+export async function showMainWindow(): Promise<void> {
+  if (platform() !== 'tauri') return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('show_main_window');
+}
+
+/** Закрыть отдельное окно задачи. В браузере — обычное закрытие вкладки. */
+export async function closeViewWindow(): Promise<void> {
+  if (platform() !== 'tauri') {
+    window.close();
+    return;
+  }
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('close_view_window');
 }
 
 /** Подписка на событие оболочки «быстрая задача» (трей, глобальное сочетание клавиш). */

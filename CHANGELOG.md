@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Windows: Ctrl+Shift+Space and "New task" in the tray open a small quick add bar on top of all programs, centered near the top of the screen with the mouse, instead of bringing up the whole Dela window. It parses the phrase, highlights dates, projects and labels and takes pasted lists like the usual quick add; Enter adds the task and hides the bar, so you are back in the program you were typing in; Esc, a click elsewhere or the shortcut again hide it. The task is saved to the local database and the main window, which keeps syncing while hidden in the tray, sends it to the server. With a PIN lock the bar shows that Dela is locked and offers to open the main window. A task opened in its own window now fills the window: no list behind it, no sheet handle, and closing the card closes the window; a task card in a project window also opens full-window.
+
 ## 1.0.0
 
 - Wear OS watch app (`apps/wear`, package `io.github.olerast67.dela.wear`, Wear OS 3 or newer): a standalone app that signs in to your Dela server by itself with email and password (and a TOTP code if it is on) as a separate device, revocable in Settings → Devices; it needs neither the phone nor Google services. It shows Today (overdue and due today), checks a task off (a repeating task moves to its next date, as in the app), syncs when opened and every 30 minutes, and shows reminders from its own exact alarms for the next two days, with a "Done" button in the notification. The "Dela: today" tile lists the first tasks. The watch runs the same core code as the other apps (`packages/core` and the dela-mcp client, built for the QuickJS engine) with libsodium for the cryptography; the keys and the task cache are kept in a file encrypted with a key from Android Keystore.

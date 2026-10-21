@@ -64,6 +64,7 @@ export function createFromParsed(doc: Workspace, parsed: ParsedTask, defaults: Q
 export function QuickAdd({
   defaults = {},
   onClose,
+  onAdded,
   placeholder = tr('Например: позвонить маме завтра в 19 №Дом !1'),
   compact = false,
   initialText = '',
@@ -72,6 +73,8 @@ export function QuickAdd({
 }: {
   defaults?: QuickAddDefaults;
   onClose?: () => void;
+  /** Задача или список добавлены (всплывающая строка после этого прячется). */
+  onAdded?: () => void;
   placeholder?: string;
   compact?: boolean;
   initialText?: string;
@@ -142,6 +145,7 @@ export function QuickAdd({
     setText('');
     setIgnored([]);
     if (compact) showToast(tr('Задача добавлена'));
+    onAdded?.();
   }
 
   function addBatch(lines: readonly ListLine[]) {
@@ -160,7 +164,8 @@ export function QuickAdd({
     }
     setBatch(null);
     showToast(tr('Добавлено: {n}', { n: tn(added, 'задача', 'задачи', 'задач') }));
-    onClose?.();
+    if (onAdded) onAdded();
+    else onClose?.();
   }
 
   function onPaste(e: ClipboardEvent<HTMLInputElement>) {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { taskHash } from '../src/links.ts';
-import { isViewWindow, viewWindowLabel, viewWindowUrl } from '../src/viewWindow.ts';
+import { isQuickWindow, isViewWindow, viewWindowLabel, viewWindowUrl, windowTaskId } from '../src/viewWindow.ts';
 
 describe('отдельное окно проекта или задачи', () => {
   it('адрес окна: параметр компактного вида и hash-маршрут', () => {
@@ -26,5 +26,19 @@ describe('отдельное окно проекта или задачи', () =>
     expect(isViewWindow('?windows=1')).toBe(false);
     // Адрес окна целиком: search до hash.
     expect(isViewWindow(new URL(viewWindowUrl('#/task/t1'), 'http://tauri.localhost/').search)).toBe(true);
+  });
+
+  it('отдельное окно задачи узнаёт задачу по маршруту', () => {
+    expect(windowTaskId(taskHash('t1'))).toBe('t1');
+    expect(windowTaskId(taskHash('a/b c'))).toBe('a/b c');
+    expect(windowTaskId('#/project/x')).toBeNull();
+    expect(windowTaskId('')).toBeNull();
+  });
+
+  it('всплывающая строка узнаётся по ?quick=1 и не путается с отдельным окном', () => {
+    expect(isQuickWindow('?quick=1')).toBe(true);
+    expect(isQuickWindow('?window=1')).toBe(false);
+    expect(isViewWindow('?quick=1')).toBe(false);
+    expect(isQuickWindow('')).toBe(false);
   });
 });

@@ -284,6 +284,8 @@ export const EN: Readonly<Record<string, string>> = {
   'Выйти': 'Sign out',
   'проект|Выйти': 'Leave',
   'Открыть Dela': 'Open Dela',
+  'Войдите в Dela в главном окне, чтобы добавлять задачи.': 'Sign in to Dela in the main window to add tasks.',
+  'Dela заблокирована PIN-кодом. Откройте главное окно и введите PIN.': 'Dela is locked with a PIN. Open the main window and enter the PIN.',
   'Новая задача (Ctrl+Shift+Space)': 'New task (Ctrl+Shift+Space)',
   'Выйти из Dela': 'Quit Dela',
   'Убрать': 'Remove',

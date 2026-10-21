@@ -3691,6 +3691,66 @@ body:has(.pomo-chip) .sidebar {
   .compact .content-inner {
     padding-bottom: 88px;
   }
+
+  /* Мышью, не пальцем: карточка задачи на всё окно, без листа с полоской. */
+  .shell.compact .panel {
+    top: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .shell.compact .panel-grip {
+    display: none;
+  }
+}
+
+/* Отдельное окно задачи: карточка на всё окно, без листа телефона и списка за ней. */
+.task-window {
+  height: 100%;
+}
+
+.task-window .panel.in-window {
+  position: static;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+  transform: none;
+}
+
+/* ---------- всплывающая строка быстрого добавления (Ctrl+Shift+Space) ---------- */
+
+html:has(.quick-window),
+html:has(.quick-window) body,
+html:has(.quick-window) #root {
+  height: auto;
+  min-height: 100%;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.quick-window .quick-add {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  padding: 12px 14px;
+}
+
+.quick-window .qa-batch {
+  max-height: 320px;
+}
+
+.quick-note {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.quick-note p {
+  margin: 0;
+  flex: 1 1 260px;
 }
 
 /* Напоминание по месту в карточке задачи */

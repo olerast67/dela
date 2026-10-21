@@ -1,12 +1,13 @@
-// Dela для компьютера: встроенный веб-клиент, трей, глобальная клавиша быстрой задачи, ссылки dela://,
+// Dela для компьютера: встроенный веб-клиент, трей, всплывающая строка быстрой задачи по глобальной клавише, ссылки dela://,
 // запуск при входе в Windows и проекты или задачи в отдельных окнах.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent,
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
@@ -226,9 +227,120 @@ async fn fetch_calendar(url: String) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&body).into_owned())
 }
 
+/** Метка всплывающей строки быстрого добавления. */
+const QUICK: &str = "quick";
+/** Ширина строки в логических пикселях; высоту задаёт веб-клиент по содержимому. */
+const QUICK_WIDTH: f64 = 640.0;
+/** Строка создаётся один раз: второе нажатие, пока окно ещё строится, не создаёт второе. */
+static QUICK_BUILDING: AtomicBool = AtomicBool::new(false);
+
+/** Левый верхний угол строки: по центру рабочей области и на пятую часть её высоты от верха, как Spotlight. */
+fn quick_position(area_x: i32, area_y: i32, area_w: u32, area_h: u32, width: u32) -> (i32, i32) {
+    let x = area_x + (area_w.saturating_sub(width) / 2) as i32;
+    let y = area_y + (area_h / 5) as i32;
+    (x, y)
+}
+
+/** Показать строку на экране, где сейчас мышь, и отдать ей фокус. */
+fn show_quick(app: &AppHandle, w: &WebviewWindow) {
+    let monitor = app
+        .cursor_position()
+        .ok()
+        .and_then(|p| app.monitor_from_point(p.x, p.y).ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten());
+    if let Some(m) = monitor {
+        let area = m.work_area();
+        let width = (QUICK_WIDTH * m.scale_factor()).round() as u32;
+        let (x, y) = quick_position(area.position.x, area.position.y, area.size.width, area.size.height, width);
+        let _ = w.set_position(PhysicalPosition::new(x, y));
+    }
+    let _ = w.show();
+    let _ = w.set_focus();
+}
+
+/**
+ * Ctrl+Shift+Space и «Новая задача» в трее: маленькое окно поверх всех программ, только строка быстрого
+ * добавления. Повторное нажатие прячет его. Окно создаётся при первом вызове и дальше только показывается.
+ */
 fn quick_add(app: &AppHandle) {
-    show_main(app);
-    let _ = app.emit("quick-add", ());
+    if let Some(w) = app.get_webview_window(QUICK) {
+        if w.is_visible().unwrap_or(false) {
+            let _ = w.hide();
+            return;
+        }
+        show_quick(app, &w);
+        // Веб-клиент очищает поле и заново проверяет PIN.
+        let _ = app.emit_to(QUICK, "quick-open", ());
+        return;
+    }
+    if QUICK_BUILDING.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    let app = app.clone();
+    // Окно строится в отдельной задаче, а не в обработчике клавиши или меню: так же, как в open_view_window.
+    tauri::async_runtime::spawn(async move {
+        // Окно скрыто, пока клиент не загрузится: его показывает команда quick_ready.
+        let built = WebviewWindowBuilder::new(&app, QUICK, WebviewUrl::App("?quick=1".into()))
+            .title("Dela")
+            .inner_size(QUICK_WIDTH, 64.0)
+            .decorations(false)
+            .resizable(false)
+            .maximizable(false)
+            .minimizable(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .shadow(true)
+            .visible(false)
+            .build();
+        QUICK_BUILDING.store(false, Ordering::SeqCst);
+        if let Err(err) = built {
+            // Без всплывающего окна — быстрое добавление в главном окне, как раньше.
+            eprintln!("quick window is not available: {err}");
+            show_main(&app);
+            let _ = app.emit_to("main", "quick-add", ());
+        }
+    });
+}
+
+/** Всплывающая строка загрузилась: первый показ. */
+#[tauri::command]
+fn quick_ready(app: AppHandle, window: WebviewWindow) {
+    if window.label() == QUICK {
+        show_quick(&app, &window);
+    }
+}
+
+/** Спрятать строку: Enter, Esc, «Отмена». Windows возвращает фокус программе, где был пользователь. */
+#[tauri::command]
+fn quick_hide(window: WebviewWindow) {
+    if window.label() == QUICK {
+        let _ = window.hide();
+    }
+}
+
+/** Высота строки по содержимому, в логических пикселях. */
+#[tauri::command]
+fn quick_resize(window: WebviewWindow, height: f64) {
+    if window.label() == QUICK && height.is_finite() {
+        let _ = window.set_size(LogicalSize::new(QUICK_WIDTH, height.clamp(48.0, 640.0)));
+    }
+}
+
+/** Из всплывающей строки или отдельного окна: главное окно вперёд, строка прячется. */
+#[tauri::command]
+fn show_main_window(app: AppHandle) {
+    if let Some(w) = app.get_webview_window(QUICK) {
+        let _ = w.hide();
+    }
+    show_main(&app);
+}
+
+/** Закрыть отдельное окно задачи крестиком карточки. Главное окно и строку так не закрыть. */
+#[tauri::command]
+fn close_view_window(window: WebviewWindow) {
+    if window.label().starts_with("view-") {
+        let _ = window.close();
+    }
 }
 
 fn main() {
@@ -305,16 +417,28 @@ fn main() {
                 .build(app)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![tray_labels, take_app_link, open_view_window, fetch_calendar])
-        // Закрытие главного окна прячет его в трей: напоминания продолжают приходить. Отдельные окна закрываются.
-        .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                if window.label() != "main" {
-                    return;
-                }
+        .invoke_handler(tauri::generate_handler![
+            tray_labels,
+            take_app_link,
+            open_view_window,
+            fetch_calendar,
+            quick_ready,
+            quick_hide,
+            quick_resize,
+            show_main_window,
+            close_view_window
+        ])
+        // Закрытие главного окна прячет его в трей: напоминания и синхронизация продолжаются.
+        // Всплывающая строка тоже только прячется, в том числе при потере фокуса. Отдельные окна закрываются.
+        .on_window_event(|window, event| match event {
+            WindowEvent::CloseRequested { api, .. } if window.label() == "main" || window.label() == QUICK => {
                 let _ = window.hide();
                 api.prevent_close();
             }
+            WindowEvent::Focused(false) if window.label() == QUICK => {
+                let _ = window.hide();
+            }
+            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("error while running Dela");
@@ -346,5 +470,15 @@ mod tests {
         }
         // Десятичная запись IP разбирается как адрес и тоже отклоняется.
         assert!(!ok("https://2130706433/a.ics"));
+    }
+
+    #[test]
+    fn quick_window_centered_near_top() {
+        // Экран 1920×1040 (без панели задач), строка 640: по центру, на 208 от верха.
+        assert_eq!(quick_position(0, 0, 1920, 1040, 640), (640, 208));
+        // Второй экран слева от основного.
+        assert_eq!(quick_position(-2560, 0, 2560, 1400, 1280), (-1920, 280));
+        // Строка шире экрана — прижата к левому краю, а не уходит за него.
+        assert_eq!(quick_position(100, 50, 500, 800, 640), (100, 210));
     }
 }

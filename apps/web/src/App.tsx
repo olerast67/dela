@@ -14,7 +14,7 @@ import { SelectionBar } from './ui/SelectionBar.tsx';
 import { clearPicked, pickedIds } from './ui/selection.ts';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
-import { checkDesktopUpdate, onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch, platform } from './platform.ts';
+import { checkDesktopUpdate, closeViewWindow, onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch, platform } from './platform.ts';
 import { CalendarView } from './ui/Calendar.tsx';
 import { LockScreen } from './ui/Lock.tsx';
 import { StatsView } from './ui/Stats.tsx';
@@ -23,10 +23,15 @@ import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 import { tr } from './i18n.ts';
 import { appLink, copyLink, taskHash } from './links.ts';
-import { isViewWindow } from './viewWindow.ts';
+import { isQuickWindow, isViewWindow, windowTaskId } from './viewWindow.ts';
+import { QuickWindow } from './ui/QuickWindow.tsx';
 
 /** Отдельное окно проекта или задачи (программа для Windows): без боковой панели и панели вкладок. */
 const compact = typeof location !== 'undefined' && isViewWindow(location.search);
+/** Отдельное окно задачи: только карточка на всё окно. */
+const windowTask = compact ? windowTaskId(location.hash) : null;
+/** Всплывающая строка быстрого добавления (Ctrl+Shift+Space). */
+const quickWindow = typeof location !== 'undefined' && isQuickWindow(location.search);
 
 function typing(e: KeyboardEvent): boolean {
   const t = e.target as HTMLElement | null;
@@ -431,6 +436,20 @@ function Shell() {
   );
 }
 
+/** Отдельное окно задачи: карточка на всё окно, без списка за ней. Закрытие карточки закрывает окно. */
+function TaskWindow({ id: first }: { id: string }) {
+  // Подзадача или родитель открываются в этом же окне.
+  const [id, setId] = useState(first);
+  const close = useCallback(() => void closeViewWindow(), []);
+  const copy = useCallback(() => void copyLink(taskHash(id), controller.getState().local, (text) => showToast(text)), [id]);
+  return (
+    <div className="task-window">
+      <TaskPanel id={id} onClose={close} onOpen={setId} onCopyLink={copy} inWindow />
+      <ToastHost />
+    </div>
+  );
+}
+
 // Hash, с которым открыта страница: по нему браузер телефона предлагает открыть ссылку в приложении.
 const openedHash = typeof location === 'undefined' ? '' : location.hash;
 
@@ -460,10 +479,11 @@ function Screen() {
   if (phase === 'recovery') return <RecoveryScreen />;
   if (locked) return <LockScreen />;
   if (!controller.doc) return <div className="splash" aria-busy="true" />;
-  return <Shell />;
+  return windowTask ? <TaskWindow id={windowTask} /> : <Shell />;
 }
 
 export function App() {
+  if (quickWindow) return <QuickWindow />;
   return (
     <>
       <Screen />

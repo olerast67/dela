@@ -25,3 +25,17 @@ export function viewWindowLabel(hash: string): string {
 export function viewWindowUrl(hash: string): string {
   return `?${VIEW_WINDOW_PARAM}=1${hash}`;
 }
+
+/** Параметр адреса всплывающей строки быстрого добавления (Ctrl+Shift+Space). */
+export const QUICK_WINDOW_PARAM = 'quick';
+
+/** Открыта ли страница во всплывающей строке быстрого добавления. search — location.search. */
+export function isQuickWindow(search: string): boolean {
+  return new URLSearchParams(search).get(QUICK_WINDOW_PARAM) === '1';
+}
+
+/** Задача из маршрута отдельного окна (#/task/<id>), иначе null. */
+export function windowTaskId(hash: string): string | null {
+  const m = /^#\/task\/([^/?]+)/.exec(hash);
+  return m ? decodeURIComponent(m[1]!) : null;
+}

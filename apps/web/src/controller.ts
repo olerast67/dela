@@ -73,6 +73,7 @@ import { loadPomodoro, onPomodoroChange, pomodoroSettings } from './pomodoro.ts'
 import { clearCalendars } from './calendars.ts';
 import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativePlaces, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
 import { LANG, tn, tr } from './i18n.ts';
+import { isQuickWindow } from './viewWindow.ts';
 
 function loadFired(): string[] {
   try {
@@ -412,7 +413,8 @@ export class Controller {
       this.widgetListening = true;
       void onWidgetCompleted(() => void this.applyWidgetCompleted());
     }
-    this.becomeLeaderWhenPossible();
+    // Всплывающая строка не синхронизирует и не напоминает: это делает главное окно, оно живёт и скрытым в трее.
+    if (typeof location === 'undefined' || !isQuickWindow(location.search)) this.becomeLeaderWhenPossible();
   }
 
   /** Подключить пространство: движок синхронизации, сохранение и пересылка изменений между вкладками. */
@@ -1369,6 +1371,16 @@ export class Controller {
 
   async updateLock(patch: Partial<Pick<LockConfig, 'timeoutMin' | 'biometric'>>): Promise<void> {
     if (this.lock) await this.saveLock({ ...this.lock, ...patch });
+  }
+
+  /**
+   * Всплывающая строка: перечитать PIN из базы при каждом показе — его могли задать или снять в главном окне.
+   * Строка не открывается PIN-кодом: при заданном PIN она всегда закрыта.
+   */
+  async reloadLock(): Promise<void> {
+    if (this.state.phase !== 'ready') return;
+    this.lock = (await this.store.getMeta<LockConfig>('lock')) ?? null;
+    this.set({ locked: this.lock !== null, lockEnabled: this.lock !== null });
   }
 
   lockNow(): void {
