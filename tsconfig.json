@@ -8,6 +8,7 @@
     "apps/*/vite.config.ts",
     "apps/wear/js",
     "apps/wear/scripts",
+    "scripts/demo",
     "packages/*/vite.config.ts",
     "vitest.config.ts",
     "e2e",
