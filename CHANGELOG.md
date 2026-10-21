@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The arrow that folds subtasks stays inside the task card instead of covering its left border (reported in #9).
+- Android: the APK from GitHub releases updates itself. At launch, at most once a day, Dela reads `latest.json` of the latest release and shows "Version X is out" with an Update button, like the Windows app; the APK is downloaded only from the Dela releases on GitHub, checked against the SHA-256 in `latest.json` (or `SHA256SUMS.txt` for older releases) and handed to the system installer, which accepts it only with the same signing key. Settings → Updates has a "Check for updates at launch" switch and a button. The F-Droid build (`-PdelaFdroid`) leaves updates to F-Droid. Long notifications at the bottom of the screen now wrap instead of running off the edge.
 
 ## 1.0.1
 

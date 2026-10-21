@@ -1195,6 +1195,8 @@ input.inline {
   gap: 16px;
   box-shadow: var(--shadow);
   z-index: 30;
+  /* Длинный текст переносится, а не уходит за край экрана. */
+  width: max-content;
   max-width: calc(100% - 32px);
   touch-action: none;
   user-select: none;
@@ -2631,7 +2633,6 @@ kbd {
   .toast {
     bottom: calc(154px + env(safe-area-inset-bottom));
     max-width: calc(100vw - 32px);
-    white-space: nowrap;
   }
 
   .sidebar {

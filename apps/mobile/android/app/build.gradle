@@ -16,6 +16,8 @@ android {
         versionCode 14
         versionName "1.0.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        // Встроенное обновление из выпусков GitHub. Сборка для F-Droid (-PdelaFdroid) его выключает: там обновляет F-Droid.
+        buildConfigField "boolean", "SELF_UPDATE", project.hasProperty('delaFdroid') ? 'false' : 'true'
         // Распознавание на устройстве (Tesseract, sherpa-onnx) — нативные библиотеки только для телефонов ARM.
         // Эмуляторы x86_64 с Android 11+ запускают их через трансляцию ARM.
         ndk {
@@ -26,6 +28,9 @@ android {
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
+    }
+    buildFeatures {
+        buildConfig = true
     }
     signingConfigs {
         if (signingProps['storeFile']) {

@@ -22,6 +22,7 @@ import { ActivityView, TemplatesView } from './ui/History.tsx';
 import type { QuickAddDefaults } from './ui/QuickAdd.tsx';
 import { CompletedView, FilterView, LabelView, ProjectView, SearchView, SettingsView, TodayView, TrashView, UpcomingView } from './ui/Views.tsx';
 import { tr } from './i18n.ts';
+import { offerAndroidUpdate } from './ui/AppUpdate.tsx';
 import { appLink, copyLink, taskHash } from './links.ts';
 import { isQuickWindow, isViewWindow, windowTaskId } from './viewWindow.ts';
 import { QuickWindow } from './ui/QuickWindow.tsx';
@@ -223,11 +224,13 @@ function Shell() {
         },
       ),
     );
-    // Программа для Windows: через несколько секунд после запуска проверяем новую версию на GitHub.
+    // Программа для Windows и Android: через несколько секунд после запуска проверяем новую версию на GitHub.
     const updateTimer = setTimeout(() => {
       void checkDesktopUpdate()
         .then((u) => u && showToast(tr('Вышла версия {version}', { version: u.version }), { label: tr('Обновить'), run: () => void u.install() }, 60_000))
         .catch(() => undefined);
+      // Android, APK из выпусков GitHub: та же плашка, не чаще раза в сутки.
+      void offerAndroidUpdate().catch(() => undefined);
     }, 4000);
     keep(Promise.resolve(() => clearTimeout(updateTimer)));
     keep(
