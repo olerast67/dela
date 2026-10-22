@@ -18,7 +18,9 @@ test('без распознавания «сегодня» остаётся в �
   const toggle = page.getByLabel('Распознавать даты, проекты и метки в тексте');
   await expect(toggle).toBeChecked();
   await toggle.uncheck();
-  // Настройка хранится в данных, а не в состоянии экрана.
+  // Настройка хранится в данных, а не в состоянии экрана. Запись в хранилище браузера асинхронная:
+  // перезагрузка сразу после щелчка на медленной машине CI её теряла (как в game.spec.ts, ждём секунду).
+  await page.waitForTimeout(1000);
   await page.reload();
   await expect(page.getByLabel('Распознавать даты, проекты и метки в тексте')).not.toBeChecked();
 
