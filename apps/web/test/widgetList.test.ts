@@ -31,3 +31,9 @@ describe('быстрое добавление с виджета Android', () => 
     expect(widgetListTarget('label:x', inbox, today)).toBeNull();
   });
 });
+
+describe('проект виджета удалён', () => {
+  it('задача уходит во «Входящие»', () => {
+    expect(widgetListTarget('project:gone', 'inbox-1', '2026-10-22', () => false)).toEqual({ hash: '#/inbox', defaults: { projectId: 'inbox-1' } });
+  });
+});

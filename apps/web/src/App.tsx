@@ -259,8 +259,8 @@ function Shell() {
         }
         if (e.quickAdd || e.voice) {
           // «+» и микрофон виджета: экран его списка и задача в этот список.
-          const inboxId = controller.doc?.inboxId;
-          const target = inboxId ? widgetListTarget(e.list, inboxId, new Intl.DateTimeFormat('en-CA').format(new Date())) : null;
+          const doc = controller.doc;
+          const target = doc ? widgetListTarget(e.list, doc.inboxId, new Intl.DateTimeFormat('en-CA').format(new Date()), (id) => !!doc.project(id) && doc.project(id)!.deletedAt === null) : null;
           if (target) {
             setSelected(null);
             location.hash = target.hash;
