@@ -261,7 +261,9 @@ function DeviceCalendars() {
                 }}
               />
               <span className="event-swatch" style={{ ['--ec' as string]: c.color }} aria-hidden="true" />
-              {c.name} {c.account && <span className="muted">{c.account}</span>}
+              <span className="checkline-text">
+                {c.name} {c.account && <span className="muted">{c.account}</span>}
+              </span>
             </label>
           );
         })}

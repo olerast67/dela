@@ -282,6 +282,10 @@ label.checkline {
   cursor: pointer;
 }
 
+.checkline-text {
+  min-width: 0;
+}
+
 label.checkline input[type='checkbox'] {
   width: 18px;
   height: 18px;
@@ -1223,6 +1227,9 @@ input.inline {
 .settings {
   padding: 8px 0 16px;
   border-bottom: 1px solid var(--border);
+  /* Адреса календарей, почта и имена устройств без пробелов переносятся, а не раздвигают страницу вбок. */
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .settings p {

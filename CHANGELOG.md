@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.5
+
+- Settings on a phone no longer scroll sideways: long phone calendar names and Google account addresses without spaces (and any other long word in Settings) now wrap.
+
 ## 1.1.4
 
 - Android widget: "+" and the microphone add the task to the widget's list (a project, Inbox, Today or Week) and open that list, instead of always adding to Today. If that project was deleted, the task goes to the Inbox.
