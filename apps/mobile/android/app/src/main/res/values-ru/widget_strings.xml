@@ -5,6 +5,9 @@
     <string name="tile_label">Задача в Dela</string>
     <string name="share_label">Задача в Dela</string>
     <string name="widget_config_title">Настройки виджета</string>
+    <string name="quick_widget_label">Dela: во Входящие</string>
+    <string name="quick_widget_description">Задача во Входящие в одно касание</string>
+    <string name="quick_hint">Добавить задачу во Входящие</string>
 
     <string name="list_today">Сегодня</string>
     <string name="list_week">Неделя</string>

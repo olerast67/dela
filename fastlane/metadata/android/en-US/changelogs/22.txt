@@ -1,0 +1,1 @@
+"+" on the widget adds to its list; new "Add to Inbox" widget; text recognition can be turned off.

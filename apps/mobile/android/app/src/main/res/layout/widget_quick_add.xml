@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Виджет «Быстрое добавление во Входящие»: плашка в виде поля ввода и кнопка «+».
+  Нажатие на любую часть открывает быстрое добавление в приложении. Тема и цвета по системе (-night).
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_quick_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_quick_bg"
+        android:importantForAccessibility="no" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingEnd="6dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp">
+
+        <TextView
+            android:id="@+id/widget_quick_hint"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_quick_field"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="12dp"
+            android:singleLine="true"
+            android:ellipsize="end"
+            android:textColor="@color/quick_hint"
+            android:textSize="15sp"
+            android:text="@string/quick_hint" />
+
+        <ImageView
+            android:id="@+id/widget_quick_add"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="4dp"
+            android:padding="5dp"
+            android:src="@drawable/widget_add"
+            android:tint="@color/quick_accent"
+            android:contentDescription="@string/cd_add" />
+    </LinearLayout>
+</FrameLayout>

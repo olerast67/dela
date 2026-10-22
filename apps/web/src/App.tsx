@@ -28,6 +28,7 @@ import { offerAndroidUpdate } from './ui/AppUpdate.tsx';
 import { appLink, copyLink, taskHash } from './links.ts';
 import { isQuickWindow, isViewWindow, windowTaskId } from './viewWindow.ts';
 import { QuickWindow } from './ui/QuickWindow.tsx';
+import { widgetListTarget } from './widgetList.ts';
 
 /** Отдельное окно проекта или задачи (программа для Windows): без боковой панели и панели вкладок. */
 const compact = typeof location !== 'undefined' && isViewWindow(location.search);
@@ -203,6 +204,13 @@ function Shell() {
     return () => window.removeEventListener('keydown', onKey);
   }, [doc, selected, copyCurrentLink]);
 
+  // Быстрое добавление закрыто кнопкой «Назад» или Esc: умолчания виджета или календаря и голос не переходят в следующее.
+  useEffect(() => {
+    if (quickAdd) return;
+    setQuickOverride(null);
+    setQuickVoice(false);
+  }, [quickAdd]);
+
   useEffect(() => setMenu(false), [route]);
   useEffect(() => clearPicked(), [route]);
 
@@ -249,7 +257,17 @@ function Shell() {
           setSelected(null);
           location.hash = '#/today';
         }
-        if (e.quickAdd || e.voice) setQuickAdd(true);
+        if (e.quickAdd || e.voice) {
+          // «+» и микрофон виджета: экран его списка и задача в этот список.
+          const doc = controller.doc;
+          const target = doc ? widgetListTarget(e.list, doc.inboxId, new Intl.DateTimeFormat('en-CA').format(new Date()), (id) => !!doc.project(id) && doc.project(id)!.deletedAt === null) : null;
+          if (target) {
+            setSelected(null);
+            location.hash = target.hash;
+          }
+          setQuickOverride(target?.defaults ?? null);
+          setQuickAdd(true);
+        }
         if (e.voice) setQuickVoice(true);
       }),
     );

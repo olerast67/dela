@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Плашка в виде поля ввода в виджете «Быстрое добавление». -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/quick_field" />
+    <corners android:radius="18dp" />
+</shape>

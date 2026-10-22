@@ -11,8 +11,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 /**
  * Связь веб-клиента с виджетом и плиткой в шторке:
  * update() кладёт снимок задач, takeCompleted() отдаёт задачи, отмеченные на виджете,
- * takeLaunch() и событие launch сообщают, что приложение открыто с виджета (задача или быстрое добавление)
- * или с push утренней сводки (экран «Сегодня»).
+ * takeLaunch() и событие launch сообщают, что приложение открыто с виджета (задача или быстрое добавление
+ * в список виджета) или с push утренней сводки (экран «Сегодня»).
  */
 @CapacitorPlugin(name = "DelaWidget")
 public class WidgetBridgePlugin extends Plugin {
@@ -20,12 +20,15 @@ public class WidgetBridgePlugin extends Plugin {
     static final String EXTRA_QUICK_ADD = "dela.quickAdd";
     static final String EXTRA_VOICE = "dela.voice";
     static final String EXTRA_TODAY = "dela.today";
+    /** Список виджета для быстрого добавления: «today», «week», «inbox» или «project:<id>». */
+    static final String EXTRA_LIST = "dela.list";
 
     private static WidgetBridgePlugin instance;
     private static String pendingTask;
     private static boolean pendingQuickAdd;
     private static boolean pendingVoice;
     private static boolean pendingToday;
+    private static String pendingList;
 
     @Override
     public void load() {
@@ -36,8 +39,12 @@ public class WidgetBridgePlugin extends Plugin {
         if (intent == null) return;
         String task = intent.getStringExtra(EXTRA_TASK_ID);
         if (task != null) pendingTask = task;
-        if (intent.getBooleanExtra(EXTRA_QUICK_ADD, false)) pendingQuickAdd = true;
-        if (intent.getBooleanExtra(EXTRA_VOICE, false)) pendingVoice = true;
+        boolean quickAdd = intent.getBooleanExtra(EXTRA_QUICK_ADD, false);
+        boolean voice = intent.getBooleanExtra(EXTRA_VOICE, false);
+        if (quickAdd) pendingQuickAdd = true;
+        if (voice) pendingVoice = true;
+        // Плитка в шторке списка не передаёт: задача пойдёт туда же, куда «+» на открытом экране.
+        if (quickAdd || voice) pendingList = intent.getStringExtra(EXTRA_LIST);
         if (intent.getBooleanExtra(EXTRA_TODAY, false)) pendingToday = true;
     }
 
@@ -47,10 +54,12 @@ public class WidgetBridgePlugin extends Plugin {
         if (pendingQuickAdd) data.put("quickAdd", true);
         if (pendingVoice) data.put("voice", true);
         if (pendingToday) data.put("today", true);
+        if (pendingList != null) data.put("list", pendingList);
         pendingTask = null;
         pendingQuickAdd = false;
         pendingVoice = false;
         pendingToday = false;
+        pendingList = null;
         return data;
     }
 

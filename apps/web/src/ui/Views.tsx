@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { COLORS, FilterSyntaxError, type Priority, type ProjectTasks, type TaskNode, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
 import { controller, type MorningDigest } from '../controller.ts';
 import { TZ, dayHeading, plural, todayDate } from '../format.ts';
-import { href, navigate, setStartHash, startHash, useAppState, useDoc, useGame } from '../hooks.ts';
+import { href, navigate, setStartHash, startHash, useAppState, useDoc, useGame, useInputSettings } from '../hooks.ts';
 import { DayClosedBurst, DayDone, GameSettingsSection, GoalBurst, GoalHint, TodayGoal } from './Game.tsx';
 import { ReviewCard } from './Review.tsx';
 import { GardenMini } from './Garden.tsx';
@@ -783,6 +783,22 @@ function StartViewSetting() {
   );
 }
 
+/** Распознавание сроков, проектов и меток в быстром добавлении. Настройка синхронизируется между устройствами. */
+function InputSettingsSection() {
+  const doc = useDoc();
+  const s = useInputSettings();
+  return (
+    <section className="settings">
+      <h2>{tr('Быстрое добавление')}</h2>
+      <label className="checkline">
+        <input type="checkbox" checked={s.parse} onChange={(e) => doc.updateInputSettings({ parse: e.target.checked })} />
+        {tr('Распознавать даты, проекты и метки в тексте')}
+      </label>
+      <p className="muted">{tr('Если выключить, текст сохраняется как есть, а срок и проект задаются кнопками в карточке задачи.')}</p>
+    </section>
+  );
+}
+
 /** Названия языков пишутся на самих языках, чтобы их нашёл тот, кто не читает текущий. */
 const LANGS: ReadonlyArray<readonly [Lang | null, string]> = [
   [null, tr('Как в системе')],
@@ -821,6 +837,7 @@ export function SettingsView() {
           </button>
         </section>
         <ThemeSettings />
+        <InputSettingsSection />
         <CalendarSettings />
         <PomodoroSettings />
         <GameSettingsSection />
@@ -849,6 +866,7 @@ export function SettingsView() {
       </section>
       <ThemeSettings />
       <SignKeyNotice />
+      <InputSettingsSection />
       <section className="settings">
         <h2>{tr('Устройства')}</h2>
         {devices === null && <p className="muted">{tr('Загрузка…')}</p>}
