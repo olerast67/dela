@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Settings → Quick add: a switch "Recognize dates, projects and labels in the text" (on by default). When off, quick add (web, Windows, Android) saves the text exactly as typed with no highlighting, so "today" in "buy a cake today" stays in the title; the screen's own project and due date still apply. The setting syncs between devices encrypted.
+
 ## 1.1.3
 
 - "Report a bug" in Settings → Help (web, Windows, Android) and a new "Report a bug" button on the Wear OS watch open the form on olerast.com with the version, build, platform and language already filled in: `olerast.com/security?project=dela&v=…&build=…&platform=…&lang=…#report`. On the watch the form opens on the paired phone.

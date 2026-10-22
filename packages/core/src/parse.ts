@@ -28,6 +28,8 @@ export interface ParseContext {
   readonly labels?: ReadonlyArray<{ readonly id: string; readonly name: string }>;
   /** Участки, которые не нужно разбирать. */
   readonly ignore?: ReadonlyArray<readonly [number, number]>;
+  /** Распознавание выключено в настройках: весь текст — название, ни срока, ни проекта, ни подсветки. */
+  readonly plain?: boolean;
 }
 
 export interface ParsedTask {
@@ -499,8 +501,29 @@ function wordTime(g: Record<string, string | undefined>): string | null {
   return hour === null || Number.isNaN(mi) ? null : clampTime(hour, mi);
 }
 
+/** Фраза без распознанных кусков: всё — название, пробелы схлопнуты, как в обычном разборе. */
+export function plainTask(text: string): ParsedTask {
+  return {
+    title: text.replace(/\s+/g, ' ').trim(),
+    due: null,
+    deadline: null,
+    duration: null,
+    recurrence: null,
+    priority: null,
+    projectId: null,
+    newProject: null,
+    sectionId: null,
+    newSection: null,
+    labelIds: [],
+    newLabels: [],
+    reminders: null,
+    tokens: [],
+  };
+}
+
 export function parseTask(text: string, ctx: ParseContext): ParsedTask {
-  const sc = new Scanner(text, ctx.ignore ?? []);
+  if (ctx.plain) return plainTask(text);
+  const sc =new Scanner(text, ctx.ignore ?? []);
   const today = todayIn(ctx.tz, ctx.now);
   let date: string | null = null;
   let time: string | null = null;

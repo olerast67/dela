@@ -548,6 +548,9 @@ export const EN: Readonly<Record<string, string>> = {
   'Остаток дня свободен.': 'The rest of the day is yours.',
   'Во «Входящих» пусто: всё разобрано. Новые мысли можно спокойно складывать сюда.': 'The Inbox is empty: everything is sorted. New thoughts can land here.',
   'Неверное значение': 'Invalid value',
+  'Быстрое добавление': 'Quick add',
+  'Распознавать даты, проекты и метки в тексте': 'Recognize dates, projects and labels in the text',
+  'Если выключить, текст сохраняется как есть, а срок и проект задаются кнопками в карточке задачи.': 'When off, the text is saved as typed, and the due date and project are set with the buttons in the task card.',
   'Игровые элементы': 'Game elements',
   'Отклик при выполнении, цели и итоги': 'Completion feedback, goals and reviews',
   'Без очков и наказаний: только отклик на сделанное и видимый прогресс. Всё считается на устройстве, настройки синхронизируются зашифрованными.':

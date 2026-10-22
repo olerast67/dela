@@ -138,7 +138,7 @@ export {
   type Rule,
   type WeekdayNum,
 } from './recurrence.ts';
-export { parseTask, resolveDate, splitTaskList, type ListLine, type ParseContext, type ParsedTask, type Token, type TokenKind } from './parse.ts';
+export { parseTask, plainTask, resolveDate, splitTaskList, type ListLine, type ParseContext, type ParsedTask, type Token, type TokenKind } from './parse.ts';
 export { ApiClient, ApiError, NetworkError, type DeviceInfo, type Fetcher, type SessionInfo, type SpaceInfo } from './client.ts';
 export {
   signUp,
@@ -210,6 +210,7 @@ export {
   type AfterCompletion,
   type FactSource,
 } from './game.ts';
+export { DEFAULT_INPUT_SETTINGS, readInputSettings, inputSettingsChanges, type InputSettings } from './input.ts';
 export { eventsOnDay, normalizeCalendarUrl, toCalendarSub, windowBounds, type AllDayEvent, type CalEvent, type CalendarSub, type DayEvents, type TimedEvent } from './events.ts';
 export type { FilterSource } from './filter.ts';
 export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';
