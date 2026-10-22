@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Android widget: "+" and the microphone add the task to the widget's list (a project, Inbox, Today or Week) and open that list, instead of always adding to Today.
+- A new small Android widget "Add to Inbox": a field-like bar and a "+" button that open quick add straight into the Inbox. 4×1 by default, stretches in width, light or dark with the system.
+
 ## 1.1.3
 
 - "Report a bug" in Settings → Help (web, Windows, Android) and a new "Report a bug" button on the Wear OS watch open the form on olerast.com with the version, build, platform and language already filled in: `olerast.com/security?project=dela&v=…&build=…&platform=…&lang=…#report`. On the watch the form opens on the paired phone.

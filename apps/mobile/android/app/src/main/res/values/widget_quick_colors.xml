@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Цвета виджета «Быстрое добавление» как у виджета «Задачи»; тёмный вариант в values-night. -->
+<resources>
+    <color name="quick_accent">#2E7D5B</color>
+    <color name="quick_hint">#766F63</color>
+    <color name="quick_field">#F1ECE2</color>
+</resources>

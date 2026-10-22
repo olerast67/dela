@@ -6,6 +6,9 @@
     <string name="tile_label">Dela task</string>
     <string name="share_label">Dela task</string>
     <string name="widget_config_title">Widget settings</string>
+    <string name="quick_widget_label">Dela: add to Inbox</string>
+    <string name="quick_widget_description">Add a task to the Inbox in one tap</string>
+    <string name="quick_hint">Add a task to Inbox</string>
 
     <string name="list_today">Today</string>
     <string name="list_week">Week</string>

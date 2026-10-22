@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="quick_accent">#6FCF9B</color>
+    <color name="quick_hint">#A49D8F</color>
+    <color name="quick_field">#34312B</color>
+</resources>

@@ -56,6 +56,19 @@
                 android:resource="@xml/widget_tasks_info" />
         </receiver>
 
+        <!-- Виджет «Быстрое добавление во Входящие» -->
+        <receiver
+            android:name=".QuickAddWidgetProvider"
+            android:label="@string/quick_widget_label"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_add_info" />
+        </receiver>
+
         <!-- Нажатия в списке виджета: приёмник закрыт для других приложений -->
         <receiver
             android:name=".WidgetActionReceiver"

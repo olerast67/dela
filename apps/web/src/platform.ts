@@ -641,6 +641,8 @@ export interface WidgetLaunch {
   readonly quickAdd?: boolean;
   readonly voice?: boolean;
   readonly today?: boolean;
+  /** Список виджета для быстрого добавления: «today», «week», «inbox» или «project:<id>». */
+  readonly list?: string;
 }
 
 /** Приложение открыто с виджета, плитки или push-уведомления: показать задачу, быстрое добавление или «Сегодня». */

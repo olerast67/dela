@@ -14,7 +14,7 @@ import org.json.JSONObject;
 
 /**
  * Виджет «Задачи» на главном экране: заголовок со списком (нажатие открывает настройки),
- * кнопка «+», список задач. Нажатие на кружок отмечает задачу выполненной, на строку открывает её в приложении.
+ * кнопки «+» и микрофон (задача в список виджета), список задач. Нажатие на кружок отмечает задачу выполненной, на строку открывает её в приложении.
  */
 public class TasksWidgetProvider extends AppWidgetProvider {
     static final String ACTION_ITEM = "io.github.olerast67.dela.WIDGET_ITEM";
@@ -37,10 +37,15 @@ public class TasksWidgetProvider extends AppWidgetProvider {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ? PendingIntent.FLAG_MUTABLE : 0;
     }
 
-    private static PendingIntent openApp(Context c, int requestCode, String extra) {
+    /**
+     * Открыть приложение. list — список, в который добавить задачу («+» и микрофон).
+     * У каждой кнопки каждого виджета свой requestCode, а FLAG_UPDATE_CURRENT обновляет список после смены в настройках.
+     */
+    static PendingIntent openApp(Context c, int requestCode, String extra, String list) {
         Intent i = new Intent(c, MainActivity.class);
         i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         if (extra != null) i.putExtra(extra, true);
+        if (list != null) i.putExtra(WidgetBridgePlugin.EXTRA_LIST, list);
         i.setData(Uri.parse("dela://widget/" + requestCode));
         return PendingIntent.getActivity(c, requestCode, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
@@ -93,10 +98,10 @@ public class TasksWidgetProvider extends AppWidgetProvider {
             R.id.widget_title,
             PendingIntent.getActivity(c, widgetId, configure, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
         );
-        v.setOnClickPendingIntent(R.id.widget_add, openApp(c, 100000 + widgetId, WidgetBridgePlugin.EXTRA_QUICK_ADD));
-        v.setOnClickPendingIntent(R.id.widget_voice, openApp(c, 300000 + widgetId, WidgetBridgePlugin.EXTRA_VOICE));
+        v.setOnClickPendingIntent(R.id.widget_add, openApp(c, 100000 + widgetId, WidgetBridgePlugin.EXTRA_QUICK_ADD, cfg.list));
+        v.setOnClickPendingIntent(R.id.widget_voice, openApp(c, 300000 + widgetId, WidgetBridgePlugin.EXTRA_VOICE, cfg.list));
         v.setInt(R.id.widget_voice, "setColorFilter", accent);
-        v.setOnClickPendingIntent(R.id.widget_icon, openApp(c, 200000 + widgetId, null));
+        v.setOnClickPendingIntent(R.id.widget_icon, openApp(c, 200000 + widgetId, null, null));
         v.setViewVisibility(R.id.widget_icon, View.VISIBLE);
 
         manager.updateAppWidget(widgetId, v);

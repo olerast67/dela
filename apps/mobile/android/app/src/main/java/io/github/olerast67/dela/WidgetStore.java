@@ -152,5 +152,7 @@ final class WidgetStore {
         int[] ids = m.getAppWidgetIds(new ComponentName(c, TasksWidgetProvider.class));
         for (int id : ids) TasksWidgetProvider.update(c, m, id);
         m.notifyAppWidgetViewDataChanged(ids, R.id.widget_list);
+        // Виджет быстрого добавления: подсказка на языке приложения из нового снимка.
+        for (int id : m.getAppWidgetIds(new ComponentName(c, QuickAddWidgetProvider.class))) QuickAddWidgetProvider.update(c, m, id);
     }
 }
