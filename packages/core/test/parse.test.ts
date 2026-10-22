@@ -286,3 +286,40 @@ describe('время словами (голосовой ввод)', () => {
     it(input, () => expect(parseTask(input, ctx)).toMatchObject(want));
   }
 });
+
+describe('распознавание выключено (plain)', () => {
+  const off: ParseContext = { ...ctx, plain: true };
+
+  it('весь текст — название, без срока, проекта, меток и подсветки', () => {
+    expect(parseTask('купить торт сегодня', off)).toEqual({
+      title: 'купить торт сегодня',
+      due: null,
+      deadline: null,
+      duration: null,
+      recurrence: null,
+      priority: null,
+      projectId: null,
+      newProject: null,
+      sectionId: null,
+      newSection: null,
+      labelIds: [],
+      newLabels: [],
+      reminders: null,
+      tokens: [],
+    });
+  });
+
+  it('спецзнаки, повторы и напоминания остаются текстом, пробелы схлопываются', () => {
+    const p = parseTask('  позвонить маме   завтра в 19 №Дом #Новый @срочно !1 каждую неделю напомни за час {пятница} ', off);
+    expect(p.title).toBe('позвонить маме завтра в 19 №Дом #Новый @срочно !1 каждую неделю напомни за час {пятница}');
+    expect(p).toMatchObject({ due: null, recurrence: null, projectId: null, newProject: null, labelIds: [], newLabels: [], priority: null, reminders: null, deadline: null, tokens: [] });
+  });
+
+  it('пустой ввод — пустое название', () => {
+    expect(parseTask('   ', off).title).toBe('');
+  });
+
+  it('plain: false — разбор прежний', () => {
+    expect(parseTask('купить торт сегодня', { ...ctx, plain: false })).toMatchObject({ title: 'купить торт', due: { date: '2026-10-13' } });
+  });
+});

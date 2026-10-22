@@ -43,6 +43,7 @@ import {
 } from './model.ts';
 import type { Json, Op } from './op.ts';
 import { gameSettingsChanges, readGameSettings, GAME_RECORD, GAME_TABLE, type GameSettings } from './game.ts';
+import { inputSettingsChanges, readInputSettings, INPUT_RECORD, INPUT_TABLE, type InputSettings } from './input.ts';
 import { clampRadius, coordValue, toPlace, placeValue, type PlaceReminder, type SavedPlace } from './places.ts';
 import { nextOccurrence, occurrencesBetween, parseRule } from './recurrence.ts';
 import { MemoryReplica } from './replica.ts';
@@ -1007,6 +1008,19 @@ export class Doc {
   updateGameSettings(patch: Partial<GameSettings>): void {
     const current = this.getGameSettings();
     const changes = gameSettingsChanges(current, patch).filter(([, , field, value]) => JSON.stringify(this.replica.get(GAME_TABLE, GAME_RECORD)?.[field]) !== JSON.stringify(value));
+    this.write(changes, { undoable: false });
+  }
+
+  // ---------- ввод задач ----------
+
+  /** Настройки ввода (input.ts): своя запись, отдельно от игровых; без записи — умолчания. */
+  getInputSettings(): InputSettings {
+    return readInputSettings(this.replica.get(INPUT_TABLE, INPUT_RECORD));
+  }
+
+  /** Записать изменённые поля. Неверное значение — RangeError. Настройки не отменяются Ctrl+Z. */
+  updateInputSettings(patch: Partial<InputSettings>): void {
+    const changes = inputSettingsChanges(patch).filter(([, , field, value]) => this.replica.get(INPUT_TABLE, INPUT_RECORD)?.[field] !== value);
     this.write(changes, { undoable: false });
   }
 

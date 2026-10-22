@@ -1,9 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.1.4
 
 - Android widget: "+" and the microphone add the task to the widget's list (a project, Inbox, Today or Week) and open that list, instead of always adding to Today.
 - A new small Android widget "Add to Inbox": a field-like bar and a "+" button that open quick add straight into the Inbox. 4×1 by default, stretches in width, light or dark with the system.
+- Settings → Quick add: a switch "Recognize dates, projects and labels in the text" (on by default). When off, quick add (web, Windows, Android) saves the text exactly as typed with no highlighting, so "today" in "buy a cake today" stays in the title; the screen's own project and due date still apply. The setting syncs between devices encrypted.
 
 ## 1.1.3
 

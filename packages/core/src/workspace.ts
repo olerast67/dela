@@ -19,6 +19,7 @@ import { addDays, today as todayIn } from './dates.ts';
 import { computeGarden, type Garden } from './garden.ts';
 import type { SavedPlace } from './places.ts';
 import type { GameSettings } from './game.ts';
+import type { InputSettings } from './input.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
 
 export class Workspace {
@@ -460,6 +461,15 @@ export class Workspace {
 
   updateGameSettings(patch: Partial<GameSettings>): void {
     this.personal.updateGameSettings(patch);
+  }
+
+  /** Настройки ввода задач: запись личного пространства, синхронизируется зашифрованной. */
+  getInputSettings(): InputSettings {
+    return this.personal.getInputSettings();
+  }
+
+  updateInputSettings(patch: Partial<InputSettings>): void {
+    this.personal.updateInputSettings(patch);
   }
 
   /** Пространство задачи: для общих проектов нужен список участников. */

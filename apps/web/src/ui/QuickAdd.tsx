@@ -79,7 +79,7 @@ export function QuickAdd({
   defaults = {},
   onClose,
   onAdded,
-  placeholder = tr('Например: позвонить маме завтра в 19 №Дом !1'),
+  placeholder,
   compact = false,
   initialText = '',
   initialEdit = false,
@@ -191,6 +191,8 @@ export function QuickAdd({
       ],
       sections: doc.projects().flatMap((p) => doc.sections(p.project.id).map((s) => ({ id: s.id, name: s.name, projectId: p.project.id }))),
       labels: doc.labels().map((l) => ({ id: l.id, name: l.name })),
+      // Распознавание выключено в настройках: текст сохраняется как есть, подсветки нет.
+      plain: !doc.getInputSettings().parse,
     }),
     [doc, controller.getDocVersion()],
   );
@@ -402,7 +404,7 @@ export function QuickAdd({
           ref={input}
           className="qa-input"
           value={text}
-          placeholder={placeholder}
+          placeholder={placeholder ?? (ctx.plain ? tr('Новая задача') : tr('Например: позвонить маме завтра в 19 №Дом !1'))}
           aria-label={tr('Новая задача')}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKey}

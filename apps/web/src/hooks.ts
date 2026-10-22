@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { flushSync } from 'react-dom';
-import type { GameSettings, Workspace } from '#core';
+import type { GameSettings, InputSettings, Workspace } from '#core';
 import { controller, type AppState } from './controller.ts';
 
 export function useAppState(): AppState {
@@ -18,6 +18,11 @@ export function useDoc(): Workspace {
 /** Настройки игровых элементов (запись личного пространства); перерисовка при любом изменении данных, как useDoc. */
 export function useGame(): GameSettings {
   return useDoc().getGameSettings();
+}
+
+/** Настройки ввода задач (своя запись личного пространства): распознавать ли сроки, проекты и метки в тексте. */
+export function useInputSettings(): InputSettings {
+  return useDoc().getInputSettings();
 }
 
 /** Атрибут data-game на <html>: по нему CSS включает анимации выполнения. Выключено — всё как раньше. */
