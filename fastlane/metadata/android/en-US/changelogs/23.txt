@@ -1,0 +1,1 @@
+Settings on a phone no longer scroll sideways: long calendar names wrap.
