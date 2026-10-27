@@ -36,6 +36,6 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
     "libsodium-wrappers-sumo": "0.8.4",
-    "zod": "4.6.5"
+    "zod": "4.6.6"
   }
 }
