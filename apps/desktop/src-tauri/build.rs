@@ -61,8 +61,17 @@ fn target_dir() -> PathBuf {
 }
 
 fn sha256(path: &Path) -> std::io::Result<String> {
+    use std::io::Read;
     let mut f = std::fs::File::open(path)?;
     let mut h = Sha256::new();
-    std::io::copy(&mut f, &mut h)?;
+    // sha2 0.11 не принимает данные через io::Write: файл читается кусками.
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = f.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        h.update(&buf[..n]);
+    }
     Ok(h.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
