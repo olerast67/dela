@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Dependencies: tauri 2.12.5, tauri-build 2.7.4, rustls 0.23.46, sha2 0.11 (the build script hashes the sherpa-onnx DLLs in chunks), libloading 0.9, docker/login-action 4.7.0 and the dev group (Dependabot #26–#32 in one change).
+
 ## 1.1.5
 
 - Settings on a phone no longer scroll sideways: long phone calendar names and Google account addresses without spaces (and any other long word in Settings) now wrap.
