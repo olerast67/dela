@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.1.6
 
+- Android: quick add opened from the widget or the quick settings tile now shows the keyboard right away; before, the field had the cursor but you had to tap it.
 - Dependencies: tauri 2.12.5, tauri-build 2.7.4, rustls 0.23.46, sha2 0.11 (the build script hashes the sherpa-onnx DLLs in chunks), libloading 0.9, docker/login-action 4.7.0 and the dev group (Dependabot #26–#32 in one change).
 
 ## 1.1.5

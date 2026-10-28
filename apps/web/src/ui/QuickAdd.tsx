@@ -1,4 +1,4 @@
-import { cancelVoice, listenVoice, platform, recordVoice, showMainWindow, stopVoice, voiceSupport, type VoiceSupport } from '../platform.ts';
+import { cancelVoice, listenVoice, platform, recordVoice, showMainWindow, showSoftKeyboard, stopVoice, voiceSupport, type VoiceSupport } from '../platform.ts';
 import { appendSpeech, chooseSystemVoice, systemVoiceChosen, voiceError, voiceMode } from '../voice.ts';
 import { sizeMb, speechToQuickAdd } from '../recognize.ts';
 import { isQuickWindow } from '../viewWindow.ts';
@@ -109,7 +109,11 @@ export function QuickAdd({
 
   // Фокус в поле при открытии и после правки текста целиком.
   useEffect(() => {
-    if (draft === null) input.current?.focus();
+    if (draft === null) {
+      input.current?.focus();
+      // На Android клавиатура сама не появляется, когда поле открыто с виджета, а не касанием.
+      if (!autoVoice) void showSoftKeyboard();
+    }
   }, [draft === null]);
 
   // Голосовой ввод: фраза попадает в поле и разбирается так же, как набранная. По умолчанию звук

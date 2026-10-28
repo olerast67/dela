@@ -595,6 +595,7 @@ interface DelaWidgetPlugin {
   update(o: { snapshot: string }): Promise<void>;
   takeCompleted(): Promise<{ ids: string[] }>;
   takeLaunch(): Promise<WidgetLaunch>;
+  showKeyboard(): Promise<void>;
   addListener(event: 'launch', cb: (e: WidgetLaunch) => void): Promise<{ remove(): Promise<void> }>;
   addListener(event: 'completed', cb: () => void): Promise<{ remove(): Promise<void> }>;
 }
@@ -633,6 +634,16 @@ export async function takeWidgetCompleted(): Promise<string[]> {
 export async function onWidgetCompleted(fn: () => void): Promise<void> {
   const w = (await nativePlugin<DelaWidgetPlugin>('DelaWidget'))?.p;
   await w?.addListener('completed', fn);
+}
+
+/**
+ * Экранная клавиатура для поля в фокусе. WebView в Android не показывает её, если фокус поставлен
+ * кодом без касания (быстрое добавление с виджета или плитки), поэтому её открывает сама оболочка.
+ */
+export async function showSoftKeyboard(): Promise<void> {
+  if (platform() !== 'capacitor') return;
+  const w = (await nativePlugin<DelaWidgetPlugin>('DelaWidget'))?.p;
+  await w?.showKeyboard().catch(() => undefined);
 }
 
 /** Что открыть при запуске: задачу, быстрое добавление или «Сегодня» (push утренней сводки). */

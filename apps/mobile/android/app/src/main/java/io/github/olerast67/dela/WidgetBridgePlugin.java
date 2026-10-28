@@ -98,6 +98,24 @@ public class WidgetBridgePlugin extends Plugin {
         call.resolve(result);
     }
 
+    /**
+     * Показать клавиатуру для поля в фокусе: WebView не открывает её, если фокус поставил код,
+     * а приложение только что открыто с виджета. Небольшая задержка — окно должно успеть получить фокус.
+     */
+    @PluginMethod
+    public void showKeyboard(PluginCall call) {
+        android.webkit.WebView web = getBridge().getWebView();
+        web.post(() -> {
+            web.requestFocus();
+            web.postDelayed(() -> {
+                android.view.inputmethod.InputMethodManager imm =
+                    (android.view.inputmethod.InputMethodManager) getContext().getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(web, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+            }, 150);
+        });
+        call.resolve();
+    }
+
     @PluginMethod
     public void takeLaunch(PluginCall call) {
         call.resolve(drainLaunch());
