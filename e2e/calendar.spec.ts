@@ -66,8 +66,13 @@ test('календарь: планирование дня перетаскива
   await page.getByRole('tab', { name: 'Месяц' }).click();
   const ролик = page.locator('.cal-month .cal-chip', { hasText: 'Записать ролик' });
   await expect(ролик).toContainText('15:00');
+  // День в прошлом сделал бы задачу просроченной, и календарь показал бы её на сегодня: цель — последний день
+  // месяца, а если «завтра» и есть последний день, то сегодня.
   const cells = page.locator('.cal-cell:not(.other)');
-  const target = cells.nth(27);
+  const moscow = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Moscow' }).format(d);
+  const tomorrow = moscow(new Date(Date.now() + 24 * 3600_000));
+  const lastIsTomorrow = (await cells.last().getByRole('button', { name: /^Открыть день / }).getAttribute('aria-label'))?.endsWith(tomorrow);
+  const target = lastIsTomorrow ? page.locator('.cal-cell', { has: page.getByRole('button', { name: `Открыть день ${moscow(new Date())}` }) }) : cells.last();
   await ролик.dragTo(target);
   await expect(target.locator('.cal-chip', { hasText: 'Записать ролик' })).toContainText('15:00');
   if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS_DIR ?? 'test-results/shots'}/cal-month.png` });

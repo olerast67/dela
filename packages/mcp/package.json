@@ -34,8 +34,8 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.32.1",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "libsodium-wrappers-sumo": "0.8.4",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.7
+
+- Security: dela-mcp now pins zod 4.6.7 (memory exhaustion on oversized constrained collections, GHSA for zod < 4.6.6) and the MCP SDK 1.32.2; fast-uri 3.1.9 and serialize-javascript 7.1.4 in the lockfile (Dependabot #34–#36).
+
 ## 1.1.6
 
 - Android: quick add opened from the widget or the quick settings tile now shows the keyboard right away; before, the field had the cursor but you had to tap it.
