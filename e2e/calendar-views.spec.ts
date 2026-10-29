@@ -54,7 +54,8 @@ test('календарь: три дня и задачи без даты из б�
 
   // Месяц: бросок на день даёт дату без времени.
   await page.getByRole('tab', { name: 'Месяц' }).click();
-  const cell = page.locator('.cal-cell:not(.other)').nth(27);
+  // Последний день месяца не раньше сегодня: на прошедший день задача стала бы просроченной и осталась в панели.
+  const cell = page.locator('.cal-cell:not(.other)').last();
   await side.locator('.cal-chip', { hasText: 'Починить кран' }).dragTo(cell);
   await expect(cell.locator('.cal-chip', { hasText: 'Починить кран' })).toBeVisible();
   await expect(side.locator('.cal-chip', { hasText: 'Починить кран' })).toHaveCount(0);
