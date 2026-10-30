@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.9
+
+- Windows: voice input moves to sherpa-onnx 2.0.1. Its build no longer pulls zip 2.6.1, so the last three Dependabot alerts (zip < 9.0.5) are gone. The DLLs come from the v2.0.1 release (archive SHA-256 checked against GitHub), `build.rs` pins the new hashes, onnxruntime is unchanged, the same speech models work: a Russian test phrase is recognized word for word. Android keeps the sherpa-onnx 1.13.8 AAR.
+
 ## 1.1.8
 
 - Security, Windows: the in-app updater plugin 2.14.1 brings zip 9.1.3 instead of 4.6.1 (archive parsing flaws: header cloaking, symlink targets, AES entry authentication). The update file is checked against the project signature before it is opened, so this was not reachable without the signing key, but the old code is gone now.
