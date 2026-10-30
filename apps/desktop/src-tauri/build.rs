@@ -2,16 +2,16 @@
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
-/// Архив выпуска sherpa-onnx v1.13.8 для Windows x64, который скачивает сборка крейта sherpa-onnx-sys
+/// Архив выпуска sherpa-onnx v2.0.1 для Windows x64, который скачивает сборка крейта sherpa-onnx-sys
 /// (github.com/k2-fsa/sherpa-onnx/releases, Apache-2.0; onnxruntime внутри — MIT; SHA-256 архива
-/// b8eedf41bd6d3779218887b48367bb7a3ece5aaa7667f01f69ee823a12b0a9e7, как в выпуске). В git библиотеки не лежат.
-const SHERPA_ARCHIVE: &str = "sherpa-onnx-v1.13.8-win-x64-shared-MT-Release-lib";
+/// afa4de3ca4ab0afd53bb4aab40d28ee15608364b549ffc0fe0caf6489bfc39a5, как в выпуске). В git библиотеки не лежат.
+const SHERPA_ARCHIVE: &str = "sherpa-onnx-v2.0.1-win-x64-shared-MT-Release-lib";
 
 /// Файлы из архива, которые попадают в программу, и их SHA-256: другая библиотека — сборка падает.
 const SHERPA_FILES: &[(&str, &str)] = &[
-    ("sherpa-onnx-c-api.dll", "300e0c88400903fc4cfc88be88a8ae587a24cc658653e0e1fd1c2b8dbbc68557"),
+    ("sherpa-onnx-c-api.dll", "0965a6e4c0254da2beff489cf7a8aaffaf7dc94f90b43b3e66448b8cab4177ea"),
     ("onnxruntime.dll", "7f66f939a881baf4f46a2216496798edf4a1429878b646d12674aa62f27d8a25"),
-    ("sherpa-onnx-c-api.lib", "ff29efcc1af67ecdd860905025cde2c48915d6c1060ca1a43cc2e442a138e401"),
+    ("sherpa-onnx-c-api.lib", "edf4b780d0ab4f0320d210f9cfc7e96e01d9b0dbee7234746f6cb6b422065997"),
     ("onnxruntime.lib", "b9fc3cd678257d88a111b0773ede4bfceaf0fe95daab4379f2b2b37348a68781"),
 ];
 

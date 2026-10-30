@@ -1,6 +1,6 @@
 [package]
 name = "dela-desktop"
-version = "1.1.8"
+version = "1.1.9"
 description = "Dela, a task manager with end-to-end encryption"
 edition = "2021"
 license = "AGPL-3.0-only"
@@ -27,9 +27,9 @@ serde_json = "1"
 # подписки на календари iCal: запрос без ограничений CORS, только https; тот же reqwest, что у обновлений
 reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
-# голосовой ввод без облака: официальные биндинги sherpa-onnx (DLL из выпуска v1.13.8, хэши сверяет build.rs),
+# голосовой ввод без облака: официальные биндинги sherpa-onnx (DLL из выпуска v2.0.1, хэши сверяет build.rs),
 # запись с микрофона через WASAPI, проверка скачанных моделей по SHA-256
-sherpa-onnx = { version = "=1.13.8", default-features = false, features = ["shared"] }
+sherpa-onnx = { version = "=2.0.1", default-features = false, features = ["shared"] }
 cpal = "0.18"
 sha2 = "0.11"
 libloading = "0.9"

@@ -39,8 +39,8 @@ android {
         // Wear OS 3 и новее.
         minSdk 30
         targetSdk 36
-        versionCode 14
-        versionName '1.1.8'
+        versionCode 15
+        versionName '1.1.9'
         // Часы — ARM; x86_64 только для эмулятора в отладочной сборке.
         ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
         buildConfigField 'String', 'GIT_BUILD', "\"${buildId}\""
