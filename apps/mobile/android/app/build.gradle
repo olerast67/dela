@@ -13,8 +13,8 @@ android {
         applicationId "io.github.olerast67.dela"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 25
-        versionName "1.1.7"
+        versionCode 26
+        versionName "1.1.8"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         // Встроенное обновление из выпусков GitHub. Сборка для F-Droid (-PdelaFdroid) его выключает: там обновляет F-Droid.
         buildConfigField "boolean", "SELF_UPDATE", project.hasProperty('delaFdroid') ? 'false' : 'true'
