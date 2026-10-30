@@ -27,7 +27,7 @@ import { generateVapid, isAllowedEndpoint, loadVapid, sendPush } from './webpush
 import { newTotpSecret, otpauthUri, verifyTotp } from './totp.ts';
 import { EMAIL_RE, UUID_RE, b64, bad, int, obj, optStr, str } from './validate.ts';
 
-export const VERSION = '1.1.7';
+export const VERSION = '1.1.8';
 
 interface Auth {
   readonly userId: string;

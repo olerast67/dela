@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.8
+
+- Security, Windows: the in-app updater plugin 2.14.1 brings zip 9.1.3 instead of 4.6.1 (archive parsing flaws: header cloaking, symlink targets, AES entry authentication). The update file is checked against the project signature before it is opened, so this was not reachable without the signing key, but the old code is gone now.
+
 ## 1.1.7
 
 - Security: dela-mcp now pins zod 4.6.7 (memory exhaustion on oversized constrained collections, GHSA for zod < 4.6.6) and the MCP SDK 1.32.2; fast-uri 3.1.9 and serialize-javascript 7.1.4 in the lockfile (Dependabot #34–#36).
