@@ -61,13 +61,13 @@
     "@aparajita/capacitor-biometric-auth": "10.0.0",
     "@capacitor/haptics": "8.0.2",
     "@fontsource-variable/manrope": "5.3.0",
-    "@hono/node-server": "2.1.6",
+    "@hono/node-server": "2.1.8",
     "@simplewebauthn/server": "14.1.0",
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-updater": "^2.14.1",
-    "hono": "^4.13.17",
+    "hono": "^4.13.18",
     "libsodium-wrappers-sumo": "^0.8.4",
-    "ws": "8.22.1"
+    "ws": "8.23.0"
   },
   "overrides": {
     "uuid": "^11.1.1"
