@@ -44,6 +44,7 @@ import {
 import type { Json, Op } from './op.ts';
 import { gameSettingsChanges, readGameSettings, GAME_RECORD, GAME_TABLE, type GameSettings } from './game.ts';
 import { inputSettingsChanges, readInputSettings, INPUT_RECORD, INPUT_TABLE, type InputSettings } from './input.ts';
+import { planSettingsChanges, readPlanSettings, PLAN_RECORD, PLAN_TABLE, type PlanSettings } from './plan.ts';
 import { clampRadius, coordValue, toPlace, placeValue, type PlaceReminder, type SavedPlace } from './places.ts';
 import { nextOccurrence, occurrencesBetween, parseRule } from './recurrence.ts';
 import { MemoryReplica } from './replica.ts';
@@ -111,6 +112,7 @@ export interface TaskInput {
   readonly due?: DateSpec | null;
   readonly deadline?: string | null;
   readonly duration?: number | null;
+  readonly fixedTime?: boolean;
   readonly recurrence?: Recurrence | null;
   readonly habit?: Habit | null;
   readonly reminders?: readonly number[] | null;
@@ -127,6 +129,7 @@ export interface TaskPatch {
   readonly due?: DateSpec | null;
   readonly deadline?: string | null;
   readonly duration?: number | null;
+  readonly fixedTime?: boolean;
   readonly recurrence?: Recurrence | null;
   readonly habit?: Habit | null;
   readonly reminders?: readonly number[] | null;
@@ -148,6 +151,7 @@ const TASK_PATCH_FIELDS: Record<keyof TaskPatch, string> = {
   due: 'due',
   deadline: 'deadline',
   duration: 'duration',
+  fixedTime: 'fixed',
   recurrence: 'recurrence',
   habit: 'habit',
   reminders: 'reminders',
@@ -664,6 +668,7 @@ export class Doc {
     if (input.due) changes.push(['task', id, 'due', input.due as unknown as Json]);
     if (input.deadline) changes.push(['task', id, 'deadline', input.deadline]);
     if (input.duration) changes.push(['task', id, 'duration', input.duration]);
+    if (input.fixedTime) changes.push(['task', id, 'fixed', true]);
     if (input.recurrence) changes.push(['task', id, 'recurrence', input.recurrence as unknown as Json]);
     if (input.habit) changes.push(['task', id, 'habit', input.habit as unknown as Json]);
     if (input.reminders) changes.push(['task', id, 'reminders', [...input.reminders]]);
@@ -1021,6 +1026,19 @@ export class Doc {
   /** Записать изменённые поля. Неверное значение — RangeError. Настройки не отменяются Ctrl+Z. */
   updateInputSettings(patch: Partial<InputSettings>): void {
     const changes = inputSettingsChanges(patch).filter(([, , field, value]) => this.replica.get(INPUT_TABLE, INPUT_RECORD)?.[field] !== value);
+    this.write(changes, { undoable: false });
+  }
+
+  // ---------- план дня ----------
+
+  /** Настройки плана дня (plan.ts): длительность по умолчанию и напоминание о начале дел; без записи — умолчания. */
+  getPlanSettings(): PlanSettings {
+    return readPlanSettings(this.replica.get(PLAN_TABLE, PLAN_RECORD));
+  }
+
+  /** Записать изменённые поля. Неверное значение — RangeError. Настройки не отменяются Ctrl+Z. */
+  updatePlanSettings(patch: Partial<PlanSettings>): void {
+    const changes = planSettingsChanges(patch).filter(([, , field, value]) => this.replica.get(PLAN_TABLE, PLAN_RECORD)?.[field] !== value);
     this.write(changes, { undoable: false });
   }
 

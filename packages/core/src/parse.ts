@@ -9,6 +9,7 @@
  */
 import { addDays, addMonths, daysInMonth, isDate, isoWeekday, makeDate, parts, today as todayIn, wallClock, type DateSpec } from './dates.ts';
 import type { Priority, Recurrence } from './model.ts';
+import { DEFAULT_PLAN_SETTINGS, DAY_MINUTES, packSequence, minuteToTime, timeToMinute, type Interval } from './plan.ts';
 import { firstOnOrAfter, formatRule, type Rule, type WeekdayNum } from './recurrence.ts';
 
 export type TokenKind = 'date' | 'time' | 'recurrence' | 'deadline' | 'duration' | 'reminder' | 'priority' | 'project' | 'section' | 'label';
@@ -733,6 +734,25 @@ export function parseTask(text: string, ctx: ParseContext): ParsedTask {
       return true;
     },
   );
+  // Длительность без «на»: «30м», «30 мин», «1,5ч», «1.5h», «90min», «полчаса», «полтора часа».
+  // Только с явной единицей; однобуквенная («м», «ч», «m», «h») пишется слитно с числом.
+  // После «за», «через», «каждые», «по», «in», «every» это не длительность («по 30 минут», «за 2 часа до»).
+  if ((duration as number | null) === null) {
+    sc.find(
+      `(?<!(?:за|через|каждые|каждый|каждую|по|раз\\s+в|in|every|within|each)\\s+)(?:(полчаса)|(полтора)\\s+часа|(\\d{1,4}(?:[.,]\\d{1,2})?)(?:(м|ч|m|h)|\\s*(минут[уы]?|мин|час(?:а|ов)?|minutes?|mins?|hours?|hrs?)))`,
+      'duration',
+      (m) => {
+        let mins: number;
+        if (m[1]) mins = 30;
+        else if (m[2]) mins = 90;
+        else mins = Number(m[3]!.replace(',', '.')) * (unitOf((m[4] ?? m[5])!) === 'hour' ? 60 : 1);
+        mins = Math.round(mins);
+        if (mins <= 0 || mins > 24 * 60) return false;
+        duration = mins;
+        return true;
+      },
+    );
+  }
 
   // Приоритет: p1, п1, !1, !!!, !!
   for (const m of text.matchAll(/(?<!\S)(?:[pPпП]([1-4])|!([1-4])|(!!!|!!))(?!\S)/gu)) {
@@ -889,4 +909,112 @@ export function splitTaskList(text: string): ListLine[] | null {
     out.push({ text: line, depth: indent >= 2 && out.length > 0 ? 1 : 0 });
   }
   return out.length > 1 ? out : null;
+}
+
+// ---------- план: цепочки и списки со временем ----------
+
+export interface PlanParseOptions {
+  /** Длительность дела без длительности при укладке встык; по умолчанию 15. */
+  readonly defaultDuration?: number;
+  /** Занятые отрезки по датам (минуты от полуночи): следующие дела цепочки их обходят. */
+  readonly busy?: Readonly<Record<string, readonly Interval[]>>;
+}
+
+/** Кусок цепочки: текст и где он начинается в исходной фразе (для подсветки токенов). */
+export interface PlanPiece {
+  readonly text: string;
+  readonly start: number;
+  readonly parsed: ParsedTask;
+}
+
+const CHAIN_SPLIT = new RegExp(
+  `\\s*(?:→|->)\\s*|[\\s,;]*(?<![\\p{L}\\p{N}_])(?:(?:а|и|and)\\s+)?(?:потом|затем|после\\s+этого|then|after\\s+that)(?![\\p{L}\\p{N}_])[\\s,:]*`,
+  'giu',
+);
+
+/** Явно указана дата (или повтор): такое дело не берёт дату цепочки. */
+const hasOwnDate = (p: ParsedTask) => p.tokens.some((t) => t.kind === 'date' || t.kind === 'recurrence');
+
+/**
+ * Протянуть время по цепочке: дело без срока встаёт сразу после предыдущего со временем
+ * (его длительность или defaultDuration), обходя busy. Дело со своим временем начинает новую цепочку;
+ * если в нём нет явной даты, оно берёт дату цепочки. Дело с датой без времени цепочку прерывает,
+ * а во фразе (inheritDate) передаёт следующим делам без срока свою дату.
+ * Дело, которое не влезает до 24:00, остаётся на дату цепочки без времени.
+ */
+function chainTimes(items: readonly ParsedTask[], opts: PlanParseOptions, inheritDate: boolean): ParsedTask[] {
+  const dflt = opts.defaultDuration ?? DEFAULT_PLAN_SETTINGS.duration;
+  const out: ParsedTask[] = [];
+  let chainDate: string | null = null;
+  let tz: string | undefined;
+  let cursor: number | null = null;
+  for (const raw of items) {
+    let p = raw;
+    if (p.due?.time) {
+      // «13:00 обед» после «6:00 подъём» — тот же день, даже если 13:00 по отдельности ушло бы на завтра.
+      if (chainDate !== null && !hasOwnDate(p) && !p.recurrence) p = { ...p, due: { ...p.due, date: chainDate } };
+      else chainDate = p.due.date;
+      tz = p.due!.tz;
+      cursor = timeToMinute(p.due!.time!) + (p.duration ?? dflt);
+    } else if (p.due === null && chainDate !== null && cursor !== null) {
+      const busy = opts.busy?.[chainDate] ?? [];
+      const placed = packSequence([{ id: '_', duration: p.duration }], cursor, busy, { date: chainDate, defaultDuration: dflt });
+      const c = placed.changes[0];
+      if (c) {
+        p = { ...p, due: { date: chainDate, time: minuteToTime(c.minute), ...(tz ? { tz } : {}) } };
+        cursor = c.minute + c.duration;
+      } else {
+        p = { ...p, due: { date: chainDate } };
+        cursor = DAY_MINUTES;
+      }
+    } else if (p.due === null && chainDate !== null && inheritDate) {
+      p = { ...p, due: { date: chainDate } };
+    } else if (p.due !== null) {
+      cursor = null;
+      chainDate = inheritDate && !p.recurrence ? p.due.date : null;
+    }
+    out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Фраза-цепочка: «в 6 подъём 1ч потом банк полчаса потом созвон 20 минут», «9:00 email → standup 15m».
+ * Разделители «потом», «затем», «после этого», «then», «after that», «→», «->».
+ * Каждый кусок разбирается parseTask, время следующих считается встык (chainTimes).
+ * null — разделителя нет или кусок один: это обычная фраза.
+ */
+export function parsePlan(text: string, ctx: ParseContext, opts: PlanParseOptions = {}): PlanPiece[] | null {
+  if (ctx.plain) return null;
+  const pieces: Array<{ text: string; start: number }> = [];
+  let last = 0;
+  for (const m of text.matchAll(CHAIN_SPLIT)) {
+    pieces.push({ text: text.slice(last, m.index!), start: last });
+    last = m.index! + m[0].length;
+  }
+  pieces.push({ text: text.slice(last), start: last });
+  const parts = pieces
+    .map((p) => {
+      const lead = /^\s*/.exec(p.text)![0].length;
+      return { text: p.text.trim(), start: p.start + lead };
+    })
+    .filter((p) => p.text);
+  if (parts.length < 2) return null;
+  const parsed = chainTimes(parts.map((p) => parseTask(p.text, { ...ctx, ignore: [] })), opts, true);
+  return parts.map((p, i) => ({ text: p.text, start: p.start, parsed: parsed[i]! }));
+}
+
+/**
+ * Вставленный список (splitTaskList) с расчётом времени: строка без срока встаёт сразу после предыдущей
+ * строки со временем, строка со своим временем начинает новую цепочку. Подзадачи (depth 1) разбираются
+ * как есть и в цепочке не участвуют. Если ни в одной строке нет времени, результат тот же, что parseTask
+ * по каждой строке. Порядок и длина совпадают с lines.
+ */
+export function planTaskList(lines: readonly ListLine[], ctx: ParseContext, opts: PlanParseOptions = {}): ParsedTask[] {
+  const parsed = lines.map((l) => parseTask(l.text, ctx));
+  if (ctx.plain) return parsed;
+  const top = lines.map((l, i) => ({ l, i })).filter((x) => x.l.depth === 0);
+  const chained = chainTimes(top.map((x) => parsed[x.i]!), opts, false);
+  top.forEach((x, k) => (parsed[x.i] = chained[k]!));
+  return parsed;
 }

@@ -20,6 +20,7 @@ import { computeGarden, type Garden } from './garden.ts';
 import type { SavedPlace } from './places.ts';
 import type { GameSettings } from './game.ts';
 import type { InputSettings } from './input.ts';
+import type { PlanSettings } from './plan.ts';
 import type { Attachment, Comment, Completion, Label, Project, ProjectView, SavedFilter, Section } from './model.ts';
 
 export class Workspace {
@@ -472,6 +473,15 @@ export class Workspace {
     this.personal.updateInputSettings(patch);
   }
 
+  /** Настройки плана дня: запись личного пространства, синхронизируется зашифрованной. */
+  getPlanSettings(): PlanSettings {
+    return this.personal.getPlanSettings();
+  }
+
+  updatePlanSettings(patch: Partial<PlanSettings>): void {
+    this.personal.updatePlanSettings(patch);
+  }
+
   /** Пространство задачи: для общих проектов нужен список участников. */
   spaceOfTask(taskId: string): string {
     return this.docForTask(taskId).spaceId;
@@ -537,6 +547,7 @@ export class Workspace {
       due: t.due,
       deadline: t.deadline,
       duration: t.duration,
+      fixedTime: t.fixedTime,
       recurrence: t.recurrence,
       habit: t.habit,
       reminders: t.reminders,
