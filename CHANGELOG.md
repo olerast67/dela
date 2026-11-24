@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+- Day plan. A task with a time and a duration is a block of the day; the plan fills itself back to back, so only the first item needs a time.
+  - Quick add, voice and pasted lists: "6:00 wake up and workout 1h then bank 30m then call the lawyer 20m" becomes 6:00, 7:00, 7:30. Lines of a pasted list without their own time go right after the previous line. Durations work without "for": "30m", "1h", "1.5h", "полчаса", "полтора часа".
+  - Timeline: the day as an ordered list with start times, free gaps ("40 min free", tap to fill), calendar events and the current item with minutes left. Row height does not depend on duration, so several items in one hour stay readable. Drag rows to reorder, times are recomputed back to back. Today, tomorrow or any date.
+  - Inbox on a wide screen shows the timeline on the right, tasks are dragged from the list into it; on a phone it is the "Plan" tab. Today gets a "Timeline" view.
+  - "Schedule" for selected tasks (from now, from the next free slot or from a time), "To the next free slot" for one task (key N, task panel, command palette), "+15", "+30" and "Close gaps" for the rest of the day. Every action is one undo step.
+  - "Fixed time" on a task: calendar events, repeating tasks and tasks with a fixed time stay in place, the rest flows around them. Items that would end after midnight are marked.
+  - Settings: default duration for items without one (15 min) and a reminder at the start of each planned item.
+- Android widget: a new "Plan" list. The current item on top with a progress bar and minutes left, then the next items, gaps and calendar events. "+15" shifts the rest of the day right on the widget, "+" and the microphone add after the last item, a tap on a gap adds into it. The widget redraws at block boundaries, not every minute.
+- Security: glob 14 for workbox-build and the Capacitor CLI, so minimatch is 11.0.9 (Dependabot #14, build tools only).
+
 ## 1.1.9
 
 - Windows: voice input moves to sherpa-onnx 2.0.1. Its build no longer pulls zip 2.6.1, so the last three Dependabot alerts (zip < 9.0.5) are gone. The DLLs come from the v2.0.1 release (archive SHA-256 checked against GitHub), `build.rs` pins the new hashes, onnxruntime is unchanged, the same speech models work: a Russian test phrase is recognized word for word. Android keeps the sherpa-onnx 1.13.8 AAR.

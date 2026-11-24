@@ -1,0 +1,1 @@
+Day plan: items go back to back by duration, a day timeline with free gaps and the current item, "+15" and "Close gaps" for the rest of the day. A new "Plan" list in the widget.
