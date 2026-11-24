@@ -29,7 +29,7 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls-no-p
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 # голосовой ввод без облака: официальные биндинги sherpa-onnx (DLL из выпуска v2.0.1, хэши сверяет build.rs),
 # запись с микрофона через WASAPI, проверка скачанных моделей по SHA-256
-sherpa-onnx = { version = "=2.0.1", default-features = false, features = ["shared"] }
+sherpa-onnx = { version = "=2.0.2", default-features = false, features = ["shared"] }
 cpal = "0.18"
 sha2 = "0.11"
 libloading = "0.9"
