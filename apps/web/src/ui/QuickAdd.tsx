@@ -5,10 +5,12 @@ import { isQuickWindow } from '../viewWindow.ts';
 import { openModelSettings } from './Recognition.tsx';
 import { IconMic } from './icons.tsx';
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
-import { parseTask, splitTaskList, type DateSpec, type ListLine, type ParsedTask, type Priority, type Token, type Workspace } from '#core';
+import { busyIntervals, parsePlan, timeToMinute, parseTask, planTaskList, splitTaskList, type DateSpec, type Interval, type PlanParseOptions, type ListLine, type ParseContext, type ParsedTask, type Priority, type Token, type Workspace } from '#core';
 import { controller } from '../controller.ts';
 import { useDoc } from '../hooks.ts';
-import { TZ, dueLabel, durationLabel, dateLabel } from '../format.ts';
+import { TZ, dueLabel, durationLabel, dateLabel, timeLabel } from '../format.ts';
+import { dayOf } from './planActions.ts';
+import { placePieces } from '../plan.ts';
 import { showToast } from './toast.tsx';
 import { tn, tr } from '../i18n.ts';
 
@@ -73,6 +75,43 @@ export function createFromParsed(doc: Workspace, parsed: ParsedTask, defaults: Q
     recurrence: parsed.recurrence,
     ...(parsed.reminders ? { reminders: parsed.reminders } : {}),
   });
+}
+
+/** Что знает разборщик фразы: проекты, разделы, метки и выключено ли распознавание. */
+export function parseContext(doc: Workspace): ParseContext {
+  return {
+    now: Date.now(),
+    tz: TZ,
+    projects: [
+      ...doc.projects().map((p) => ({ id: p.project.id, name: p.project.name })),
+      { id: doc.inboxId, name: tr('Входящие') },
+      { id: doc.inboxId, name: 'Inbox' },
+    ],
+    sections: doc.projects().flatMap((p) => doc.sections(p.project.id).map((s) => ({ id: s.id, name: s.name, projectId: p.project.id }))),
+    labels: doc.labels().map((l) => ({ id: l.id, name: l.name })),
+    // Распознавание выключено в настройках: текст сохраняется как есть, подсветки нет.
+    plain: !doc.getInputSettings().parse,
+  };
+}
+
+/**
+ * Настройки укладки цепочки: длительность по умолчанию и занятое время в днях, куда попадают дела
+ * (дела без своего времени обходят уже стоящие блоки и события). parse — разбор без учёта занятого.
+ */
+function planOptions<T>(doc: Workspace, parse: (opts: PlanParseOptions) => T, datesOf: (r: T) => Array<string | undefined>): T {
+  const base = { defaultDuration: doc.getPlanSettings().duration };
+  const first = parse(base);
+  const dates = [...new Set(datesOf(first).filter((d): d is string => !!d))];
+  if (!dates.length) return first;
+  const busy: Record<string, Interval[]> = {};
+  for (const d of dates) busy[d] = busyIntervals(dayOf(doc, d));
+  return parse({ ...base, busy });
+}
+
+/** Подпись дела цепочки: время (или дата), если оно есть. */
+function pieceWhen(p: ParsedTask): string {
+  if (!p.due) return '';
+  return p.due.time ? timeLabel(p.due.time) : dateLabel(p.due.date);
 }
 
 export function QuickAdd({
@@ -184,22 +223,7 @@ export function QuickAdd({
     openModelSettings();
   };
 
-  const ctx = useMemo(
-    () => ({
-      now: Date.now(),
-      tz: TZ,
-      projects: [
-        ...doc.projects().map((p) => ({ id: p.project.id, name: p.project.name })),
-        { id: doc.inboxId, name: tr('Входящие') },
-        { id: doc.inboxId, name: 'Inbox' },
-      ],
-      sections: doc.projects().flatMap((p) => doc.sections(p.project.id).map((s) => ({ id: s.id, name: s.name, projectId: p.project.id }))),
-      labels: doc.labels().map((l) => ({ id: l.id, name: l.name })),
-      // Распознавание выключено в настройках: текст сохраняется как есть, подсветки нет.
-      plain: !doc.getInputSettings().parse,
-    }),
-    [doc, controller.getDocVersion()],
-  );
+  const ctx = useMemo(() => parseContext(doc), [doc, controller.getDocVersion()]);
 
   // Пропуски, текст которых изменился, больше не действуют.
   const activeIgnored = ignored.filter((i) => text.slice(i.start, i.end) === i.text);
@@ -208,12 +232,41 @@ export function QuickAdd({
     [text, ctx, activeIgnored.map((i) => `${i.start}:${i.end}`).join(',')],
   );
 
+  // Цепочка через «потом», «затем», «then», «→»: дела встают встык, время видно до сохранения.
+  const chain = useMemo(() => {
+    if (!text.trim() || ctx.plain) return null;
+    const pieces = planOptions(
+      doc,
+      (opts) => parsePlan(text, ctx, opts),
+      (r) => (r ?? []).map((p) => p.parsed.due?.date),
+    );
+    // Время по умолчанию (виджет в режиме «План», нажатая дыра): дела без своего срока встают встык с него.
+    const due = defaults.due;
+    if (!pieces || !due?.time) return pieces;
+    const placed = placePieces(
+      pieces.map((p) => p.parsed),
+      dayOf(doc, due.date),
+      timeToMinute(due.time),
+    );
+    return pieces.map((p, i) => ({ ...p, parsed: placed[i]! }));
+  }, [text, ctx, defaults.due?.date, defaults.due?.time]);
+
   function ignore(t: Token) {
     setIgnored([...activeIgnored, { start: t.start, end: t.end, text: t.text }]);
     input.current?.focus();
   }
 
   function submit() {
+    if (chain) {
+      const items = chain.filter((p) => p.parsed.title);
+      if (!items.length) return;
+      doc.group(() => items.forEach((p) => createFromParsed(doc, p.parsed, defaults)));
+      setText('');
+      setIgnored([]);
+      showToast(tr('Добавлено: {n}', { n: tn(items.length, 'задача', 'задачи', 'задач') }), { label: tr('Отменить'), run: () => doc.undo() });
+      onAdded?.();
+      return;
+    }
     if (!parsed.title) return;
     createFromParsed(doc, parsed, defaults);
     setText('');
@@ -222,11 +275,18 @@ export function QuickAdd({
     onAdded?.();
   }
 
+  // Список с временем у первой строки: строки без времени встают встык за ней.
+  const batchParsed = useMemo(
+    () => (batch ? planOptions(doc, (opts) => planTaskList(batch, ctx, opts), (r) => r.map((p) => p.due?.date)) : []),
+    [batch, ctx],
+  );
+
   function addBatch(lines: readonly ListLine[]) {
     let parent: string | null = null;
     let added = 0;
-    for (const line of lines) {
-      const p = parseTask(line.text, ctx);
+    const all = lines === batch ? batchParsed : planTaskList(lines, ctx, { defaultDuration: doc.getPlanSettings().duration });
+    for (const [i, line] of lines.entries()) {
+      const p = all[i]!;
       if (!p.title) continue;
       const top = parent ? doc.task(parent) : undefined;
       if (line.depth === 1 && top) {
@@ -272,7 +332,8 @@ export function QuickAdd({
   // Зеркало с подсветкой под прозрачным полем ввода.
   const segments: Array<{ text: string; kind?: Token['kind'] }> = [];
   let pos = 0;
-  for (const t of parsed.tokens) {
+  const shownTokens = chain ? chain.flatMap((p) => p.parsed.tokens.map((t) => ({ ...t, start: t.start + p.start, end: t.end + p.start }))) : parsed.tokens;
+  for (const t of shownTokens) {
     if (t.start > pos) segments.push({ text: text.slice(pos, t.start) });
     segments.push({ text: t.text, kind: t.kind });
     pos = t.end;
@@ -353,7 +414,7 @@ export function QuickAdd({
         <p className="qa-batch-title">{tr('Вставлен список: {n}', { n: tn(batch.length, 'задача', 'задачи', 'задач') })}</p>
         <ul className="qa-batch">
           {batch.map((line, i) => {
-            const p = parseTask(line.text, ctx);
+            const p = batchParsed[i] ?? parseTask(line.text, ctx);
             return (
               <li key={i} className={line.depth ? 'sub' : undefined}>
                 <span>{p.title || line.text}</span>
@@ -456,10 +517,21 @@ export function QuickAdd({
           </div>
         </div>
       )}
-      {(chips.length > 0 || !compact) && (
+      {chain && (
+        <ol className="qa-chain" aria-label={tr('План')}>
+          {chain.map((p, i) => (
+            <li key={`${i}:${p.text}`}>
+              <span className="qa-chain-time">{pieceWhen(p.parsed)}</span>
+              <span className="qa-chain-title">{p.parsed.title || p.text}</span>
+              {p.parsed.duration && <span className="qa-chain-dur">{durationLabel(p.parsed.duration)}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+      {(chips.length > 0 || !compact || chain) && (
         <div className="qa-bar">
           <div className="chips">
-            {chips.map((c) => (
+            {!chain && chips.map((c) => (
               <span key={c.key} className="chip">
                 {c.label}
                 {c.token && (
@@ -488,7 +560,7 @@ export function QuickAdd({
                 {tr('Отмена')}
               </button>
             )}
-            <button type="button" className="primary" disabled={!parsed.title} onClick={submit}>
+            <button type="button" className="primary" disabled={chain ? !chain.some((p) => p.parsed.title) : !parsed.title} onClick={submit}>
               {tr('Добавить')}
             </button>
           </div>

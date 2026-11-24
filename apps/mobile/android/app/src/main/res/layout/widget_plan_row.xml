@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Строка плана: время начала, кружок у задачи или метка у события, название. Дыра — строка «свободно N мин». -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/row_root"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="48dp"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingEnd="14dp"
+        android:paddingTop="9dp"
+        android:paddingBottom="9dp">
+
+        <TextView
+            android:id="@+id/row_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="44dp"
+            android:singleLine="true"
+            android:textSize="13.5sp" />
+
+        <FrameLayout
+            android:id="@+id/row_lead"
+            android:layout_width="40dp"
+            android:layout_height="36dp">
+
+            <ImageView
+                android:id="@+id/row_check"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="8dp"
+                android:src="@drawable/widget_check_p4"
+                android:contentDescription="@string/cd_complete" />
+
+            <ImageView
+                android:id="@+id/row_mark"
+                android:layout_width="4dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/widget_plan_mark"
+                android:visibility="gone"
+                android:importantForAccessibility="no" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/row_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textSize="15.5sp" />
+    </LinearLayout>
+
+    <FrameLayout
+        android:id="@+id/row_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="14dp" />
+</LinearLayout>

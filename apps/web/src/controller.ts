@@ -46,6 +46,7 @@ import {
   recoverAccount,
   welcomeTasks,
   remindersBetween,
+  planReminders,
   alarmTasks,
   placeZones,
   digestsBetween,
@@ -69,9 +70,10 @@ import {
 } from '#core';
 import { IdbStore, openLocal, sealLocal, sealLocalB64 } from './storage.ts';
 import { TZ, weekTitle } from './format.ts';
+import { withPlanReminders } from './plan.ts';
 import { createPasskey, getPasskey } from './passkey.ts';
 import { loadPomodoro, onPomodoroChange, pomodoroSettings } from './pomodoro.ts';
-import { clearCalendars } from './calendars.ts';
+import { calendarEvents, clearCalendars, onCalendarsChange } from './calendars.ts';
 import { biometryUnlock, nativePushSubscribe, nativePushUnsubscribe, platform, nativeNotify, onAppPauseResume, onWidgetCompleted, serverUrl, syncNativePlaces, syncNativeReminders, takeWidgetCompleted, updateWidget } from './platform.ts';
 import { LANG, tn, tr } from './i18n.ts';
 import { isQuickWindow } from './viewWindow.ts';
@@ -1007,7 +1009,7 @@ export class Controller {
    * Сводка — синтетическое напоминание без задачи (taskId пустой): по нажатию открывается «Сегодня».
    */
   private alerts(from: number, to: number, offsets: number[], pomodoro = false): Reminder[] {
-    const list = remindersBetween(this.doc!, from, to, TZ, offsets);
+    const list = this.taskReminders(from, to, offsets);
     const digest = this.morningDigest();
     const extra: Reminder[] = [];
     if (digest.on) {
@@ -1029,6 +1031,16 @@ export class Controller {
     if (pomo && pomo.at >= from && pomo.at < to) extra.push(pomo);
     if (extra.length === 0) return list;
     return [...list, ...extra].sort((a, b) => a.at - b.at || a.key.localeCompare(b.key));
+  }
+
+  /**
+   * Напоминания задач в [from, to) и, если включено «напоминать о начале каждого дела в плане» (7.7),
+   * напоминания в момент начала дел со временем. У них тот же ключ, что у напоминания «в срок»: дело,
+   * которому и так напомнят в начале, второй раз не напоминает.
+   */
+  private taskReminders(from: number, to: number, offsets: number[]): Reminder[] {
+    const list = remindersBetween(this.doc!, from, to, TZ, offsets);
+    return withPlanReminders(list, planReminders(this.doc!, from, to, TZ, this.doc!.getPlanSettings()));
   }
 
   /** Уведомление об окончании работы или перерыва; ключ меняется после паузы, чтобы уведомление пришло снова. */
@@ -1209,7 +1221,7 @@ export class Controller {
     if (!this.doc) return [];
     const now = Date.now();
     const to = now + 7 * 24 * 3600_000;
-    const list = (own ? this.alerts(now, to, offsets) : remindersBetween(this.doc, now, to, TZ, offsets)).slice(0, 300);
+    const list = (own ? this.alerts(now, to, offsets) : this.taskReminders(now, to, offsets)).slice(0, 300);
     return Promise.all(
       list.map(async (r) => {
         const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(r.key)));
@@ -1280,13 +1292,26 @@ export class Controller {
   /** Телефон: снимок задач для виджета на главном экране. */
   private syncWidget(): void {
     if (!this.doc) return;
+    // Режим «План» показывает события календарей: когда они загрузились или изменились, снимок обновляется.
+    if (!this.calendarsWatched && platform() === 'capacitor') {
+      this.calendarsWatched = true;
+      let soon: ReturnType<typeof setTimeout> | undefined;
+      onCalendarsChange(() => {
+        clearTimeout(soon);
+        soon = setTimeout(() => this.syncWidget(), 1000);
+      });
+    }
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
-    void updateWidget(widgetSnapshot(this.doc, today, TZ, this.lock !== null, WIDGET_TASK_LIMIT, tr('Входящие'), LANG)).catch((err) => console.error('widget update failed', err));
+    const events = calendarEvents(today, 1);
+    void updateWidget(widgetSnapshot(this.doc, today, TZ, this.lock !== null, WIDGET_TASK_LIMIT, tr('Входящие'), LANG, events)).catch((err) => console.error('widget update failed', err));
   }
+
+  private calendarsWatched = false;
 
   /** Отметки «выполнено» с виджета: применяются как обычное выполнение (повторы переносятся). */
   async applyWidgetCompleted(): Promise<void> {
     const ids = await takeWidgetCompleted().catch(() => [] as string[]);
+    if (this.doc) await (await import('./widgetPlan.ts')).applyWidgetShifts(this.doc, ids).catch((err) => console.error('widget shift failed', err));
     if (!this.doc || ids.length === 0) return;
     for (const id of ids) {
       const t = this.doc.task(id);

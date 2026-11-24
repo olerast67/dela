@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Текущее дело плана: кружок «выполнить», название, полоска прошедшего времени и остаток минут. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingStart="8dp"
+    android:paddingEnd="8dp"
+    android:paddingTop="2dp"
+    android:paddingBottom="4dp">
+
+    <LinearLayout
+        android:id="@+id/row_root"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_plan_now_dark"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="0dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp">
+
+        <FrameLayout
+            android:layout_width="44dp"
+            android:layout_height="40dp">
+
+            <ImageView
+                android:id="@+id/row_check"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="9dp"
+                android:src="@drawable/widget_check_p4"
+                android:contentDescription="@string/cd_complete" />
+
+            <ImageView
+                android:id="@+id/row_mark"
+                android:layout_width="4dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:src="@drawable/widget_plan_mark"
+                android:visibility="gone"
+                android:importantForAccessibility="no" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/row_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:textStyle="bold"
+                android:textSize="16sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:layout_width="0dp"
+                    android:layout_height="4dp"
+                    android:layout_weight="1">
+
+                    <ProgressBar
+                        android:id="@+id/row_progress_dark"
+                        style="@android:style/Widget.ProgressBar.Horizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="4dp"
+                        android:max="100"
+                        android:progressDrawable="@drawable/widget_plan_progress_dark" />
+
+                    <ProgressBar
+                        android:id="@+id/row_progress_light"
+                        style="@android:style/Widget.ProgressBar.Horizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="4dp"
+                        android:max="100"
+                        android:visibility="gone"
+                        android:progressDrawable="@drawable/widget_plan_progress_light" />
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/row_left"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:singleLine="true"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -1,6 +1,10 @@
-import { addDays, type Priority, type TaskView } from '#core';
-import { todayDate } from '../format.ts';
+import { useEffect, useRef, useState } from 'react';
+import { addDays, minuteToTime, nowMinute, timeToMinute, type Priority, type TaskView } from '#core';
+import { TZ, todayDate } from '../format.ts';
+import { afterLast, nearestFreeStart, visualOrder } from '../plan.ts';
+import { dayOf, packSelected, planDate, setPlanDate } from './planActions.ts';
 import { useDoc } from '../hooks.ts';
+import type { Workspace } from '#core';
 import { tn, tr } from '../i18n.ts';
 import { haptic } from '../platform.ts';
 import { clearPicked, usePicked } from './selection.ts';
@@ -38,6 +42,7 @@ export function SelectionBar() {
       <button onClick={() => setDate(today)}>{tr('Сегодня')}</button>
       <button onClick={() => setDate(addDays(today, 1))}>{tr('Завтра')}</button>
       <button onClick={() => setDate(null)}>{tr('Без даты')}</button>
+      <PackButton doc={doc} ids={roots.filter((t) => t.completedAt === null).map((t) => t.id)} />
       <select
         aria-label={tr('Приоритет')}
         value=""
@@ -104,6 +109,95 @@ export function SelectionBar() {
       <button className="icon" onClick={clearPicked} aria-label={tr('Снять выделение')} title={tr('Снять выделение (Esc)')}>
         ×
       </button>
+    </div>
+  );
+}
+
+/** Задачи на экране сверху вниз: «Уложить» ставит выбранные в том порядке, в каком их видно. */
+function shownOrder(): string[] {
+  return [...document.querySelectorAll<HTMLElement>('.content .task[data-id]')].map((el) => el.dataset.id!);
+}
+
+/**
+ * «Уложить»: выбранные задачи встают встык в выбранный день с начала: сейчас, ближайшее свободное место,
+ * где они помещаются подряд, или своё время. Занятые блоки и события они обходят.
+ */
+function PackButton({ doc, ids }: { doc: Workspace; ids: readonly string[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const today = todayDate();
+  const tomorrow = addDays(today, 1);
+  const [date, setDate] = useState(() => planDate());
+  const ordered = visualOrder(ids, shownOrder());
+  const defaultTime = (d: string) => minuteToTime(afterLast(dayOf(doc, d, ordered), Date.now()));
+  const [time, setTime] = useState('');
+  useEffect(() => {
+    if (!open) return;
+    const d = planDate();
+    setDate(d);
+    setTime(defaultTime(d));
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [open]);
+  if (ids.length === 0) return null;
+  const pack = (start: number | null) => {
+    if (start === null) {
+      showToast(tr('До 24:00 не влезает'));
+      return;
+    }
+    if (packSelected(doc, ordered, date, start)) {
+      setPlanDate(date);
+      clearPicked();
+    }
+    setOpen(false);
+  };
+  const pick = (d: string) => {
+    setDate(d);
+    setTime(defaultTime(d));
+  };
+  const nm = nowMinute(date, Date.now(), TZ);
+  return (
+    <div className="pack" ref={ref}>
+      <button className={open ? 'active' : ''} aria-expanded={open} onClick={() => setOpen(!open)}>
+        {tr('Уложить')}
+      </button>
+      {open && (
+        <div className="pack-pop" role="dialog" aria-label={tr('Уложить')}>
+          <div className="segmented" role="group" aria-label={tr('День плана')}>
+            <button className={date === today ? 'active' : ''} onClick={() => pick(today)}>
+              {tr('Сегодня')}
+            </button>
+            <button className={date === tomorrow ? 'active' : ''} onClick={() => pick(tomorrow)}>
+              {tr('Завтра')}
+            </button>
+          </div>
+          <div className="pack-starts">
+            {nm !== null && <button onClick={() => pack(Math.ceil(nm / 5) * 5)}>{tr('Сейчас')}</button>}
+            <button onClick={() => pack(nearestFreeStart(dayOf(doc, date, ordered), ordered, Date.now(), nm === null && time ? timeToMinute(time) : undefined))}>
+              {tr('Ближайшее свободное')}
+            </button>
+          </div>
+          <form
+            className="pack-time"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (time) pack(timeToMinute(time));
+            }}
+          >
+            <input type="time" value={time} onChange={(e) => setTime(e.target.value)} aria-label={tr('Начало')} required />
+            <button type="submit" className="primary">
+              {tr('Уложить')}
+            </button>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

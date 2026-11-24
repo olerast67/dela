@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { gameFeature, normalizeText } from '#core';
+import { addDays, gameFeature, normalizeText } from '#core';
+import { todayDate } from '../format.ts';
+import { compactPlan, planDate, setPlanDate, shiftPlan, toNextFree } from './planActions.ts';
+import { setViewLayout } from './ViewOptions.tsx';
 import { controller } from '../controller.ts';
 import { navigate, useDoc, type Route } from '../hooks.ts';
 import { applyTheme } from './Views.tsx';
@@ -13,7 +16,20 @@ interface Command {
   readonly run: () => void;
 }
 
-export function CommandPalette({ onClose, onQuickAdd, onOpen, onCopyLink }: { onClose: () => void; onQuickAdd: () => void; onOpen: (id: string) => void; onCopyLink: () => void }) {
+export function CommandPalette({
+  onClose,
+  onQuickAdd,
+  onOpen,
+  onCopyLink,
+  taskId = null,
+}: {
+  onClose: () => void;
+  onQuickAdd: () => void;
+  onOpen: (id: string) => void;
+  onCopyLink: () => void;
+  /** Открытая или выбранная в списке задача: для «В ближайшее свободное». */
+  taskId?: string | null;
+}) {
   const doc = useDoc();
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
@@ -47,6 +63,26 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen, onCopyLink }: { on
       ...doc.filters().map((f) => ({ id: `f${f.id}`, label: f.name, group: tr('Фильтры'), run: go({ view: 'filter', id: f.id }) })),
       ...doc.labels().map((l) => ({ id: `l${l.id}`, label: `@ ${l.name}`, group: tr('Метки'), run: go({ view: 'label', id: l.id }) })),
       { id: 'new-filter', label: tr('Новый фильтр'), group: tr('Действия'), run: go({ view: 'filter', id: 'new' }) },
+      ...(taskId && doc.task(taskId)?.completedAt === null
+        ? [{ id: 'next-free', label: tr('В ближайшее свободное'), group: tr('План дня'), hint: 'N', run: () => toNextFree(doc, taskId) }]
+        : []),
+      {
+        id: 'plan',
+        label: tr('Лента дня'),
+        group: tr('План дня'),
+        run: () => {
+          setViewLayout('today', 'ribbon');
+          navigate({ view: 'today' });
+        },
+      },
+      { id: 'plan-15', label: tr('Сдвинуть остаток дня на 15 минут'), group: tr('План дня'), run: () => shiftPlan(doc, planDate(), 15) },
+      { id: 'plan-30', label: tr('Сдвинуть остаток дня на 30 минут'), group: tr('План дня'), run: () => shiftPlan(doc, planDate(), 30) },
+      { id: 'plan-compact', label: tr('Уплотнить план'), group: tr('План дня'), run: () => compactPlan(doc, planDate()) },
+      { id: 'plan-tomorrow', label: tr('Спланировать завтра'), group: tr('План дня'), run: () => {
+          setPlanDate(addDays(todayDate(), 1));
+          setViewLayout('today', 'ribbon');
+          navigate({ view: 'today' });
+        } },
       { id: 'link', label: tr('Копировать ссылку'), group: tr('Действия'), hint: 'Ctrl+Shift+C', run: onCopyLink },
       { id: 'sync', label: tr('Синхронизировать сейчас'), group: tr('Действия'), run: () => void controller.syncNow() },
       ...(controller.getState().lockEnabled ? [{ id: 'lock', label: tr('Заблокировать'), group: tr('Действия'), run: () => controller.lockNow() }] : []),
@@ -56,7 +92,7 @@ export function CommandPalette({ onClose, onQuickAdd, onOpen, onCopyLink }: { on
       { id: 'system', label: tr('Тема как в системе'), group: tr('Действия'), run: setTheme('system') },
     ];
     return out;
-  }, [doc, onQuickAdd, onCopyLink]);
+  }, [doc, onQuickAdd, onCopyLink, taskId]);
 
   const needle = normalizeText(query);
   const matched = needle ? commands.filter((c) => normalizeText(c.label).includes(needle)) : commands;
@@ -137,6 +173,7 @@ const SHORTCUTS: Array<[string, string]> = [
   ['Enter', tr('Открыть задачу')],
   ['E', tr('Выполнить задачу')],
   ['T', tr('Перенести на сегодня')],
+  ['N', tr('В ближайшее свободное')],
   ['Delete', tr('Удалить задачу')],
   ['Ctrl+Z', tr('Отменить')],
   ['Ctrl+Shift+C', tr('Копировать ссылку на задачу или экран')],

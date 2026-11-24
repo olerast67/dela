@@ -301,6 +301,11 @@ function getVersion(): number {
   return version;
 }
 
+/** Следить за событиями вне компонентов (снимок для виджета Android); возвращает отписку. */
+export function onCalendarsChange(fn: () => void): () => void {
+  return subscribe(fn);
+}
+
 /** Перерисовать компонент при изменении событий или статуса подписок. */
 export function useCalendarsVersion(): number {
   return useSyncExternalStore(subscribe, getVersion);
@@ -434,8 +439,13 @@ const expandCache = new Map<string, CalEvent[]>();
  * Пока модуль разбора или файл грузятся, список пуст, а компонент перерисуется, когда всё будет готово.
  */
 export function useCalendarEvents(from: string, days: number): CalEvent[] {
-  const v = useCalendarsVersion();
-  const key = `${v}|${from}|${days}`;
+  useCalendarsVersion();
+  return calendarEvents(from, days);
+}
+
+/** То же без подписки: для действий вне компонентов (укладка плана с клавиатуры, напоминания). */
+export function calendarEvents(from: string, days: number): CalEvent[] {
+  const key = `${version}|${from}|${days}`;
   const hit = expandCache.get(key);
   if (hit) return hit;
   const bounds = windowBounds(from, days, TZ);

@@ -82,6 +82,31 @@ final class WidgetStore {
         return out;
     }
 
+    /** Сдвиги «+15», нажатые на виджете в режиме «План»: [{at: мс, m: минуты}], их применяет приложение. */
+    static JSONArray shifts(Context c) {
+        try {
+            return new JSONArray(prefs(c).getString("shifts", "[]"));
+        } catch (Exception e) {
+            return new JSONArray();
+        }
+    }
+
+    static void addShift(Context c, long at, int minutes) {
+        JSONArray a = shifts(c);
+        try {
+            a.put(new JSONObject().put("at", at).put("m", minutes));
+        } catch (Exception ignored) {
+            // put с числами не бросает
+        }
+        prefs(c).edit().putString("shifts", a.toString()).apply();
+    }
+
+    static JSONArray takeShifts(Context c) {
+        JSONArray a = shifts(c);
+        prefs(c).edit().remove("shifts").apply();
+        return a;
+    }
+
     /** Настройки одного виджета. */
     static final class Config {
         String list = "today";
@@ -134,6 +159,7 @@ final class WidgetStore {
     static String listTitle(Context c, String list) {
         if ("today".equals(list)) return c.getString(R.string.list_today);
         if ("week".equals(list)) return c.getString(R.string.list_week);
+        if (WidgetPlan.LIST.equals(list)) return c.getString(R.string.list_plan);
         JSONObject snap = snapshot(c);
         if (snap != null && list.startsWith("project:")) {
             JSONArray projects = snap.optJSONArray("projects");
@@ -154,5 +180,6 @@ final class WidgetStore {
         m.notifyAppWidgetViewDataChanged(ids, R.id.widget_list);
         // Виджет быстрого добавления: подсказка на языке приложения из нового снимка.
         for (int id : m.getAppWidgetIds(new ComponentName(c, QuickAddWidgetProvider.class))) QuickAddWidgetProvider.update(c, m, id);
+        WidgetPlan.schedule(c);
     }
 }

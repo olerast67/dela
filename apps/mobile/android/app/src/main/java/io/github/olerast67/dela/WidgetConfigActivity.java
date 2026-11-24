@@ -42,13 +42,15 @@ public class WidgetConfigActivity extends AppCompatActivity {
         setTitle(R.string.widget_config_title);
         WidgetStore.Config cfg = WidgetStore.config(this, widgetId);
 
-        // Списки: Сегодня, Неделя и проекты из последнего снимка.
+        // Списки: Сегодня, Неделя, План и проекты из последнего снимка.
         List<String> labels = new ArrayList<>();
         List<String> values = new ArrayList<>();
         labels.add(getString(R.string.list_today));
         values.add("today");
         labels.add(getString(R.string.list_week));
         values.add("week");
+        labels.add(getString(R.string.list_plan));
+        values.add(WidgetPlan.LIST);
         JSONObject snap = WidgetStore.snapshot(this);
         JSONArray projects = snap == null ? null : snap.optJSONArray("projects");
         for (int i = 0; projects != null && i < projects.length(); i++) {
@@ -105,6 +107,7 @@ public class WidgetConfigActivity extends AppCompatActivity {
             AppWidgetManager m = AppWidgetManager.getInstance(this);
             TasksWidgetProvider.update(this, m, widgetId);
             m.notifyAppWidgetViewDataChanged(new int[] { widgetId }, R.id.widget_list);
+            WidgetPlan.schedule(this);
             Intent result = new Intent();
             result.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
             setResult(RESULT_OK, result);
