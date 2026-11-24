@@ -11,6 +11,14 @@
     <string name="quick_hint">Add a task to Inbox</string>
 
     <string name="list_today">Today</string>
+    <string name="list_plan">Plan</string>
+    <string name="empty_plan">Nothing planned for the rest of today</string>
+    <string name="plan_free">free %s</string>
+    <string name="plan_left">%s left</string>
+    <string name="dur_min">%d min</string>
+    <string name="dur_h">%d h</string>
+    <string name="dur_hm">%1$d h %2$d min</string>
+    <string name="cd_shift">Shift the rest of the day by 15 minutes</string>
     <string name="list_week">Week</string>
     <string name="day_today">Today</string>
     <string name="day_tomorrow">Tomorrow</string>

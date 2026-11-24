@@ -20,7 +20,7 @@ public class WidgetBridgePlugin extends Plugin {
     static final String EXTRA_QUICK_ADD = "dela.quickAdd";
     static final String EXTRA_VOICE = "dela.voice";
     static final String EXTRA_TODAY = "dela.today";
-    /** Список виджета для быстрого добавления: «today», «week», «inbox» или «project:<id>». */
+    /** Список виджета для быстрого добавления: «today», «week», «inbox», «project:<id>», «plan» или «plan@HH:MM». */
     static final String EXTRA_LIST = "dela.list";
 
     private static WidgetBridgePlugin instance;
@@ -95,6 +95,18 @@ public class WidgetBridgePlugin extends Plugin {
         JSArray ids = new JSArray();
         for (String id : WidgetStore.takeCompleted(getContext())) ids.put(id);
         result.put("ids", ids);
+        call.resolve(result);
+    }
+
+    /** Сдвиги «+15» с виджета в режиме «План»: [{at, m}]; приложение применяет их через shiftRest. */
+    @PluginMethod
+    public void takeShifts(PluginCall call) {
+        JSObject result = new JSObject();
+        try {
+            result.put("shifts", new JSArray(WidgetStore.takeShifts(getContext()).toString()));
+        } catch (Exception e) {
+            result.put("shifts", new JSArray());
+        }
         call.resolve(result);
     }
 

@@ -10,6 +10,14 @@
     <string name="quick_hint">Добавить задачу во Входящие</string>
 
     <string name="list_today">Сегодня</string>
+    <string name="list_plan">План</string>
+    <string name="empty_plan">До конца дня в плане ничего нет</string>
+    <string name="plan_free">свободно %s</string>
+    <string name="plan_left">ещё %s</string>
+    <string name="dur_min">%d мин</string>
+    <string name="dur_h">%d ч</string>
+    <string name="dur_hm">%1$d ч %2$d мин</string>
+    <string name="cd_shift">Сдвинуть остаток дня на 15 минут</string>
     <string name="list_week">Неделя</string>
     <string name="day_today">Сегодня</string>
     <string name="day_tomorrow">Завтра</string>

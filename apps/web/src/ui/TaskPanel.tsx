@@ -6,13 +6,14 @@ import { Markdown, toggleTask } from './Markdown.tsx';
 import { TZ, dateLabel, durationLabel, todayDate } from '../format.ts';
 import { useDoc } from '../hooks.ts';
 import { controller } from '../controller.ts';
-import { IconLink, IconPopout, IconRepeat, IconTrash, IconX } from './icons.tsx';
+import { IconLink, IconPin, IconPopout, IconRepeat, IconTrash, IconX } from './icons.tsx';
 import { HabitField } from './Habit.tsx';
 import { PlaceField } from './Place.tsx';
 import { PomodoroField } from './Pomodoro.tsx';
 import { QuickAdd } from './QuickAdd.tsx';
 import { RepeatEditor } from './RepeatEditor.tsx';
 import { TaskTree, completeWithUndo } from './Task.tsx';
+import { toNextFree } from './planActions.ts';
 import { showToast } from './toast.tsx';
 import { LOCALE, tr } from '../i18n.ts';
 import { taskHash } from '../links.ts';
@@ -310,6 +311,22 @@ export function TaskPanel({
               </button>
             )}
           </dd>
+          {task.completedAt === null && (
+            <dd className="row wrap plan-fields">
+              {task.due?.time && (
+                <button
+                  className={`pill toggle c-green${task.fixedTime ? ' on' : ''}`}
+                  aria-pressed={task.fixedTime}
+                  onClick={() => doc.updateTask(id, { fixedTime: !task.fixedTime })}
+                >
+                  <IconPin /> {tr('Точное время')}
+                </button>
+              )}
+              <button className="pill" onClick={() => toNextFree(doc, id)} title="N">
+                {tr('В ближайшее свободное')}
+              </button>
+            </dd>
+          )}
 
           <dt>{tr('Повтор')}</dt>
           <dd>

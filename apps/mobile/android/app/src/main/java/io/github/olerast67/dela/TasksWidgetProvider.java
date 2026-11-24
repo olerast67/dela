@@ -20,17 +20,23 @@ public class TasksWidgetProvider extends AppWidgetProvider {
     static final String ACTION_ITEM = "io.github.olerast67.dela.WIDGET_ITEM";
     static final String EXTRA_OP = "op";
     static final String EXTRA_TASK = "task";
+    static final String ACTION_SHIFT = "io.github.olerast67.dela.WIDGET_PLAN_SHIFT";
+    /** Время дыры плана «HH:MM» для быстрого добавления. */
+    static final String EXTRA_TIME = "time";
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] ids) {
         for (int id : ids) update(context, manager, id);
         // Раз в полчаса: после полуночи «Сегодня» пересчитывается без открытия приложения.
         manager.notifyAppWidgetViewDataChanged(ids, R.id.widget_list);
+        // После перезагрузки будильники сброшены: план снова ставит перерисовку на границе блока.
+        WidgetPlan.schedule(context);
     }
 
     @Override
     public void onDeleted(Context context, int[] ids) {
         for (int id : ids) WidgetStore.deleteConfig(context, id);
+        WidgetPlan.schedule(context);
     }
 
     private static int mutable() {
@@ -67,9 +73,11 @@ public class TasksWidgetProvider extends AppWidgetProvider {
         v.setInt(R.id.widget_add, "setColorFilter", accent);
 
         JSONObject snap = WidgetStore.snapshot(c);
+        boolean planMode = WidgetPlan.LIST.equals(cfg.list);
         String empty;
         if (snap == null) empty = res.getString(R.string.empty_no_snapshot);
         else if (snap.optBoolean("lock") && cfg.hideWhenLocked) empty = res.getString(R.string.empty_locked);
+        else if (planMode) empty = res.getString(R.string.empty_plan);
         else if ("today".equals(cfg.list)) empty = res.getString(R.string.empty_today);
         else if ("week".equals(cfg.list)) empty = res.getString(R.string.empty_week);
         else empty = res.getString(R.string.empty_list);
@@ -98,8 +106,24 @@ public class TasksWidgetProvider extends AppWidgetProvider {
             R.id.widget_title,
             PendingIntent.getActivity(c, widgetId, configure, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
         );
-        v.setOnClickPendingIntent(R.id.widget_add, openApp(c, 100000 + widgetId, WidgetBridgePlugin.EXTRA_QUICK_ADD, cfg.list));
-        v.setOnClickPendingIntent(R.id.widget_voice, openApp(c, 300000 + widgetId, WidgetBridgePlugin.EXTRA_VOICE, cfg.list));
+        // «План»: «+» и микрофон добавляют после последнего дела плана (приложение берёт не раньше «сейчас»).
+        String addList = cfg.list;
+        if (planMode) {
+            WidgetPlan.Plan plan = WidgetPlan.build(c, snap, System.currentTimeMillis());
+            addList = plan != null && plan.lastEnd > 0 && plan.lastEnd < WidgetPlan.DAY ? WidgetPlan.LIST + "@" + WidgetPlan.hhmm(plan.lastEnd) : WidgetPlan.LIST;
+        }
+        v.setOnClickPendingIntent(R.id.widget_add, openApp(c, 100000 + widgetId, WidgetBridgePlugin.EXTRA_QUICK_ADD, addList));
+        v.setOnClickPendingIntent(R.id.widget_voice, openApp(c, 300000 + widgetId, WidgetBridgePlugin.EXTRA_VOICE, addList));
+        v.setViewVisibility(R.id.widget_shift, planMode && snap != null ? View.VISIBLE : View.GONE);
+        v.setTextColor(R.id.widget_shift, accent);
+        v.setTextViewTextSize(R.id.widget_shift, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 17 : 15);
+        Intent shift = new Intent(c, WidgetActionReceiver.class);
+        shift.setAction(ACTION_SHIFT);
+        shift.setData(Uri.parse("dela://widget-shift/" + widgetId));
+        v.setOnClickPendingIntent(
+            R.id.widget_shift,
+            PendingIntent.getBroadcast(c, 400000 + widgetId, shift, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+        );
         v.setInt(R.id.widget_voice, "setColorFilter", accent);
         v.setOnClickPendingIntent(R.id.widget_icon, openApp(c, 200000 + widgetId, null, null));
         v.setViewVisibility(R.id.widget_icon, View.VISIBLE);

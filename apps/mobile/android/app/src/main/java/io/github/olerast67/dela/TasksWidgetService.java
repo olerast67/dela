@@ -33,11 +33,20 @@ public class TasksWidgetService extends RemoteViewsService {
         final String header;
         final JSONObject task;
         final boolean overdue;
+        /** Строка режима «План». */
+        final WidgetPlan.Row plan;
+        final boolean now;
 
         Item(String header, JSONObject task, boolean overdue) {
+            this(header, task, overdue, null, false);
+        }
+
+        Item(String header, JSONObject task, boolean overdue, WidgetPlan.Row plan, boolean now) {
             this.header = header;
             this.task = task;
             this.overdue = overdue;
+            this.plan = plan;
+            this.now = now;
         }
     }
 
@@ -106,6 +115,8 @@ public class TasksWidgetService extends RemoteViewsService {
         private Context res;
         private String lang;
         private boolean dark;
+        /** Момент, на который построен план. */
+        private long planNow;
 
         Factory(Context context, int widgetId) {
             this.context = context;
@@ -141,6 +152,12 @@ public class TasksWidgetService extends RemoteViewsService {
                 if (t != null && !done.contains(t.optString("id"))) tasks.add(t);
             }
             String today = day(0);
+            if (WidgetPlan.LIST.equals(cfg.list)) {
+                planNow = System.currentTimeMillis();
+                WidgetPlan.Plan plan = WidgetPlan.build(context, snap, planNow);
+                if (plan != null) for (WidgetPlan.Row r : plan.rows) items.add(new Item(null, r.task, false, r, r == plan.current));
+                return;
+            }
             if ("today".equals(cfg.list) || "week".equals(cfg.list)) {
                 int days = "today".equals(cfg.list) ? 1 : 7;
                 String last = day(days - 1);
@@ -188,6 +205,7 @@ public class TasksWidgetService extends RemoteViewsService {
             Item item = items.get(position);
             int text = dark ? 0xFFEFEAE0 : 0xFF25221C;
             int muted = dark ? 0xFFA49D8F : 0xFF766F63;
+            if (item.plan != null) return item.now ? planNowView(item.plan, text, muted) : planRowView(item.plan, text, muted);
             if (item.header != null) {
                 RemoteViews h = new RemoteViews(context.getPackageName(), R.layout.widget_section);
                 h.setTextViewText(R.id.section_title, item.header);
@@ -240,6 +258,101 @@ public class TasksWidgetService extends RemoteViewsService {
             return r;
         }
 
+        /** «25 мин», «1 ч 20 мин» на языке приложения. */
+        private String minutes(int m) {
+            if (m < 60) return res.getString(R.string.dur_min, m);
+            if (m % 60 == 0) return res.getString(R.string.dur_h, m / 60);
+            return res.getString(R.string.dur_hm, m / 60, m % 60);
+        }
+
+        private String title(WidgetPlan.Row r) {
+            return r.title == null || r.title.isEmpty() ? res.getString(R.string.untitled) : r.title;
+        }
+
+        /** Кружок «выполнить» у задачи (цвет по приоритету) или метка у события календаря. */
+        private void lead(RemoteViews v, WidgetPlan.Row r, int muted) {
+            boolean task = r.kind == 't';
+            v.setViewVisibility(R.id.row_check, task ? View.VISIBLE : View.GONE);
+            v.setViewVisibility(R.id.row_mark, r.kind == 'e' ? View.VISIBLE : View.GONE);
+            if (r.kind == 'e') v.setInt(R.id.row_mark, "setColorFilter", muted);
+            if (!task) return;
+            int pr = r.task.optInt("pr", 4);
+            v.setImageViewResource(
+                R.id.row_check,
+                pr == 1 ? R.drawable.widget_check_p1 : pr == 2 ? R.drawable.widget_check_p2 : pr == 3 ? R.drawable.widget_check_p3 : R.drawable.widget_check_p4
+            );
+            Intent complete = new Intent();
+            complete.putExtra(TasksWidgetProvider.EXTRA_OP, "complete");
+            complete.putExtra(TasksWidgetProvider.EXTRA_TASK, r.id());
+            v.setOnClickFillInIntent(R.id.row_check, complete);
+        }
+
+        /** Нажатие на строку: задача открывается в приложении, дыра — быстрое добавление на её время, событие ничего не делает. */
+        private void click(RemoteViews v, WidgetPlan.Row r) {
+            Intent i = new Intent();
+            if (r.kind == 't') {
+                i.putExtra(TasksWidgetProvider.EXTRA_OP, "open");
+                i.putExtra(TasksWidgetProvider.EXTRA_TASK, r.id());
+            } else if (r.kind == 'f') {
+                i.putExtra(TasksWidgetProvider.EXTRA_OP, "add");
+                i.putExtra(TasksWidgetProvider.EXTRA_TIME, WidgetPlan.hhmm(r.start));
+            } else i.putExtra(TasksWidgetProvider.EXTRA_OP, "none");
+            v.setOnClickFillInIntent(R.id.row_root, i);
+        }
+
+        private RemoteViews planNowView(WidgetPlan.Row r, int text, int muted) {
+            RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_plan_now);
+            v.setInt(R.id.row_root, "setBackgroundResource", dark ? R.drawable.widget_plan_now_dark : R.drawable.widget_plan_now_light);
+            v.setTextViewText(R.id.row_title, title(r));
+            v.setTextColor(R.id.row_title, r.kind == 'e' ? muted : text);
+            v.setTextViewTextSize(R.id.row_title, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 18 : 16);
+            if (cfg.compact) v.setViewPadding(R.id.row_root, 0, dp(6), dp(12), dp(6));
+            int nm = WidgetPlan.minuteOf(planNow);
+            int total = Math.max(1, r.end - r.start);
+            int elapsed = Math.max(0, Math.min(total, nm - r.start));
+            v.setViewVisibility(R.id.row_progress_dark, dark ? View.VISIBLE : View.GONE);
+            v.setViewVisibility(R.id.row_progress_light, dark ? View.GONE : View.VISIBLE);
+            v.setProgressBar(dark ? R.id.row_progress_dark : R.id.row_progress_light, total, elapsed, false);
+            v.setTextViewText(R.id.row_left, res.getString(R.string.plan_left, minutes(Math.max(1, r.end - nm))));
+            v.setTextColor(R.id.row_left, dark ? 0xFF6FCF9B : 0xFF2E7D5B);
+            v.setTextViewTextSize(R.id.row_left, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 14.5f : 13);
+            lead(v, r, muted);
+            click(v, r);
+            return v;
+        }
+
+        private RemoteViews planRowView(WidgetPlan.Row r, int text, int muted) {
+            RemoteViews v = new RemoteViews(context.getPackageName(), R.layout.widget_plan_row);
+            int accent = dark ? 0xFF6FCF9B : 0xFF2E7D5B;
+            int nm = WidgetPlan.minuteOf(planNow);
+            if (r.kind == 'f') {
+                // Дыра: время не показывается, текст «свободно N мин»; идущая сейчас — сколько осталось.
+                v.setTextViewText(R.id.row_time, "");
+                v.setViewVisibility(R.id.row_check, View.GONE);
+                v.setViewVisibility(R.id.row_mark, View.GONE);
+                v.setTextViewText(R.id.row_title, res.getString(R.string.plan_free, minutes(r.end - Math.max(r.start, nm))));
+                v.setTextColor(R.id.row_title, accent);
+                v.setTextViewTextSize(R.id.row_title, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 15.5f : 14);
+            } else {
+                v.setTextViewText(R.id.row_time, WidgetStore.time(lang, WidgetPlan.hhmm(r.start)));
+                v.setTextViewText(R.id.row_title, title(r));
+                v.setTextColor(R.id.row_title, r.kind == 'e' ? muted : text);
+                v.setTextViewTextSize(R.id.row_title, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 17.5f : 15.5f);
+                lead(v, r, muted);
+            }
+            v.setTextColor(R.id.row_time, muted);
+            v.setTextViewTextSize(R.id.row_time, TypedValue.COMPLEX_UNIT_SP, cfg.large ? 15 : 13.5f);
+            v.setInt(R.id.row_title, "setMaxLines", cfg.compact ? 1 : 2);
+            if (cfg.compact) v.setViewPadding(R.id.row_root, dp(16), dp(3), dp(14), dp(3));
+            v.setInt(R.id.row_divider, "setBackgroundColor", dark ? 0xFF36332D : 0xFFE6DFD1);
+            click(v, r);
+            return v;
+        }
+
+        private int dp(int v) {
+            return Math.round(v * context.getResources().getDisplayMetrics().density);
+        }
+
         @Override
         public RemoteViews getLoadingView() {
             return null;
@@ -247,12 +360,13 @@ public class TasksWidgetService extends RemoteViewsService {
 
         @Override
         public int getViewTypeCount() {
-            return 3;
+            return 5;
         }
 
         @Override
         public long getItemId(int position) {
             Item item = items.get(position);
+            if (item.plan != null) return (item.plan.kind + item.plan.id() + item.plan.start + ":" + item.plan.title + (item.now ? "n" : "")).hashCode();
             return item.task != null ? item.task.optString("id").hashCode() : ("h" + item.header).hashCode();
         }
 

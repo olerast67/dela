@@ -14,6 +14,7 @@ import { SelectionBar } from './ui/SelectionBar.tsx';
 import { clearPicked, pickedIds } from './ui/selection.ts';
 import { CommandPalette, ShortcutsHelp } from './ui/CommandPalette.tsx';
 import { completeWithUndo } from './ui/Task.tsx';
+import { toNextFree } from './ui/planActions.ts';
 import { checkDesktopUpdate, closeViewWindow, onBackButton, onNotificationOpen, onQuickAddRequest, onSharedText, onWidgetLaunch, platform } from './platform.ts';
 import { CalendarView } from './ui/Calendar.tsx';
 import { LockScreen } from './ui/Lock.tsx';
@@ -59,6 +60,8 @@ function Shell() {
   // Новое присланное открывает быстрое добавление заново, даже если оно уже открыто.
   const [sharedSeq, setSharedSeq] = useState(0);
   const [help, setHelp] = useState(false);
+  // Задача под фокусом в списке, когда открыли палитру: к ней относятся команды плана.
+  const paletteTask = useRef<string | null>(null);
 
   const open = useCallback((id: string) => setSelected(id), []);
   const close = useCallback(() => setSelected(null), []);
@@ -110,6 +113,7 @@ function Shell() {
       // Ctrl+K работает даже в поле ввода.
       if ((e.ctrlKey || e.metaKey) && e.code === 'KeyK') {
         e.preventDefault();
+        paletteTask.current = focusedRow()?.dataset.id ?? null;
         setPalette(true);
         return;
       }
@@ -139,8 +143,17 @@ function Shell() {
         }
       }
       switch (e.code) {
-        case 'KeyQ':
         case 'KeyN':
+          // На задаче в списке — «В ближайшее свободное» сегодня, иначе новая задача, как раньше.
+          if (taskId) {
+            e.preventDefault();
+            toNextFree(doc, taskId);
+            return;
+          }
+          e.preventDefault();
+          setQuickAdd(true);
+          return;
+        case 'KeyQ':
           e.preventDefault();
           setQuickAdd(true);
           return;
@@ -471,7 +484,7 @@ function Shell() {
       <button className="fab" onClick={() => setQuickAdd(true)} aria-label={tr('Добавить задачу (Q)')}>
         <IconPlus width={24} height={24} />
       </button>
-      {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} onCopyLink={copyCurrentLink} />}
+      {palette && <CommandPalette onClose={() => setPalette(false)} onQuickAdd={() => setQuickAdd(true)} onOpen={open} onCopyLink={copyCurrentLink} taskId={selected ?? paletteTask.current} />}
       {help && <ShortcutsHelp onClose={() => setHelp(false)} />}
       <SelectionBar />
       <RecognizeBar />

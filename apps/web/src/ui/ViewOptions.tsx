@@ -9,7 +9,8 @@ import { LOCALE, tr } from '../i18n.ts';
 
 export type GroupBy = 'none' | 'date' | 'priority' | 'project' | 'label';
 export type SortBy = 'manual' | 'date' | 'priority' | 'name';
-export type Layout = 'list' | 'board';
+/** ribbon — лента дня («Сегодня»; во «Входящих» на узком экране вкладка «План»). */
+export type Layout = 'list' | 'board' | 'ribbon';
 
 export interface ViewOptions {
   readonly group: GroupBy;
@@ -55,7 +56,7 @@ export function useViewOptions(
   const opts: ViewOptions = {
     group: saved.group && groups.includes(saved.group) ? saved.group : base.group,
     sort: saved.sort && sorts.includes(saved.sort) ? saved.sort : base.sort,
-    layout: saved.layout === 'board' || saved.layout === 'list' ? saved.layout : base.layout,
+    layout: saved.layout === 'board' || saved.layout === 'list' || saved.layout === 'ribbon' ? saved.layout : base.layout,
   };
   const set = (patch: Partial<ViewOptions>) => {
     cache = { ...load(), [key]: { ...opts, ...patch } };
@@ -68,6 +69,19 @@ export function useViewOptions(
     for (const fn of listeners) fn();
   };
   return [opts, set];
+}
+
+/** Сменить вид экрана key не из самого экрана (команда «Лента дня»). */
+export function setViewLayout(key: string, layout: Layout): void {
+  const all = load();
+  cache = { ...all, [key]: { ...(all[key] ?? {}), layout } };
+  version++;
+  try {
+    localStorage.setItem(KEY, JSON.stringify(cache));
+  } catch {
+    // без хранилища выбор живёт до перезагрузки
+  }
+  for (const fn of listeners) fn();
 }
 
 const GROUP_LABEL: Record<GroupBy, string> = {

@@ -5257,3 +5257,448 @@ a.link:hover {
     animation: none;
   }
 }
+
+/* ---------- лента дня (docs/time-planning.md) ---------- */
+
+.ribbon {
+  --rb-time: 46px;
+  min-width: 0;
+}
+
+:root[lang='en'] .ribbon {
+  --rb-time: 64px;
+}
+
+.rb-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 2px 0 10px;
+}
+
+input.rb-date {
+  width: auto;
+  padding: 2px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: transparent;
+  border-color: transparent;
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease),
+    color 160ms var(--ease);
+}
+
+input.rb-date:hover {
+  border-color: var(--border);
+}
+
+input.rb-date.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.rb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.rb-slot {
+  display: contents;
+}
+
+.rb-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 6px 12px 6px 10px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  line-height: 20px;
+  overflow: hidden;
+  animation: row-in 240ms var(--ease) both;
+  transition:
+    background 160ms var(--ease),
+    box-shadow 160ms var(--ease),
+    opacity 200ms var(--ease);
+}
+
+.rb-row:hover:not(.rb-input) {
+  box-shadow: var(--card-shadow-hover);
+}
+
+.rb-task {
+  cursor: pointer;
+}
+
+.rb-task.movable {
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.rb-time {
+  flex: none;
+  width: var(--rb-time);
+  font-size: 13px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  animation: rb-time-in 280ms var(--ease);
+}
+
+.rb-task .rb-time {
+  color: var(--text);
+  font-weight: 650;
+}
+
+@keyframes rb-time-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.check.rb-check {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+.rb-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+}
+
+.rb-mark {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.rb-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c);
+}
+
+.rb-dur {
+  flex: none;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rb-dur.guess {
+  opacity: 0.6;
+}
+
+.rb-task.current {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.rb-task.current .rb-dur {
+  color: var(--accent);
+  font-weight: 600;
+  opacity: 1;
+}
+
+.rb-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: width 800ms var(--ease);
+}
+
+.rb-task.done {
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.6;
+}
+
+.rb-task.done .rb-title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.rb-task.projected {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.rb-task.selected {
+  background: var(--accent-soft);
+}
+
+.rb-task.over {
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+.rb-task.over .rb-dur {
+  color: var(--danger);
+  opacity: 1;
+}
+
+.rb-event {
+  background: color-mix(in srgb, var(--ec, var(--c-gray)) 9%, var(--bg));
+  box-shadow: inset 3px 0 0 var(--ec, var(--c-gray));
+  cursor: pointer;
+}
+
+.rb-event:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ec, var(--c-gray)) 15%, var(--bg));
+}
+
+.rb-event.current {
+  box-shadow: inset 5px 0 0 var(--ec, var(--c-gray));
+}
+
+.rb-free {
+  min-height: 30px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  background: transparent;
+  box-shadow: none;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.rb-free .rb-time {
+  opacity: 0.7;
+}
+
+.rb-free .rb-title {
+  font-size: 13px;
+}
+
+.rb-free:hover:not(:disabled),
+.rb-free.over {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: none;
+}
+
+.rb-input {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.rb-input input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  outline: none;
+}
+
+.rb-line {
+  height: 2px;
+  margin: -2px 0 -1px;
+  border-radius: 2px;
+  background: var(--accent);
+  animation: fade-in 120ms var(--ease);
+}
+
+.rb-actions {
+  display: flex;
+  gap: 6px;
+  padding: 3px 0 5px calc(var(--rb-time) + 10px);
+  animation: row-in 240ms var(--ease) both;
+}
+
+.rb-actions button {
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 140ms var(--ease),
+    transform 140ms var(--ease);
+}
+
+.rb-actions button:active {
+  transform: scale(0.95);
+}
+
+.add-row.rb-add {
+  padding-left: calc(var(--rb-time) + 10px);
+}
+
+.rb-ghost {
+  cursor: grabbing;
+}
+
+.content-inner:has(.plan-split) {
+  max-width: 1280px;
+}
+
+.plan-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 390px);
+  gap: 32px;
+  align-items: start;
+}
+
+.plan-side {
+  position: sticky;
+  top: 12px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  padding: 2px 4px 24px;
+  margin: -2px -4px 0;
+}
+
+@media (max-width: 760px) {
+  .rb-row {
+    min-height: 46px;
+  }
+
+  .rb-free {
+    min-height: 36px;
+  }
+
+  .rb-title {
+    font-size: 15.5px;
+  }
+
+  .ribbon .add-row.rb-add {
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+}
+
+/* «Уложить» на панели выделенных задач */
+
+.pack {
+  position: relative;
+}
+
+.pack-pop {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  animation: pack-in 160ms var(--ease);
+}
+
+@keyframes pack-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+.pack-starts,
+.pack-time {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pack-time input {
+  flex: 1;
+}
+
+/* Цепочка в быстром добавлении: время каждого дела до сохранения */
+
+.qa-chain {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13.5px;
+}
+
+.qa-chain li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  animation: row-in 200ms var(--ease) both;
+}
+
+.qa-chain-time {
+  flex: none;
+  min-width: 52px;
+  color: var(--accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.qa-chain-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qa-chain-dur {
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.fields .plan-fields {
+  grid-column: 2;
+}
+
+.plan-fields .pill svg {
+  vertical-align: -2px;
+}
+
+.plan-duration select {
+  width: auto;
+}
+
+@media (max-width: 760px) {
+  .fields .plan-fields {
+    grid-column: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rb-row,
+  .rb-time,
+  .rb-actions,
+  .rb-line,
+  .pack-pop,
+  .qa-chain li {
+    animation: none;
+  }
+
+  .rb-progress {
+    transition: none;
+  }
+}

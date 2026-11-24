@@ -71,6 +71,11 @@ export interface Task {
   readonly deadline: string | null;
   /** Длительность в минутах. */
   readonly duration: number | null;
+  /**
+   * Точное время в плане дня: «+15», «Уплотнить» и укладка не двигают задачу, остальные блоки её обтекают.
+   * Ячейка `fixed`; у старых записей поля нет — false.
+   */
+  readonly fixedTime: boolean;
   readonly recurrence: Recurrence | null;
   /** Отметка «привычка»; null у обычных задач и у записей до привычек. */
   readonly habit: Habit | null;
@@ -284,6 +289,7 @@ export function toTask(id: string, r: Rec): Task {
     due: dateSpec(r.due),
     deadline: isDate(r.deadline) ? (r.deadline as string) : null,
     duration: duration !== null && duration > 0 && duration <= 24 * 60 * 31 ? Math.round(duration) : null,
+    fixedTime: bool(r.fixed),
     recurrence: recurrence(r.recurrence),
     habit: habit(r.habit),
     reminders: isReminderList(r.reminders) ? [...new Set(r.reminders as number[])].sort((a, b) => a - b) : null,

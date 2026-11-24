@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { COLORS, FilterSyntaxError, type Priority, type ProjectTasks, type TaskNode, exportJson, exportMarkdown, fetchTodoist, importTodoist, normalizeText, runFilter, type DeviceInfo, type TaskView, type TodoistData } from '#core';
 import { controller, type MorningDigest } from '../controller.ts';
-import { TZ, dayHeading, plural, todayDate } from '../format.ts';
+import { TZ, dayHeading, durationLabel, plural, todayDate } from '../format.ts';
 import { href, navigate, setStartHash, startHash, useAppState, useDoc, useGame, useInputSettings } from '../hooks.ts';
 import { DayClosedBurst, DayDone, GameSettingsSection, GoalBurst, GoalHint, TodayGoal } from './Game.tsx';
 import { ReviewCard } from './Review.tsx';
@@ -24,6 +24,7 @@ import { PomodoroSettings } from './Pomodoro.tsx';
 import { RecognitionSettings } from './Recognition.tsx';
 import { AndroidUpdates } from './AppUpdate.tsx';
 import { TaskList, TaskTree } from './Task.tsx';
+import { PlanSplit, Ribbon, SIDE_RIBBON_MIN, useContentWidth } from './Ribbon.tsx';
 import { ViewOptionsButton, groupNodes, priorityTitle, sortNodes, sortTasks, useViewOptions, type SortBy, type TaskGroup, type ViewOptions } from './ViewOptions.tsx';
 import { showToast } from './toast.tsx';
 import { LANG, LANG_CHOICE, LOCALE, setLang, tr, tn, type Lang } from '../i18n.ts';
@@ -220,6 +221,42 @@ function TodayBoard({ tasks, sort, today, onOpen, selectedId }: ViewProps & { ta
   );
 }
 
+/**
+ * «Сегодня» лентой: лента дня, рядом (на узком экране ниже) просроченное и задачи без времени,
+ * их можно перетащить в ленту.
+ */
+function TodayPlan({ overdue, todays, today, onOpen, selectedId }: ViewProps & { overdue: readonly TaskView[]; todays: readonly TaskView[]; today: string }) {
+  const wide = useContentWidth() >= SIDE_RIBBON_MIN;
+  const untimed = todays.filter((t) => !t.due?.time);
+  const lists = (
+    <>
+      {overdue.length > 0 && (
+        <section>
+          <h2>{tr('Просрочено')}</h2>
+          <TaskList tasks={overdue} onOpen={onOpen} selectedId={selectedId} />
+        </section>
+      )}
+      <section>
+        {(wide || untimed.length > 0) && <h2>{tr('Без времени')}</h2>}
+        <TaskList tasks={untimed} onOpen={onOpen} selectedId={selectedId} showDate={false} />
+        <AddTask defaults={{ due: { date: today } }} />
+      </section>
+    </>
+  );
+  if (wide)
+    return (
+      <PlanSplit onOpen={onOpen} selectedId={selectedId}>
+        {lists}
+      </PlanSplit>
+    );
+  return (
+    <>
+      <Ribbon onOpen={onOpen} selectedId={selectedId} />
+      {lists}
+    </>
+  );
+}
+
 export function TodayView({ onOpen, selectedId }: ViewProps) {
   const doc = useDoc();
   const today = todayDate();
@@ -229,6 +266,7 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
   const todays = sortTasks(todaysRaw, opts.sort);
   const doneRows = doc.doneToday(today, TZ);
   const board = opts.layout === 'board';
+  const ribbon = opts.layout === 'ribbon';
   // Выполненные сегодня повторы остаются в списке отмеченными до конца дня.
   const doneList = doneRows.length > 0 && (
     <div className="done-today">
@@ -237,17 +275,30 @@ export function TodayView({ onOpen, selectedId }: ViewProps) {
   );
   const head = (
     <TodayHead open={overdue.length + todays.length} today={today}>
-      <ViewOptionsButton opts={opts} onChange={setOpts} {...(board ? { groups: [] } : {})} defaults={{ group: 'date' }} manualLabel={tr('По умолчанию')} />
+      {!ribbon && <ViewOptionsButton opts={opts} onChange={setOpts} {...(board ? { groups: [] } : {})} defaults={{ group: 'date' }} manualLabel={tr('По умолчанию')} />}
       <div className="segmented" role="group" aria-label={tr('Вид')}>
-        <button className={!board ? 'active' : ''} onClick={() => setOpts({ layout: 'list' })}>
+        <button className={!board && !ribbon ? 'active' : ''} onClick={() => setOpts({ layout: 'list' })}>
           {tr('Список')}
         </button>
         <button className={board ? 'active' : ''} onClick={() => setOpts({ layout: 'board' })}>
           {tr('Доска')}
         </button>
+        <button className={ribbon ? 'active' : ''} onClick={() => setOpts({ layout: 'ribbon' })}>
+          {tr('Лента')}
+        </button>
       </div>
     </TodayHead>
   );
+  if (ribbon)
+    return (
+      <>
+        {head}
+        <GoalHint today={today} />
+        <ReviewCard />
+        <GoalBurst />
+        <TodayPlan overdue={overdue} todays={todays} today={today} onOpen={onOpen} selectedId={selectedId} />
+      </>
+    );
   if (board)
     return (
       <>
@@ -383,6 +434,16 @@ export function UpcomingView({ onOpen, selectedId }: ViewProps) {
 
 const PROJECT_GROUPS = ['none', 'date', 'priority', 'label'] as const;
 
+/** Лента справа от списка, если она включена; иначе только список. */
+function SideRibbon({ on, children, onOpen, selectedId }: ViewProps & { on: boolean; children: React.ReactNode }) {
+  if (!on) return <>{children}</>;
+  return (
+    <PlanSplit onOpen={onOpen} selectedId={selectedId}>
+      {children}
+    </PlanSplit>
+  );
+}
+
 export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string }) {
   const doc = useDoc();
   const game = useGame();
@@ -394,6 +455,7 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
   const [editingDesc, setEditingDesc] = useState<string | null>(null);
   useEffect(() => setEditingDesc(null), [id]);
   const [opts, setOpts] = useViewOptions(`project:${id}`, {}, { groups: PROJECT_GROUPS });
+  const wide = useContentWidth() >= SIDE_RIBBON_MIN;
   if (!project || (!doc.projects().some((p) => p.project.id === id) && !project.isInbox)) {
     return <Empty>{tr('Проект не найден или удалён.')}</Empty>;
   }
@@ -406,6 +468,13 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
   // Ручной порядок виден только без группировки и сортировки: тогда перетаскивание переставляет задачи.
   const custom = opts.group !== 'none' || opts.sort !== 'manual';
   const isInbox = project.isInbox;
+  // «Входящие»: на широком экране лента дня справа от списка, на узком — вкладка «План».
+  const planTab = isInbox && !wide && opts.layout === 'ribbon';
+  const sideRibbon = isInbox && wide && project.view !== 'board';
+  const setView = (view: 'list' | 'board') => {
+    if (project.view !== view) doc.updateProject(id, { view });
+    if (opts.layout === 'ribbon') setOpts({ layout: 'list' });
+  };
   const onDropTask: DropOnTask = (dragId, target, where) => {
     try {
       if (where === 'inside') doc.moveTask(dragId, { parentId: target.id });
@@ -444,14 +513,19 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
         )}
         <div className="head-tools">
           <div className="segmented" role="group" aria-label={tr('Вид')}>
-          <button className={project.view !== 'board' ? 'active' : ''} onClick={() => doc.updateProject(id, { view: 'list' })}>
+          <button className={project.view !== 'board' && !planTab ? 'active' : ''} onClick={() => setView('list')}>
             {tr('Список')}
           </button>
-          <button className={project.view === 'board' ? 'active' : ''} onClick={() => doc.updateProject(id, { view: 'board' })}>
+          <button className={project.view === 'board' && !planTab ? 'active' : ''} onClick={() => setView('board')}>
             {tr('Доска')}
           </button>
+          {isInbox && !wide && (
+            <button className={planTab ? 'active' : ''} onClick={() => setOpts({ layout: 'ribbon' })}>
+              {tr('План')}
+            </button>
+          )}
           </div>
-          {project.view !== 'board' && <ViewOptionsButton opts={opts} onChange={setOpts} groups={PROJECT_GROUPS} />}
+          {project.view !== 'board' && !planTab && <ViewOptionsButton opts={opts} onChange={setOpts} groups={PROJECT_GROUPS} />}
         </div>
         {!isInbox && (
           <div className="head-actions">
@@ -498,6 +572,10 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
         />
       )}
       {sharing && <ShareDialog projectId={id} onClose={() => setSharing(false)} />}
+      {planTab ? (
+        <Ribbon onOpen={onOpen} selectedId={selectedId} />
+      ) : (
+      <SideRibbon on={sideRibbon} onOpen={onOpen} selectedId={selectedId}>
       {project.view === 'board' ? (
         <Board projectId={id} view={view} onOpen={onOpen} selectedId={selectedId} onAddSection={() => setAddingSection(true)} />
       ) : opts.group !== 'none' ? (
@@ -578,6 +656,8 @@ export function ProjectView({ id, onOpen, selectedId }: ViewProps & { id: string
               : tr('Входящие пусты. Всё, что не разобрано по проектам, попадает сюда.')
             : tr('В проекте пока нет задач.')}
         </Empty>
+      )}
+      </SideRibbon>
       )}
     </DropContext.Provider>
   );
@@ -799,6 +879,35 @@ function InputSettingsSection() {
   );
 }
 
+const PLAN_DURATIONS = [5, 10, 15, 20, 30, 45, 60];
+
+/** План дня: длительность дела без своей длительности и напоминание о начале каждого дела (7.7). Синхронизируется. */
+function PlanSettingsSection() {
+  const doc = useDoc();
+  const s = doc.getPlanSettings();
+  return (
+    <section className="settings">
+      <h2>{tr('План дня')}</h2>
+      <label className="row plan-duration">
+        <span>{tr('Длительность по умолчанию')}</span>
+        <select value={s.duration} onChange={(e) => doc.updatePlanSettings({ duration: Number(e.target.value) })}>
+          {[...new Set([...PLAN_DURATIONS, s.duration])]
+            .sort((a, b) => a - b)
+            .map((m) => (
+              <option key={m} value={m}>
+                {durationLabel(m)}
+              </option>
+            ))}
+        </select>
+      </label>
+      <label className="checkline">
+        <input type="checkbox" checked={s.remind} onChange={(e) => doc.updatePlanSettings({ remind: e.target.checked })} />
+        {tr('Напоминать о начале каждого дела в плане')}
+      </label>
+    </section>
+  );
+}
+
 /** Названия языков пишутся на самих языках, чтобы их нашёл тот, кто не читает текущий. */
 const LANGS: ReadonlyArray<readonly [Lang | null, string]> = [
   [null, tr('Как в системе')],
@@ -838,6 +947,7 @@ export function SettingsView() {
         </section>
         <ThemeSettings />
         <InputSettingsSection />
+        <PlanSettingsSection />
         <CalendarSettings />
         <PomodoroSettings />
         <GameSettingsSection />
@@ -867,6 +977,7 @@ export function SettingsView() {
       <ThemeSettings />
       <SignKeyNotice />
       <InputSettingsSection />
+        <PlanSettingsSection />
       <section className="settings">
         <h2>{tr('Устройства')}</h2>
         {devices === null && <p className="muted">{tr('Загрузка…')}</p>}

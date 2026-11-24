@@ -208,3 +208,9 @@ export const IconGarden = (p: P) => (
     <path d="M5 20h14" />
   </Svg>
 );
+/** Точное время: дело в плане не двигается. */
+export const IconPin = (p: P) => (
+  <Svg width="14" height="14" {...p}>
+    <path d="M9 3h6l-1 6 4 4H6l4-4-1-6zM12 13v8" />
+  </Svg>
+);

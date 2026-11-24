@@ -47,6 +47,21 @@
                 android:textSize="17sp"
                 android:text="@string/list_today" />
 
+            <TextView
+                android:id="@+id/widget_shift"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:minWidth="44dp"
+                android:gravity="center"
+                android:paddingStart="6dp"
+                android:paddingEnd="6dp"
+                android:singleLine="true"
+                android:textStyle="bold"
+                android:textSize="15sp"
+                android:text="+15"
+                android:visibility="gone"
+                android:contentDescription="@string/cd_shift" />
+
             <ImageView
                 android:id="@+id/widget_voice"
                 android:layout_width="44dp"

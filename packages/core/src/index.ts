@@ -138,7 +138,52 @@ export {
   type Rule,
   type WeekdayNum,
 } from './recurrence.ts';
-export { parseTask, plainTask, resolveDate, splitTaskList, type ListLine, type ParseContext, type ParsedTask, type Token, type TokenKind } from './parse.ts';
+export {
+  parseTask,
+  parsePlan,
+  planTaskList,
+  plainTask,
+  resolveDate,
+  splitTaskList,
+  type ListLine,
+  type ParseContext,
+  type ParsedTask,
+  type PlanParseOptions,
+  type PlanPiece,
+  type Token,
+  type TokenKind,
+} from './parse.ts';
+export {
+  busyIntervals,
+  compactRest,
+  dayTimeline,
+  freeSlotIn,
+  minuteToTime,
+  nextFreeSlot,
+  nowMinute,
+  packSequence,
+  packTasks,
+  placeNextFree,
+  planPatch,
+  planReminders,
+  planSettingsChanges,
+  readPlanSettings,
+  shiftRest,
+  timeToMinute,
+  DAY_MINUTES,
+  DEFAULT_PLAN_SETTINGS,
+  MIN_GAP,
+  PLAN_DURATION_MAX,
+  PLAN_DURATION_MIN,
+  PLAN_STEP,
+  type Interval,
+  type PackResult,
+  type PlanChange,
+  type PlanDay,
+  type PlanSettings,
+  type PlanTask,
+  type TimelineRow,
+} from './plan.ts';
 export { ApiClient, ApiError, NetworkError, type DeviceInfo, type Fetcher, type SessionInfo, type SpaceInfo } from './client.ts';
 export {
   signUp,
@@ -216,7 +261,7 @@ export type { FilterSource } from './filter.ts';
 export { welcomeTasks, extractLinks, WELCOME_TASKS } from './onboarding.ts';
 export { weekStart, weekDates, monthGrid, monthStart, slotOf, moveDue, snapMinute, layoutDay, type TimedItem, type PlacedItem } from './calendar.ts';
 export { applyPinAttempt, failureDelayMs, isValidPin, lockAfterBackground, LOCK_TIMEOUTS, MAX_PIN_FAILURES, type LockConfig, type PinResult } from './applock.ts';
-export { widgetSnapshot, WIDGET_TASK_LIMIT, type WidgetSnapshot, type WidgetTask } from './widget.ts';
+export { widgetSnapshot, WIDGET_TASK_LIMIT, type WidgetPlanRow, type WidgetSnapshot, type WidgetTask } from './widget.ts';
 export { applyTemplate, parseTemplate, projectToTemplate, BUILTIN_TEMPLATES, builtinTemplates, type ProjectTemplate, type TemplateTask } from './templates.ts';
 export type { ActivityEvent } from './doc.ts';
 export { phonePushKey, signingKeys, signComment, verifyComment, type SigningKeys, type CommentSigned } from './crypto.ts';

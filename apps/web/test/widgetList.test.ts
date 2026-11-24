@@ -37,3 +37,15 @@ describe('проект виджета удалён', () => {
     expect(widgetListTarget('project:gone', 'inbox-1', '2026-10-22', () => false)).toEqual({ hash: '#/inbox', defaults: { projectId: 'inbox-1' } });
   });
 });
+
+describe('режим «План»', () => {
+  const at = (h: number, m: number) => new Date(2026, 9, 22, h, m);
+  it('время после последнего дела, но не раньше «сейчас»', () => {
+    expect(widgetListTarget('plan@11:30', inbox, today, undefined, at(9, 2))).toEqual({ hash: '#/today', defaults: { due: { date: today, time: '11:30' } } });
+    expect(widgetListTarget('plan@08:00', inbox, today, undefined, at(9, 2))?.defaults.due).toEqual({ date: today, time: '09:05' });
+    expect(widgetListTarget('plan', inbox, today, undefined, at(9, 0))?.defaults.due).toEqual({ date: today, time: '09:00' });
+  });
+  it('после 23:55 без времени', () => {
+    expect(widgetListTarget('plan', inbox, today, undefined, at(23, 58))?.defaults.due).toEqual({ date: today });
+  });
+});
