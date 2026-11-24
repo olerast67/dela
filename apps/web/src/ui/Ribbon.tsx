@@ -5,7 +5,7 @@
  * броска, нажатие на «свободно» добавляет дело в эту дыру.
  */
 import { useEffect, useRef, useState } from 'react';
-import { DAY_MINUTES, addDays, dayTimeline, nowMinute, parsePlan, parseTask, type CalEvent, type PlanDay, type TimelineRow, type TaskView, type Workspace } from '#core';
+import { DAY_MINUTES, addDays, zonedToUtc, dayTimeline, nowMinute, parsePlan, parseTask, type CalEvent, type PlanDay, type TimelineRow, type TaskView, type Workspace } from '#core';
 import { useCalendarEvents } from '../calendars.ts';
 import { TZ, clockLabel, durationLabel, todayDate } from '../format.ts';
 import { useDoc } from '../hooks.ts';
@@ -74,7 +74,8 @@ function PlanInput({ day, start, onDone }: { day: PlanDay; start: number; onDone
   const submit = () => {
     const value = text.trim();
     if (!value) return onDone();
-    const ctx = parseContext(doc);
+    // Время без даты относится к дню ленты: «6:00» в ленте сегодня остаётся сегодня, даже если 6:00 прошло.
+    const ctx = { ...parseContext(doc), now: zonedToUtc(day.date, '00:00', TZ) };
     const opts = { defaultDuration: day.defaultDuration ?? 15 };
     const chain = parsePlan(value, ctx, opts);
     const pieces = chain ? chain.map((p) => p.parsed) : [parseTask(value, ctx)];
